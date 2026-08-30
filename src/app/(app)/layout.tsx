@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div
-      className="min-h-dvh flex flex-col"
+      className="accent-scope min-h-dvh flex flex-col"
       style={{ ["--accent" as string]: professional.accentColor }}
     >
       <main className="mx-auto w-full max-w-lg grow px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))]">

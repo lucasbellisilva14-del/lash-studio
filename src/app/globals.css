@@ -43,8 +43,14 @@
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
 }
 
-/* Tom suave derivado do acento (fundos de chips/realces) */
-:root {
+/*
+ * Tons derivados do acento (fundos de chips/realces).
+ * Declarados em :root E em .accent-scope: custom properties resolvem var()
+ * no elemento onde são declaradas, então o escopo que recebe --accent inline
+ * (layout autenticado) precisa recalcular as derivações localmente.
+ */
+:root,
+.accent-scope {
   --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
   --accent-strong: color-mix(in srgb, var(--accent) 85%, black);
 }
