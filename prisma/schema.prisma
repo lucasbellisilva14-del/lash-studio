@@ -1,0 +1,389 @@
+// LashOS — schema multi-tenant.
+// Dev: SQLite. Deploy: trocar provider para "postgresql" (Supabase) — nenhum tipo
+// usado aqui é exclusivo de SQLite (sem enums nativos, sem Json nativo: strings).
+// Dinheiro sempre em centavos (Int). Datas em UTC; exibição em America/Sao_Paulo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Professional {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  studioName   String
+  slug         String  @unique
+  logoUrl      String?
+  accentColor  String  @default("#3E5C50")
+  addressLine  String?
+  mapsUrl      String?
+  whatsapp     String? // só dígitos, com DDD (ex.: 48999998888)
+  instagram    String?
+  pixKey       String?
+  timezone     String  @default("America/Sao_Paulo")
+
+  // Agenda
+  bufferMinutes   Int @default(15) // respiro entre atendimentos
+  minAdvanceHours Int @default(2) // antecedência mínima para agendar
+
+  // Políticas
+  depositType             String @default("PERCENT") // PERCENT | FIXED | NONE
+  depositValue            Int    @default(30) // % (0-100) ou centavos, conforme depositType
+  cancellationWindowHours Int    @default(24) // prazo de cancelamento sem multa
+  maintenanceLimitDays    Int    @default(21) // prazo máximo p/ manutenção
+  maintenanceNoticeDay    Int    @default(15) // dia do ciclo p/ aviso de manutenção
+  noShowThreshold         Int    @default(2) // a partir de N faltas, exige sinal sempre
+
+  // Status automático de clientes
+  riskWindowDays Int @default(30) // "em risco": passou do prazo há menos de N dias
+  inactiveDays   Int @default(60) // "inativa": mais de N dias sem atendimento
+
+  dailySummaryTime String  @default("07:30")
+  consentText      String? // termo de consentimento (anamnese)
+  onboardingDone   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workingHours      WorkingHour[]
+  paymentFees       PaymentMethodFee[]
+  clients           Client[]
+  services          Service[]
+  appointments      Appointment[]
+  attendanceRecords AttendanceRecord[]
+  photos            Photo[]
+  anamnesisForms    AnamnesisForm[]
+  consentSignatures ConsentSignature[]
+  messageTemplates  MessageTemplate[]
+  messageLogs       MessageLog[]
+  products          Product[]
+  stockMovements    StockMovement[]
+  transactions      Transaction[]
+  goals             Goal[]
+  waitlistEntries   WaitlistEntry[]
+  scheduleBlocks    ScheduleBlock[]
+}
+
+model WorkingHour {
+  id             String  @id @default(cuid())
+  professionalId String
+  weekday        Int // 0 = domingo ... 6 = sábado
+  startTime      String // "09:00"
+  endTime        String // "18:00"
+  active         Boolean @default(true)
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, weekday])
+}
+
+model PaymentMethodFee {
+  id             String @id @default(cuid())
+  professionalId String
+  method         String // PIX | DINHEIRO | DEBITO | CREDITO_VISTA | CREDITO_PARCELADO
+  feePct         Float  @default(0) // taxa da maquininha em %
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, method])
+}
+
+model Client {
+  id             String    @id @default(cuid())
+  professionalId String
+  name           String
+  phone          String // só dígitos, com DDD (ex.: 48999998888)
+  instagram      String?
+  birthDate      DateTime?
+  source         String? // INSTAGRAM | INDICACAO | GOOGLE | PASSOU_NA_FRENTE | OUTRO
+  notes          String?
+  noShowCount    Int       @default(0)
+  lateCancelCount Int      @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional      Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointments      Appointment[]
+  attendanceRecords AttendanceRecord[]
+  photos            Photo[]
+  anamnesisForm     AnamnesisForm?
+  consentSignatures ConsentSignature[]
+  messageLogs       MessageLog[]
+  transactions      Transaction[]
+  waitlistEntries   WaitlistEntry[]
+
+  @@index([professionalId, name])
+  @@index([professionalId, phone])
+}
+
+model Service {
+  id              String  @id @default(cuid())
+  professionalId  String
+  name            String
+  category        String // APLICACAO | MANUTENCAO | REMOCAO | LASH_LIFTING | BROW_LAMINATION | DESIGN_SOBRANCELHA | OUTRO
+  durationMin     Int
+  priceCents      Int
+  requiresDeposit Boolean @default(false)
+  maintenanceOfId String? // p/ MANUTENCAO: aponta o serviço de aplicação correspondente
+  active          Boolean @default(true)
+
+  professional  Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  maintenanceOf Service?      @relation("MaintenanceLink", fields: [maintenanceOfId], references: [id])
+  maintenances  Service[]     @relation("MaintenanceLink")
+  appointments  Appointment[]
+
+  @@index([professionalId])
+}
+
+model Appointment {
+  id             String   @id @default(cuid())
+  professionalId String
+  clientId       String
+  serviceId      String
+  startAt        DateTime
+  endAt          DateTime
+  status         String   @default("CONFIRMADO") // PRE_AGENDADO | CONFIRMADO | CONCLUIDO | FALTOU | CANCELADO | CANCELADO_TARDE
+  priceCents     Int // snapshot do preço na criação
+  depositRequired Boolean @default(false)
+  depositCents   Int?
+  depositPaidAt  DateTime?
+  notes          String?
+  source         String   @default("INTERNO") // INTERNO | PUBLICO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional     Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  service          Service           @relation(fields: [serviceId], references: [id])
+  attendanceRecord AttendanceRecord?
+  messageLogs      MessageLog[]
+  transactions     Transaction[]
+
+  @@index([professionalId, startAt])
+  @@index([clientId, startAt])
+}
+
+model AttendanceRecord {
+  id             String  @id @default(cuid())
+  professionalId String
+  appointmentId  String  @unique
+  clientId       String
+  technique      String? // CLASSICO | HIBRIDO | VOLUME_BRASILEIRO | VOLUME_RUSSO | MEGA_VOLUME | FOX_EYES | LASH_LIFTING
+  volumeFactor   String? // "2D".."8D" (volume russo)
+  curvatures     String? // CSV: "C,D" (J,B,C,CC,D,DD,L,LC,LD,M)
+  thickness      String? // "0.03" | "0.05" | "0.07" | "0.10" | "0.15" | "0.20"
+  mappingJson    String? // JSON: {"zones":[8,9,11,10,9]} — 5 zonas, canto interno → externo, 6-15mm
+  glueBrand      String?
+  glueBatch      String?
+  retentionPct   Int? // manutenções: % de retenção observada
+  durationMin    Int? // duração real
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointment  Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  photos       Photo[]
+
+  @@index([clientId, createdAt])
+}
+
+model Photo {
+  id                 String  @id @default(cuid())
+  professionalId     String
+  clientId           String
+  attendanceRecordId String?
+  kind               String  @default("OUTRO") // ANTES | DEPOIS | OUTRO
+  storageKey         String
+  createdAt          DateTime @default(now())
+
+  professional     Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  attendanceRecord AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+}
+
+model AnamnesisForm {
+  id                    String  @id @default(cuid())
+  professionalId        String
+  clientId              String  @unique
+  answersJson           String // JSON com todas as respostas
+  contraindicationFlags String  @default("[]") // JSON array com as flags contraindicadas
+  hasContraindication   Boolean @default(false)
+  naturalLashCondition  String? // FORTES | MEDIOS | FRAGEIS | FALHADOS
+  lgpdConsent           Boolean @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  professional Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client       Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  signatures   ConsentSignature[]
+}
+
+model ConsentSignature {
+  id              String  @id @default(cuid())
+  professionalId  String
+  clientId        String
+  anamnesisFormId String?
+  imageKey        String // assinatura desenhada, salva como imagem
+  consentText     String // snapshot do termo assinado
+  signedAt        DateTime @default(now())
+
+  professional  Professional   @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  anamnesisForm AnamnesisForm? @relation(fields: [anamnesisFormId], references: [id], onDelete: SetNull)
+}
+
+model MessageTemplate {
+  id             String  @id @default(cuid())
+  professionalId String
+  kind           String // CONFIRMACAO | LEMBRETE_24H | POS_APLICACAO | MANUTENCAO | ANIVERSARIO | RESGATE_45 | RESGATE_60 | RESGATE_90
+  name           String
+  body           String // com variáveis {{nome}}, {{data}}, {{hora}}, {{servico}}, {{valor}}, {{endereco}}, {{pix}}, {{nome_estudio}}
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  messageLogs  MessageLog[]
+
+  @@unique([professionalId, kind])
+}
+
+model MessageLog {
+  id             String    @id @default(cuid())
+  professionalId String
+  clientId       String
+  appointmentId  String?
+  templateId     String?
+  kind           String // mesmo domínio de MessageTemplate.kind, ou LIVRE
+  channel        String    @default("WHATSAPP")
+  body           String
+  status         String    @default("ENVIADA") // ENVIADA | DESCARTADA
+  refDate        DateTime? // data-âncora (ex.: dia do agendamento/aviso) p/ deduplicar a fila
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  professional Professional     @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client       Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment  Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, createdAt])
+  @@index([clientId, createdAt])
+}
+
+model Product {
+  id                     String    @id @default(cuid())
+  professionalId         String
+  name                   String
+  category               String // FIOS | COLA | PADS | PRIMER | REMOVEDOR | MICROPINCEIS | FITA | OUTRO
+  specJson               String? // JSON: {"curvatura":"D","espessura":"0.07","tamanho":"9"}
+  unit                   String    @default("un")
+  quantity               Float     @default(0)
+  minQuantity            Float     @default(0)
+  costCents              Int?
+  openedAt               DateTime? // colas: data de abertura
+  shelfLifeDaysAfterOpen Int? // validade pós-abertura (padrão 28-42 dias)
+  expiresAt              DateTime?
+  active                 Boolean   @default(true)
+
+  professional Professional    @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  movements    StockMovement[]
+
+  @@index([professionalId])
+}
+
+model StockMovement {
+  id             String   @id @default(cuid())
+  professionalId String
+  productId      String
+  type           String // ENTRADA | BAIXA | AJUSTE
+  quantity       Float
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id             String   @id @default(cuid())
+  professionalId String
+  type           String // RECEITA | DESPESA
+  kind           String   @default("OUTRO") // ATENDIMENTO | SINAL | OUTRO (receitas)
+  appointmentId  String?
+  clientId       String?
+  description    String
+  category       String? // despesas: MATERIAL | ALUGUEL | MARKETING | CURSOS | OUTROS
+  amountCents    Int // bruto
+  method         String? // PIX | DINHEIRO | DEBITO | CREDITO_VISTA | CREDITO_PARCELADO
+  installments   Int?
+  feePct         Float    @default(0)
+  feeCents       Int      @default(0)
+  netCents       Int // líquido = bruto - taxa
+  recurrence     String   @default("AVULSA") // AVULSA | FIXA_MENSAL
+  date           DateTime
+  createdAt      DateTime @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, date])
+}
+
+model Goal {
+  id                 String @id @default(cuid())
+  professionalId     String
+  month              String // "2026-08"
+  revenueTargetCents Int
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, month])
+}
+
+model WaitlistEntry {
+  id             String    @id @default(cuid())
+  professionalId String
+  clientId       String
+  serviceId      String?
+  dateFrom       DateTime?
+  dateTo         DateTime?
+  periodNote     String? // "qualquer manhã", "sábado à tarde"...
+  status         String    @default("ATIVA") // ATIVA | ATENDIDA | CANCELADA
+  createdAt      DateTime  @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, status])
+}
+
+model ScheduleBlock {
+  id             String    @id @default(cuid())
+  professionalId String
+  title          String // "Almoço", "Folga", "Férias"...
+  type           String    @default("AVULSO") // AVULSO | SEMANAL
+  // AVULSO: intervalo absoluto
+  startAt        DateTime?
+  endAt          DateTime?
+  // SEMANAL: recorrente por dia da semana
+  weekday        Int?
+  startTime      String? // "12:00"
+  endTime        String? // "13:00"
+  createdAt      DateTime  @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, startAt])
+}
