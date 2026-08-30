@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LashOS 💚
 
-## Getting Started
+Gestão completa para **lash designers autônomas** no Brasil — agenda, clientes, ficha técnica de cílios, anamnese, WhatsApp, lembretes, financeiro, estoque e relatórios. Mobile-first radical: feito para o celular, entre uma cliente e outra.
 
-First, run the development server:
+**Interface, datas (dd/mm/aaaa) e moeda (R$) 100% em português do Brasil.**
+
+## Stack
+
+- **Next.js 16** (App Router, TypeScript, Turbopack) + **Tailwind 4**
+- **Prisma 6 + SQLite** no dev — schema 100% compatível com Postgres (Supabase) para deploy
+- **Auth.js v5** (e-mail/senha, sessão JWT) — schema já nasce **multi-tenant** (`professionalId` em toda tabela)
+- **PWA**: manifest + service worker, instalável no celular
+- Fotos atrás de `StorageProvider` (dev: `/uploads` local; produção: trocar por S3/Supabase Storage sem refatorar)
+- WhatsApp atrás de `MessageProvider` (Fase 1: links `wa.me` prontos; Fase 3: Meta Cloud API / Evolution API)
+
+## Como rodar
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx prisma migrate dev   # cria o SQLite + aplica migrations
+npm run db:seed          # dados de demonstração
+npm run dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> O arquivo `.env` já vem pronto para dev (copie de `.env.example` se não existir).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Login de demonstração:** `demo@lashos.com.br` / `lashos123`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+O seed cria a profissional Marina (Studio Marina Lash), 6 serviços com preços de mercado, 8 templates de WhatsApp e 5 clientes com históricos pensados para demonstrar cada regra:
 
-## Learn More
+| Cliente | Situação |
+| --- | --- |
+| Juliana Souza | Dia 14 do ciclo (aviso de manutenção dispara amanhã) + horário hoje |
+| Carla Mendes | Inativa (75 dias) → recebe mensagem de resgate |
+| Beatriz Lima | **Contraindicação na anamnese** (alergia à cola + glaucoma) + sinal pendente |
+| Fernanda Castro | Aniversariante de hoje + lembrete 24h (horário amanhã) |
+| Patrícia Alves | Dia 16 do ciclo (aviso de manutenção **hoje**) + 2 faltas → **sinal obrigatório** |
 
-To learn more about Next.js, take a look at the following resources:
+## Testes das regras de negócio
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npx tsx scripts/test-regras.ts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Cobre as 6 regras críticas: manutenção fora do prazo vira aplicação · conflito/buffer bloqueados · alerta de contraindicação · aviso de manutenção no dia do ciclo · sinal obrigatório após N faltas · fotos/anamnese acessíveis só pela dona (rota autenticada).
 
-## Deploy on Vercel
+## Estrutura
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+  app/(app)/          páginas autenticadas (agenda, clientes, mensagens, ...)
+  app/login/          autenticação
+  app/api/uploads/    fotos servidas com checagem de dono (LGPD)
+  lib/domain/         regras de negócio puras (scheduling, maintenance, deposit, queue...)
+  lib/providers/      StorageProvider e MessageProvider (trocáveis)
+  components/ui/      design system (tons neutros + acento configurável)
+prisma/               schema multi-tenant, migrations e seed
+scripts/              testes das regras de negócio
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy (Vercel + Supabase)
+
+1. **Banco**: crie um projeto no Supabase e copie a connection string (pooler, porta 6543 com `?pgbouncer=true` para runtime; porta 5432 para migrations).
+2. **Schema**: em `prisma/schema.prisma`, troque `provider = "sqlite"` por `postgresql` (nenhum tipo usado é exclusivo do SQLite) e crie a baseline: `npx prisma migrate dev --name init-postgres` apontando para o banco novo, depois `npx prisma migrate deploy` no CI.
+3. **Vercel**: importe o repositório; configure as variáveis `DATABASE_URL`, `AUTH_SECRET` (gere com `npx auth secret`) e `AUTH_TRUST_HOST=true`. Build padrão (`next build`) já funciona.
+4. **Fotos**: implemente `SupabaseStorageProvider` (mesma interface de `src/lib/providers/storage.ts`) e troque em `getStorageProvider()` — nada mais muda.
+5. **Seed**: rode `npm run db:seed` apontando para o banco de produção só se quiser dados demo.
+
+## Fases
+
+- **Fase 1 (este MVP)** ✅ — onboarding/configurações, serviços, clientes (CRM), agenda completa (conflito, buffer, bloqueios, lista de espera, regra de ouro da manutenção, sinal automático), ficha técnica com mapping visual e fotos, central de WhatsApp (templates + fila do dia via wa.me), tela "Meu dia", PWA, LGPD (exportar/excluir dados).
+- **Fase 2** — anamnese digital com assinatura em canvas, financeiro completo com metas, notificações push, estoque, link público de agendamento (`/agenda/[slug]`), relatórios. *(O schema já contempla tudo isso.)*
+- **Fase 3** — WhatsApp via API oficial (Meta Cloud / Evolution) plugado no `MessageProvider`, modo SaaS multi-profissional com planos, relatórios avançados.
