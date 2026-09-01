@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireProfessionalId } from "@/lib/session";
 import { getStorageProvider, newStorageKey } from "@/lib/providers/storage";
+import { processPhoto } from "@/lib/images";
 import { applyFee, parseBRL } from "@/lib/money";
 import {
   CURVATURES,
@@ -155,8 +156,7 @@ export async function saveFichaAction(
 /* Fotos antes/depois                                                  */
 /* ------------------------------------------------------------------ */
 
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
 export async function uploadPhotoAction(
   _prev: PhotoState,
@@ -170,11 +170,11 @@ export async function uploadPhotoAction(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Selecione uma imagem." };
   }
-  if (!IMAGE_TYPES.includes(file.type)) {
-    return { error: "Formato não suportado — envie JPG, PNG ou WebP." };
+  if (!file.type.startsWith("image/")) {
+    return { error: "Formato não suportado — envie uma imagem." };
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    return { error: "Imagem muito grande (máximo 8 MB)." };
+    return { error: "Imagem muito grande (máximo 12 MB)." };
   }
 
   const appointment = await findOwnAppointment(appointmentId, professionalId);
@@ -191,12 +191,22 @@ export async function uploadPhotoAction(
     update: {},
   });
 
-  const storageKey = newStorageKey(professionalId, "fotos", file.type);
-  await getStorageProvider().put(
-    storageKey,
-    Buffer.from(await file.arrayBuffer()),
-    file.type,
-  );
+  // Converte p/ WebP (corrigindo rotação EXIF) e gera miniatura p/ listas.
+  const raw = Buffer.from(await file.arrayBuffer());
+  let processed: Awaited<ReturnType<typeof processPhoto>>;
+  try {
+    processed = await processPhoto(raw);
+  } catch {
+    return { error: "Não foi possível ler essa imagem — tente outra foto." };
+  }
+
+  const storage = getStorageProvider();
+  const storageKey = newStorageKey(professionalId, "fotos", processed.contentType);
+  const thumbKey = newStorageKey(professionalId, "fotos", processed.contentType);
+  await Promise.all([
+    storage.put(storageKey, processed.full, processed.contentType),
+    storage.put(thumbKey, processed.thumb, processed.contentType),
+  ]);
 
   await prisma.photo.create({
     data: {
@@ -205,6 +215,7 @@ export async function uploadPhotoAction(
       attendanceRecordId: record.id,
       kind,
       storageKey,
+      thumbKey,
     },
   });
 
@@ -225,6 +236,7 @@ export async function deletePhotoAction(formData: FormData): Promise<void> {
   if (!photo) return;
 
   await getStorageProvider().delete(photo.storageKey);
+  if (photo.thumbKey) await getStorageProvider().delete(photo.thumbKey);
   await prisma.photo.delete({ where: { id: photo.id } });
 
   revalidateAtendimento(appointmentId, photo.clientId);

@@ -102,7 +102,7 @@ async function main() {
     {
       kind: "CONFIRMACAO",
       name: "Confirmação de agendamento",
-      body: "Oi, {{nome}}! Aqui é do {{nome_estudio}} 💚\n\nSeu horário está reservado:\n📅 {{data}} às {{hora}}\n✨ {{servico}} — {{valor}}\n📍 {{endereco}}\n\nPara confirmar, envie o sinal de {{valor_sinal}} via Pix: {{pix}}\n\nCancelamentos sem custo até 24h antes. Depois disso, o sinal não é devolvido, combinado? Qualquer coisa é só chamar!",
+      body: "Oi, {{nome}}! Aqui é do {{nome_estudio}} 💗\n\nSeu horário está reservado:\n📅 {{data}} às {{hora}}\n✨ {{servico}} — {{valor}}\n📍 {{endereco}}\n\nPara confirmar, envie o sinal de {{valor_sinal}} via Pix (copia e cola 👇):\n{{pix_copia_cola}}\n\nCancelamentos sem custo até 24h antes. Depois disso, o sinal não é devolvido, combinado? Qualquer coisa é só chamar!",
     },
     {
       kind: "LEMBRETE_24H",

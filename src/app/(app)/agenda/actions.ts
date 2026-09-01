@@ -5,9 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { requireProfessional } from "@/lib/session";
 import { formatBRL } from "@/lib/money";
-import { formatDateLong, formatTime, localToUtc, formatDate } from "@/lib/dates";
+import { formatDateLong, formatTime, localToUtc, formatDate, localDayKey } from "@/lib/dates";
+import { buildPixPayload } from "@/lib/pix";
 import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
 import { freeSlotsForDay, validateSlot } from "@/lib/domain/scheduling";
 import { checkMaintenanceWindow } from "@/lib/domain/maintenance";
@@ -321,10 +323,111 @@ export async function sinalRecebido(id: string): Promise<AcaoResult> {
   if (appt.status !== "PRE_AGENDADO") {
     return { ok: false, erro: "Só agendamentos pré-agendados aguardam sinal." };
   }
-  await prisma.appointment.update({
-    where: { id: appt.id },
-    data: { status: "CONFIRMADO", depositPaidAt: new Date() },
-  });
+
+  const agora = new Date();
+  const escritas: Prisma.PrismaPromise<unknown>[] = [
+    prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: "CONFIRMADO", depositPaidAt: agora },
+    }),
+  ];
+
+  // Sinal vira lançamento financeiro próprio (a ficha depois cobra só o restante).
+  if (appt.depositCents && appt.depositCents > 0) {
+    const jaLancado = await prisma.transaction.findFirst({
+      where: { professionalId: professional.id, appointmentId: appt.id, kind: "SINAL" },
+    });
+    if (!jaLancado) {
+      escritas.push(
+        prisma.transaction.create({
+          data: {
+            professionalId: professional.id,
+            type: "RECEITA",
+            kind: "SINAL",
+            appointmentId: appt.id,
+            clientId: appt.client.id,
+            description: `Sinal — ${appt.service.name} (${appt.client.name})`,
+            amountCents: appt.depositCents,
+            method: "PIX",
+            feePct: 0,
+            feeCents: 0,
+            netCents: appt.depositCents,
+            date: agora,
+          },
+        }),
+      );
+    }
+  }
+
+  await prisma.$transaction(escritas);
+  revalidatePath("/agenda");
+  revalidatePath("/");
+  revalidatePath("/financeiro");
+  return { ok: true };
+}
+
+/**
+ * Desfaz uma marcação errada: FALTOU / CANCELADO / CANCELADO_TARDE voltam
+ * para o status anterior (revalidando conflito de horário) e os contadores
+ * da cliente são corrigidos.
+ */
+export async function reverterStatus(id: string): Promise<AcaoResult> {
+  const professional = await requireProfessional();
+  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+
+  const reversiveis = ["FALTOU", "CANCELADO", "CANCELADO_TARDE"];
+  if (!reversiveis.includes(appt.status)) {
+    return { ok: false, erro: "Esse status não pode ser revertido." };
+  }
+
+  // Horário futuro: garante que ninguém ocupou o lugar nesse meio-tempo.
+  if (appt.startAt > new Date()) {
+    const tz = professional.timezone;
+    const dia = localDayKey(appt.startAt, tz);
+    const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
+      getGradeAgenda(professional.id),
+      getOcupacoesDoDia(professional.id, dia, tz),
+    ]);
+    const conflitos = validateSlot({
+      startAt: appt.startAt,
+      durationMin: Math.round((appt.endAt.getTime() - appt.startAt.getTime()) / 60_000),
+      bufferMinutes: professional.bufferMinutes,
+      minAdvanceHours: 0,
+      timezone: tz,
+      workingHours,
+      blocks,
+      appointments: ocupacoes,
+      ignoreAppointmentId: appt.id,
+      skipAdvanceCheck: true,
+    }).filter((v) => v.code === "CONFLITO" || v.code === "BUFFER");
+    if (conflitos.length > 0) {
+      return { ok: false, erro: `Não dá para reverter: ${conflitos[0].message}` };
+    }
+  }
+
+  const statusRestaurado =
+    appt.depositRequired && !appt.depositPaidAt ? "PRE_AGENDADO" : "CONFIRMADO";
+  const escritas: Prisma.PrismaPromise<unknown>[] = [
+    prisma.appointment.update({ where: { id: appt.id }, data: { status: statusRestaurado } }),
+  ];
+  if (appt.status === "FALTOU") {
+    escritas.push(
+      prisma.client.update({
+        where: { id: appt.clientId },
+        data: { noShowCount: { decrement: 1 } },
+      }),
+    );
+  }
+  if (appt.status === "CANCELADO_TARDE") {
+    escritas.push(
+      prisma.client.update({
+        where: { id: appt.clientId },
+        data: { lateCancelCount: { decrement: 1 } },
+      }),
+    );
+  }
+  await prisma.$transaction(escritas);
   revalidatePath("/agenda");
   revalidatePath("/");
   return { ok: true };
@@ -451,6 +554,29 @@ export async function cancelarAgendamento(id: string): Promise<CancelamentoResul
   revalidatePath("/agenda");
   revalidatePath("/");
   return { ok: true, status: tardio ? "CANCELADO_TARDE" : "CANCELADO", espera };
+}
+
+export type PixCodigoResult =
+  | { ok: true; codigo: string; valorCents: number }
+  | { ok: false; erro: string };
+
+/** Pix copia-e-cola do sinal (BR Code com valor travado). */
+export async function pixDoSinal(id: string): Promise<PixCodigoResult> {
+  const professional = await requireProfessional();
+  if (!professional.pixKey) {
+    return { ok: false, erro: "Cadastre sua chave Pix em Configurações → Perfil." };
+  }
+  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+  if (!appt.depositCents || appt.depositCents <= 0) {
+    return { ok: false, erro: "Esse agendamento não tem sinal definido." };
+  }
+  const codigo = buildPixPayload({
+    pixKey: professional.pixKey,
+    merchantName: professional.studioName,
+    amountCents: appt.depositCents,
+  });
+  return { ok: true, codigo, valorCents: appt.depositCents };
 }
 
 const reagendarSchema = z.object({

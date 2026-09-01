@@ -3,6 +3,34 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * Freio de força bruta no login (em memória, por e-mail):
+ * 5 erros em 10 min bloqueiam novas tentativas até a janela expirar.
+ * Em produção com múltiplas instâncias, trocar por armazenamento compartilhado.
+ */
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 10 * 60 * 1000;
+const attempts = new Map<string, { count: number; resetAt: number }>();
+
+function isThrottled(email: string): boolean {
+  const entry = attempts.get(email);
+  if (!entry) return false;
+  if (Date.now() > entry.resetAt) {
+    attempts.delete(email);
+    return false;
+  }
+  return entry.count >= MAX_ATTEMPTS;
+}
+
+function registerFailure(email: string): void {
+  const entry = attempts.get(email);
+  if (!entry || Date.now() > entry.resetAt) {
+    attempts.set(email, { count: 1, resetAt: Date.now() + WINDOW_MS });
+  } else {
+    entry.count += 1;
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -17,13 +45,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = String(credentials?.email ?? "").toLowerCase().trim();
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
+        if (isThrottled(email)) return null;
 
         const professional = await prisma.professional.findUnique({ where: { email } });
-        if (!professional) return null;
+        if (!professional) {
+          registerFailure(email);
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, professional.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          registerFailure(email);
+          return null;
+        }
 
+        attempts.delete(email);
         return { id: professional.id, email: professional.email, name: professional.name };
       },
     }),

@@ -9,6 +9,7 @@ import { computeClientCycle } from "@/lib/domain/client-status";
 import { renderTemplate } from "@/lib/domain/templates";
 import { buildMessageQueue } from "@/lib/domain/queue";
 import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
+import { buildPixPayload, crc16, normalizePixKey } from "@/lib/pix";
 import { formatBRL, parseBRL, applyFee } from "@/lib/money";
 import { localToUtc } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
@@ -217,6 +218,31 @@ console.log("\n── Templates, telefone e dinheiro ──");
   check("parseBRL aceita 'R$ 89,90'", parseBRL("R$ 89,90") === 8990);
   const fee = applyFee(18000, 4.99);
   check("taxa 4,99% sobre R$180 → líquido R$ 171,02", fee.feeCents === 898 && fee.netCents === 17102, fee);
+}
+
+console.log("\n── Pix copia-e-cola (BR Code EMV) ──");
+{
+  check("chave celular ganha +55", normalizePixKey("48991234567") === "+5548991234567");
+  check("CPF formatado vira só dígitos", normalizePixKey("010.020.030-40") === "01002003040");
+  check("e-mail passa intacto", normalizePixKey("marina@studio.com") === "marina@studio.com");
+
+  const payload = buildPixPayload({
+    pixKey: "48991234567",
+    merchantName: "Studio Marina Lash",
+    amountCents: 2700,
+  });
+  check("payload começa com 000201", payload.startsWith("000201"), payload);
+  check("payload contém o GUI do Pix", payload.includes("br.gov.bcb.pix"));
+  check("valor R$ 27,00 no campo 54", payload.includes("540527.00"), payload);
+  check("nome sem acento e maiúsculo", payload.includes("STUDIO MARINA LASH"));
+  const body = payload.slice(0, -4);
+  check(
+    "CRC16 confere (auto-verificação)",
+    body.endsWith("6304") && payload.slice(-4) === crc16(body),
+    payload.slice(-8),
+  );
+  const semValor = buildPixPayload({ pixKey: "48991234567", merchantName: "X" });
+  check("sem valor: 53 emenda direto no 58 (campo 54 ausente)", semValor.includes("53039865802BR"), semValor);
 }
 
 async function main() {

@@ -39,7 +39,16 @@ Web app de gestão para lash designers autônomas no Brasil. **Tudo em pt-BR** (
 
 ## Rotas canônicas (para links entre módulos)
 
-- `/` Meu dia · `/agenda` (aceita `?dia=yyyy-MM-dd` e `?novo=1&cliente=<id>`) · `/clientes`, `/clientes/[id]` · `/atendimentos/[appointmentId]` ficha técnica · `/mensagens` fila do dia, `/mensagens/templates` · `/servicos` · `/config` · Fase 2: `/financeiro`, `/estoque`, `/relatorios` (placeholders).
+- `/` Meu dia · `/agenda` (aceita `?dia=yyyy-MM-dd` e `?novo=1&cliente=<id>`) · `/clientes`, `/clientes/[id]`, `/clientes/[id]/anamnese` · `/atendimentos/[appointmentId]` ficha técnica · `/mensagens` fila do dia (aceita `?cliente=<id>` p/ avulsa), `/mensagens/templates` · `/servicos` · `/config` (sub: perfil, horarios, politicas, taxas, notificacoes) · `/financeiro` · `/estoque` · `/relatorios` · **Público (sem login, liberado no proxy):** `/agendar/[slug]` (slug = Professional.slug).
+
+## Fase 2 — libs e contratos novos
+
+- **Pix**: `buildPixPayload`/`normalizePixKey` de `@/lib/pix` geram o copia-e-cola EMV (com CRC16). A fila já injeta `{{pix_copia_cola}}` quando há sinal + chave Pix.
+- **Imagens**: `processPhoto` de `@/lib/images` (sharp) → WebP + miniatura; `Photo.thumbKey` guarda a thumb. Exibir listas com `thumbKey ?? storageKey`.
+- **Push**: `web-push` instalado; env `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `CRON_SECRET`; modelo `PushSubscription` no schema; o `public/sw.js` já exibe push recebido (event `push` + `notificationclick`).
+- **Sinal no financeiro**: "Sinal recebido" (agenda) cria `Transaction` RECEITA kind `SINAL`; a ficha técnica cobra por padrão o **restante** (preço − sinal pago) como kind `ATENDIMENTO`. Somar receitas = SINAL + ATENDIMENTO, nunca duplicar.
+- **Estoque**: `Product.usagePerService` (consumo médio por atendimento) para baixa automática.
+- **Reversão**: `reverterStatus` (agenda) desfaz FALTOU/CANCELADO(_TARDE) corrigindo contadores.
 
 ## Contratos entre módulos
 

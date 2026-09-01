@@ -9,6 +9,7 @@ import { addDays } from "date-fns";
 import { dayKeyToUtcStart, diffLocalDays, localDayKey } from "@/lib/dates";
 import { renderTemplate } from "@/lib/domain/templates";
 import { getMessageProvider } from "@/lib/providers/message";
+import { buildPixPayload } from "@/lib/pix";
 
 export type QueueItem = {
   /** Chave sintética estável do item (para dedup/ações). */
@@ -74,11 +75,16 @@ export async function buildMessageQueue(
   }) {
     const template = templateByKind.get(params.kind);
     if (!template) return;
-    const body = renderTemplate(
-      template.body,
-      { ...baseCtx, ...params.ctx },
-      { dropEmptyLines: true },
-    );
+    const ctx = { ...baseCtx, ...params.ctx };
+    // Sinal com chave Pix cadastrada → código copia-e-cola pronto na mensagem.
+    if (ctx.depositCents && professional.pixKey && !ctx.pixCopiaECola) {
+      ctx.pixCopiaECola = buildPixPayload({
+        pixKey: professional.pixKey,
+        merchantName: professional.studioName,
+        amountCents: ctx.depositCents,
+      });
+    }
+    const body = renderTemplate(template.body, ctx, { dropEmptyLines: true });
     const prepared = await provider.send({ phone: params.client.phone, body });
     items.push({
       key: `${params.kind}:${params.client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,

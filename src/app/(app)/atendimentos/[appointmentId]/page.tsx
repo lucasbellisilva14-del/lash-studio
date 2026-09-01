@@ -199,6 +199,7 @@ export default async function AtendimentoPage(
             id: p.id,
             kind: p.kind,
             storageKey: p.storageKey,
+            thumbKey: p.thumbKey,
           }))}
         />
 
@@ -215,7 +216,7 @@ export default async function AtendimentoPage(
         ) : (
           <PaymentForm
             appointmentId={appointment.id}
-            defaultAmountCents={appointment.priceCents}
+            defaultAmountCents={Math.max(0, appointment.priceCents - (depositPaidCents ?? 0))}
             depositPaidCents={depositPaidCents}
             fees={feeByMethod}
           />

@@ -15,7 +15,7 @@ import {
   type PhotoState,
 } from "@/app/(app)/atendimentos/[appointmentId]/actions";
 
-export type PhotoItem = { id: string; kind: string; storageKey: string };
+export type PhotoItem = { id: string; kind: string; storageKey: string; thumbKey?: string | null };
 
 export function PhotosSection({
   appointmentId,
@@ -126,13 +126,15 @@ function PhotoGroup({
 function Thumb({ photo, appointmentId }: { photo: PhotoItem; appointmentId: string }) {
   return (
     <div className="relative aspect-square rounded-xl overflow-hidden border border-line bg-surface-sunken">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/uploads/${photo.storageKey}`}
-        alt={photo.kind === "ANTES" ? "Foto de antes" : "Foto de depois"}
-        className="w-full h-full object-cover"
-        loading="lazy"
-      />
+      <a href={`/api/uploads/${photo.storageKey}`} target="_blank" rel="noreferrer">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/uploads/${photo.thumbKey ?? photo.storageKey}`}
+          alt={photo.kind === "ANTES" ? "Foto de antes" : "Foto de depois"}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+      </a>
       <form
         action={deletePhotoAction}
         onSubmit={(e) => {

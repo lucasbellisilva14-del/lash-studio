@@ -1,6 +1,7 @@
 import { requireProfessional } from "@/lib/session";
 import { BottomNav } from "@/components/shell/bottom-nav";
 import { PwaRegister } from "@/components/shell/pwa-register";
+import { InstallPrompt } from "@/components/shell/install-prompt";
 
 /**
  * Shell autenticado: injeta a cor de acento da profissional,
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         {children}
       </main>
       <BottomNav />
+      <InstallPrompt />
       <PwaRegister />
     </div>
   );

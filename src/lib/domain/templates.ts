@@ -11,6 +11,8 @@ export type TemplateContext = {
   addressLine?: string | null;
   mapsUrl?: string | null;
   pixKey?: string | null;
+  /** Código Pix copia-e-cola já com o valor do sinal (gerado em lib/pix). */
+  pixCopiaECola?: string | null;
   studioName?: string;
   timezone?: string;
 };
@@ -44,6 +46,7 @@ export function renderTemplate(
     valor_sinal: ctx.depositCents ? formatBRL(ctx.depositCents) : "",
     endereco: [ctx.addressLine, ctx.mapsUrl].filter(Boolean).join(" — "),
     pix: ctx.pixKey ?? "",
+    pix_copia_cola: ctx.pixCopiaECola ?? "",
     nome_estudio: ctx.studioName ?? "",
   };
 
@@ -76,5 +79,6 @@ export const TEMPLATE_VARIABLES = [
   { variable: "{{valor_sinal}}", description: "Valor do sinal" },
   { variable: "{{endereco}}", description: "Endereço do estúdio (com link do Maps)" },
   { variable: "{{pix}}", description: "Chave Pix" },
+  { variable: "{{pix_copia_cola}}", description: "Código Pix copia-e-cola com o valor do sinal" },
   { variable: "{{nome_estudio}}", description: "Nome do estúdio" },
 ] as const;

@@ -68,6 +68,7 @@ model Professional {
   goals             Goal[]
   waitlistEntries   WaitlistEntry[]
   scheduleBlocks    ScheduleBlock[]
+  pushSubscriptions PushSubscription[]
 }
 
 model WorkingHour {
@@ -202,6 +203,7 @@ model Photo {
   attendanceRecordId String?
   kind               String  @default("OUTRO") // ANTES | DEPOIS | OUTRO
   storageKey         String
+  thumbKey           String? // miniatura webp gerada no upload
   createdAt          DateTime @default(now())
 
   professional     Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
@@ -294,6 +296,7 @@ model Product {
   openedAt               DateTime? // colas: data de abertura
   shelfLifeDaysAfterOpen Int? // validade pós-abertura (padrão 28-42 dias)
   expiresAt              DateTime?
+  usagePerService        Float     @default(0) // consumo médio por atendimento (baixa automática)
   active                 Boolean   @default(true)
 
   professional Professional    @relation(fields: [professionalId], references: [id], onDelete: Cascade)
@@ -367,6 +370,17 @@ model WaitlistEntry {
   client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, status])
+}
+
+model PushSubscription {
+  id             String   @id @default(cuid())
+  professionalId String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 }
 
 model ScheduleBlock {

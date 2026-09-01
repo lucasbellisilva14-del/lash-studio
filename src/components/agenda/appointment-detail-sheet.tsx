@@ -22,7 +22,9 @@ import {
   concluirAgendamento,
   horariosLivres,
   marcarFalta,
+  pixDoSinal,
   reagendarAgendamento,
+  reverterStatus,
   sinalRecebido,
 } from "@/app/(app)/agenda/actions";
 import type { AgendaCompromisso, AgendaConfig, EsperaChamada } from "./types";
@@ -44,6 +46,7 @@ export function AppointmentDetailSheet({
   const [espera, setEspera] = useState<EsperaChamada[]>([]);
   const [tituloEspera, setTituloEspera] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const [pixCopiado, setPixCopiado] = useState(false);
   const [pendente, startAcao] = useTransition();
 
   // Reagendamento
@@ -91,6 +94,25 @@ export function AppointmentDetailSheet({
     startAcao(async () => {
       const res = await fn();
       if (res && !res.ok) setErro(res.erro ?? "Não foi possível concluir a ação.");
+    });
+  }
+
+  function copiarPix() {
+    rodarAcao(async () => {
+      const res = await pixDoSinal(c.id);
+      if (!res.ok) return res;
+      await navigator.clipboard.writeText(res.codigo);
+      setPixCopiado(true);
+      setTimeout(() => setPixCopiado(false), 2500);
+      return { ok: true };
+    });
+  }
+
+  function desfazerStatus() {
+    rodarAcao(async () => {
+      const res = await reverterStatus(c.id);
+      if (res.ok) onClose();
+      return res;
     });
   }
 
@@ -268,9 +290,23 @@ export function AppointmentDetailSheet({
           {modo === "detalhe" ? (
             <div className="space-y-2.5">
               {c.status === "PRE_AGENDADO" ? (
-                <Button size="lg" onClick={confirmarSinal} disabled={pendente}>
-                  {pendente ? "Confirmando..." : "Sinal recebido — confirmar horário"}
-                </Button>
+                <>
+                  <Button size="lg" onClick={confirmarSinal} disabled={pendente}>
+                    {pendente ? "Confirmando..." : "Sinal recebido — confirmar horário"}
+                  </Button>
+                  {c.sinalCents ? (
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      onClick={copiarPix}
+                      disabled={pendente}
+                    >
+                      {pixCopiado
+                        ? "Código Pix copiado ✓"
+                        : `Copiar Pix do sinal (${formatBRL(c.sinalCents)})`}
+                    </Button>
+                  ) : null}
+                </>
               ) : null}
               {ativo ? (
                 <>
@@ -321,9 +357,19 @@ export function AppointmentDetailSheet({
                 </Link>
               ) : null}
               {c.status === "FALTOU" ? (
-                <p className="text-sm text-ink-soft text-center">
-                  Falta registrada no histórico da cliente.
-                </p>
+                <>
+                  <p className="text-sm text-ink-soft text-center">
+                    Falta registrada no histórico da cliente.
+                  </p>
+                  <Button size="lg" variant="secondary" onClick={desfazerStatus} disabled={pendente}>
+                    {pendente ? "Revertendo..." : "Desfazer falta (marquei errado)"}
+                  </Button>
+                </>
+              ) : null}
+              {c.status === "CANCELADO" || c.status === "CANCELADO_TARDE" ? (
+                <Button size="lg" variant="secondary" onClick={desfazerStatus} disabled={pendente}>
+                  {pendente ? "Revertendo..." : "Desfazer cancelamento"}
+                </Button>
               ) : null}
             </div>
           ) : null}

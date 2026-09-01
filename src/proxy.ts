@@ -5,7 +5,16 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth", "/manifest.webmanifest", "/sw.js", "/icons", "/agenda-publica"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth",
+  "/api/cron",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/icons",
+  "/icon.png",
+  "/agendar", // link público de agendamento (/agendar/[slug])
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
