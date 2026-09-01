@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireProfessionalId } from "@/lib/session";
 import { getStorageProvider, newStorageKey } from "@/lib/providers/storage";
 import { processPhoto } from "@/lib/images";
+import { consumirEstoqueDoAtendimento } from "@/app/(app)/estoque/consumo";
 import { applyFee, parseBRL } from "@/lib/money";
 import {
   CURVATURES,
@@ -301,7 +302,17 @@ export async function registerPaymentAction(
     },
   });
 
+  // Baixa automática de estoque (consumo médio por atendimento).
+  try {
+    await consumirEstoqueDoAtendimento(professionalId);
+  } catch (error) {
+    // O recebimento já foi registrado — a baixa de estoque não pode desfazê-lo.
+    console.error("Baixa automática de estoque falhou:", error);
+  }
+
   revalidateAtendimento(appointment.id, appointment.client.id);
   revalidatePath("/financeiro");
+  revalidatePath("/estoque");
+  revalidatePath("/");
   return { success: "Recebimento registrado." };
 }
