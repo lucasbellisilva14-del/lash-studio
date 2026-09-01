@@ -1,6 +1,6 @@
-# LashOS 💚
+# LashOS 💗
 
-Gestão completa para **lash designers autônomas** no Brasil — agenda, clientes, ficha técnica de cílios, anamnese, WhatsApp, lembretes, financeiro, estoque e relatórios. Mobile-first radical: feito para o celular, entre uma cliente e outra.
+Gestão completa para **lash designers autônomas** no Brasil — agenda, clientes, ficha técnica de cílios, anamnese com assinatura, WhatsApp com Pix copia-e-cola, link público de agendamento, financeiro, estoque, relatórios, push e **gamificação**. Mobile-first radical, com identidade **rosa** (fundo blush + acento pink configurável).
 
 **Interface, datas (dd/mm/aaaa) e moeda (R$) 100% em português do Brasil.**
 
@@ -68,6 +68,9 @@ scripts/              testes das regras de negócio
 
 ## Fases
 
-- **Fase 1 (este MVP)** ✅ — onboarding/configurações, serviços, clientes (CRM), agenda completa (conflito, buffer, bloqueios, lista de espera, regra de ouro da manutenção, sinal automático), ficha técnica com mapping visual e fotos, central de WhatsApp (templates + fila do dia via wa.me), tela "Meu dia", PWA, LGPD (exportar/excluir dados).
-- **Fase 2** — anamnese digital com assinatura em canvas, financeiro completo com metas, notificações push, estoque, link público de agendamento (`/agenda/[slug]`), relatórios. *(O schema já contempla tudo isso.)*
+- **Fase 1** ✅ — onboarding/configurações, serviços, clientes (CRM), agenda completa (conflito, buffer, bloqueios, lista de espera, regra de ouro da manutenção, sinal automático), ficha técnica com mapping visual e fotos (WebP + miniaturas), central de WhatsApp (templates + fila do dia via wa.me, **Pix copia-e-cola** no sinal), tela "Meu dia", PWA instalável, LGPD (exportar/excluir dados), desfazer status, freio de força bruta no login.
+- **Fase 2** ✅ — **link público de agendamento** `/agendar/[slug]` (anti-spam com honeypot + limites diários, sinal com Pix), **anamnese digital** com assinatura em canvas e flags de contraindicação, **financeiro completo** (painel mensal, meta, despesas com recorrência fixa, gráfico 6 meses), **estoque** com baixa automática por atendimento e validade de colas, **relatórios** (status × LTV × serviços × demanda × origens), **push** (resumo diário via `/api/cron/daily` + `vercel.json`; requer `CRON_SECRET`/VAPID em produção).
+- **Extra** ✅ — **Gamificação**: XP e 6 níveis (Aprendiz de Cílios 🌱 → Lenda dos Cílios 🌟), 13 medalhas e desafios da semana — tudo derivado dos dados reais, em `/conquistas` + card na home.
 - **Fase 3** — WhatsApp via API oficial (Meta Cloud / Evolution) plugado no `MessageProvider`, modo SaaS multi-profissional com planos, relatórios avançados.
+
+> **Cron em produção (Vercel):** o resumo diário dispara às 10:30 UTC (07:30 BRT) via `vercel.json`; configure a env `CRON_SECRET` para o header de autorização e gere chaves VAPID próprias (`npx web-push generate-vapid-keys`).
