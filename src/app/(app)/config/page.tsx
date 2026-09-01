@@ -5,7 +5,7 @@ import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { IconChevronRight, IconClock } from "@/components/ui/icons";
+import { IconBell, IconChevronRight, IconClock } from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
 export const metadata = { title: "Configurações" };
@@ -13,11 +13,14 @@ export const metadata = { title: "Configurações" };
 export default async function ConfigPage() {
   const professional = await requireProfessional();
 
-  const [activeDays, feeCount] = await Promise.all([
+  const [activeDays, feeCount, pushDeviceCount] = await Promise.all([
     prisma.workingHour.count({
       where: { professionalId: professional.id, active: true },
     }),
     prisma.paymentMethodFee.count({
+      where: { professionalId: professional.id },
+    }),
+    prisma.pushSubscription.count({
       where: { professionalId: professional.id },
     }),
   ]);
@@ -61,6 +64,15 @@ export default async function ConfigPage() {
           ? `${feeCount} ${feeCount === 1 ? "forma configurada" : "formas configuradas"}`
           : "Configure a taxa de cada forma de pagamento",
       icon: IconPercent,
+    },
+    {
+      href: "/config/notificacoes",
+      label: "Notificações",
+      description:
+        pushDeviceCount > 0
+          ? `Ativadas em ${pushDeviceCount} ${pushDeviceCount === 1 ? "aparelho" : "aparelhos"}`
+          : "Receba o resumo do dia no celular",
+      icon: IconBell,
     },
   ] as const;
 

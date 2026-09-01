@@ -21,6 +21,8 @@ import { TodayAgenda, type TodayAgendaItem } from "@/components/home/today-agend
 import { MessageQueueCard } from "@/components/home/message-queue-card";
 import { AlertsCard, type HomeAlert } from "@/components/home/alerts-card";
 import { MonthSummary } from "@/components/home/month-summary";
+import { getGamification } from "@/lib/domain/gamification";
+import { GamificationHomeCard } from "@/components/gamificacao/home-card";
 
 export const metadata = { title: "Meu dia" };
 
@@ -61,6 +63,7 @@ export default async function HomePage() {
     monthRevenue,
     monthDoneCount,
     goal,
+    game,
   ] = await Promise.all([
     // Agenda de hoje (cancelados ficam de fora)
     prisma.appointment.findMany({
@@ -139,6 +142,8 @@ export default async function HomePage() {
     prisma.goal.findUnique({
       where: { professionalId_month: { professionalId, month: monthKey } },
     }),
+    // Nível, medalhas e desafios
+    getGamification(professionalId, now),
   ]);
 
   // ── Saudação ──
@@ -292,6 +297,8 @@ export default async function HomePage() {
       />
 
       {!professional.onboardingDone ? <OnboardingCard /> : null}
+
+      <GamificationHomeCard game={game} />
 
       <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
         <TodayAgenda

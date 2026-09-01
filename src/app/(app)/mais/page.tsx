@@ -11,11 +11,13 @@ import {
   IconMoney,
   IconScissors,
   IconSettings,
+  IconTrophy,
 } from "@/components/ui/icons";
 
 export const metadata = { title: "Mais" };
 
 const links = [
+  { href: "/conquistas", label: "Conquistas", description: "Seu nível, medalhas e desafios da semana", icon: IconTrophy },
   { href: "/servicos", label: "Serviços", description: "Catálogo, preços e durações", icon: IconScissors },
   { href: "/financeiro", label: "Financeiro", description: "Receitas, despesas e meta do mês", icon: IconMoney },
   { href: "/estoque", label: "Estoque", description: "Insumos, colas e validades", icon: IconBox },

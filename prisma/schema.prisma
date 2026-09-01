@@ -20,7 +20,7 @@ model Professional {
   studioName   String
   slug         String  @unique
   logoUrl      String?
-  accentColor  String  @default("#A85566")
+  accentColor  String  @default("#BE4368")
   addressLine  String?
   mapsUrl      String?
   whatsapp     String? // só dígitos, com DDD (ex.: 48999998888)

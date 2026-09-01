@@ -12,14 +12,14 @@ import { salvarPerfilAction } from "./actions";
 
 /** Paleta de acentos elegantes (escuros o bastante p/ texto branco). */
 const PALETTE = [
+  { hex: "#BE4368", nome: "Pink" },
   { hex: "#A85566", nome: "Rosé" },
+  { hex: "#C24B8B", nome: "Orquídea" },
+  { hex: "#7A3B47", nome: "Framboesa" },
+  { hex: "#5D4157", nome: "Ameixa" },
   { hex: "#3E5C50", nome: "Eucalipto" },
   { hex: "#2F4858", nome: "Petróleo" },
-  { hex: "#5D4157", nome: "Ameixa" },
-  { hex: "#7A3B47", nome: "Framboesa" },
   { hex: "#8A4B32", nome: "Terracota" },
-  { hex: "#6B4F3A", nome: "Café" },
-  { hex: "#7D6377", nome: "Malva" },
   { hex: "#44403C", nome: "Grafite" },
 ] as const;
 
@@ -186,7 +186,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
               style={{
                 background: isCustom
                   ? accent
-                  : "conic-gradient(#a85566, #7a3b47, #5d4157, #2f4858, #3e5c50, #6b4f3a, #a85566)",
+                  : "conic-gradient(#be4368, #c24b8b, #7a3b47, #5d4157, #2f4858, #3e5c50, #be4368)",
               }}
             >
               <input

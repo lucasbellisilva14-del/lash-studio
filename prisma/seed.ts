@@ -39,7 +39,7 @@ async function main() {
       name: "Marina Duarte",
       studioName: "Studio Marina Lash",
       slug: "studio-marina-lash",
-      accentColor: "#A85566",
+      accentColor: "#BE4368",
       addressLine: "Rua das Gaivotas, 120 — Ingleses, Florianópolis/SC",
       mapsUrl: "https://maps.app.goo.gl/exemplo-studio-marina",
       whatsapp: "48991234567",
@@ -423,15 +423,18 @@ async function main() {
         professionalId: pid, name: "Cola Elite HS-10", category: "COLA",
         quantity: 1, minQuantity: 1, unit: "un", costCents: 9450,
         openedAt: at(-20, "09:00"), shelfLifeDaysAfterOpen: 35,
+        usagePerService: 0.05,
       },
       {
         professionalId: pid, name: "Fios D 0.07 mix 8-14", category: "FIOS",
         specJson: JSON.stringify({ curvatura: "D", espessura: "0.07", tamanho: "mix 8-14" }),
         quantity: 3, minQuantity: 2, unit: "caixa", costCents: 4500,
+        usagePerService: 0.2,
       },
       {
         professionalId: pid, name: "Pads de silicone", category: "PADS",
         quantity: 12, minQuantity: 20, unit: "par", costCents: 150,
+        usagePerService: 1,
       },
     ],
   });

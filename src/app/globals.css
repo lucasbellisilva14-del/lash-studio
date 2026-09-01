@@ -6,14 +6,14 @@
  * (--accent é sobrescrita inline no layout autenticado).
  */
 :root {
-  --background: #f7f6f3;
+  --background: #fdf4f6;
   --surface: #ffffff;
-  --surface-sunken: #efede9;
-  --ink: #1e1b18;
-  --ink-soft: #5c564f;
-  --ink-faint: #a39d94;
-  --line: #e6e3dd;
-  --accent: #a85566;
+  --surface-sunken: #f8e9ee;
+  --ink: #33202a;
+  --ink-soft: #6d5560;
+  --ink-faint: #ab8d9a;
+  --line: #f2dde4;
+  --accent: #be4368;
   --accent-ink: #ffffff;
   --danger: #b3261e;
   --danger-soft: #fbeae9;
@@ -53,6 +53,29 @@
 .accent-scope {
   --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
   --accent-strong: color-mix(in srgb, var(--accent) 85%, black);
+  --accent-glow: color-mix(in srgb, var(--accent) 55%, #ffb3cd);
+}
+
+@theme inline {
+  --color-accent-glow: var(--accent-glow);
+}
+
+/* Gradiente de destaque (cards de nível/celebração) */
+.bg-accent-gradient {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent) 55%, var(--accent-glow));
+}
+
+/* Celebração: brilho sutil pulsando (meta batida, conquista nova) */
+@keyframes lashos-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent); }
+}
+.celebrate {
+  animation: lashos-glow 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebrate { animation: none; }
 }
 
 @theme inline {
