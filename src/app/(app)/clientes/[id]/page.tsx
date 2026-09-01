@@ -33,6 +33,7 @@ import {
   IconWhatsApp,
 } from "@/components/ui/icons";
 import { IconDownload, IconShield } from "@/components/clientes/icons";
+import { IconClipboard } from "@/components/anamnese/icons";
 import { ClientAvatar } from "@/components/clientes/client-avatar";
 import { EditClientButton } from "@/components/clientes/edit-client-button";
 import { DeleteClientData } from "@/components/clientes/delete-client-data";
@@ -301,6 +302,37 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
           )}
         </CardBody>
       </Card>
+
+      {/* Anamnese */}
+      <Link href={`/clientes/${client.id}/anamnese`} className="block">
+        <Card className={cn(!client.anamnesisForm && "border-warning/40")}>
+          <CardBody className="flex items-center gap-3 py-3.5">
+            <span
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                client.anamnesisForm
+                  ? "bg-surface-sunken text-ink-soft"
+                  : "bg-warning-soft text-warning",
+              )}
+            >
+              <IconClipboard width={19} height={19} />
+            </span>
+            <div className="min-w-0 grow">
+              <p className="text-[15px] font-medium text-ink">Anamnese</p>
+              {client.anamnesisForm ? (
+                <p className="text-xs text-ink-faint mt-0.5">
+                  Preenchida em {formatDate(client.anamnesisForm.updatedAt, tz)}
+                </p>
+              ) : (
+                <p className="text-xs font-medium text-warning mt-0.5">
+                  Pendente — preencher agora
+                </p>
+              )}
+            </div>
+            <IconChevronRight width={18} height={18} className="text-ink-faint shrink-0" />
+          </CardBody>
+        </Card>
+      </Link>
 
       {/* Contadores */}
       <div className="grid grid-cols-2 gap-2">
