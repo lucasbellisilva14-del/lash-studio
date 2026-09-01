@@ -21,7 +21,19 @@ export function firstName(full: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-export function renderTemplate(body: string, ctx: TemplateContext): string {
+export type RenderOptions = {
+  /**
+   * Remove linhas que contêm variável conhecida resolvida como vazia
+   * (ex.: linha do sinal quando o agendamento não exige sinal).
+   */
+  dropEmptyLines?: boolean;
+};
+
+export function renderTemplate(
+  body: string,
+  ctx: TemplateContext,
+  options: RenderOptions = {},
+): string {
   const tz = ctx.timezone;
   const vars: Record<string, string> = {
     nome: ctx.clientName ? firstName(ctx.clientName) : "",
@@ -29,12 +41,28 @@ export function renderTemplate(body: string, ctx: TemplateContext): string {
     hora: ctx.startAt ? formatTime(ctx.startAt, tz) : "",
     servico: ctx.serviceName ?? "",
     valor: ctx.priceCents != null ? formatBRL(ctx.priceCents) : "",
-    valor_sinal: ctx.depositCents != null ? formatBRL(ctx.depositCents) : "",
+    valor_sinal: ctx.depositCents ? formatBRL(ctx.depositCents) : "",
     endereco: [ctx.addressLine, ctx.mapsUrl].filter(Boolean).join(" — "),
     pix: ctx.pixKey ?? "",
     nome_estudio: ctx.studioName ?? "",
   };
-  return body.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) =>
+
+  let source = body;
+  if (options.dropEmptyLines) {
+    source = source
+      .split("\n")
+      .filter((line) => {
+        for (const [, key] of line.matchAll(/\{\{\s*(\w+)\s*\}\}/g)) {
+          if (key in vars && vars[key] === "") return false;
+        }
+        return true;
+      })
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  return source.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) =>
     key in vars ? vars[key] : match,
   );
 }

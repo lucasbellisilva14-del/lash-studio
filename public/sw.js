@@ -1,5 +1,5 @@
 /* LashOS service worker — cache leve de estáticos + suporte a instalação PWA. */
-const CACHE = "lashos-v1";
+const CACHE = "lashos-v2";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -14,7 +14,8 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Rede primeiro; sem fallback offline para dados (app é dinâmico).
+// Estáticos: rede primeiro, cache como fallback (offline). Nunca serve
+// versão velha quando há rede — evita CSS/JS obsoleto após deploy.
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -27,11 +28,15 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(request);
-      if (cached) return cached;
-      const response = await fetch(request);
-      if (response.ok) cache.put(request, response.clone());
-      return response;
+      try {
+        const response = await fetch(request);
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+      } catch {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        throw new Error("offline sem cache");
+      }
     }),
   );
 });

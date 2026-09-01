@@ -74,7 +74,11 @@ export async function buildMessageQueue(
   }) {
     const template = templateByKind.get(params.kind);
     if (!template) return;
-    const body = renderTemplate(template.body, { ...baseCtx, ...params.ctx });
+    const body = renderTemplate(
+      template.body,
+      { ...baseCtx, ...params.ctx },
+      { dropEmptyLines: true },
+    );
     const prepared = await provider.send({ phone: params.client.phone, body });
     items.push({
       key: `${params.kind}:${params.client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,

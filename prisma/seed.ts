@@ -39,7 +39,7 @@ async function main() {
       name: "Marina Duarte",
       studioName: "Studio Marina Lash",
       slug: "studio-marina-lash",
-      accentColor: "#3E5C50",
+      accentColor: "#A85566",
       addressLine: "Rua das Gaivotas, 120 — Ingleses, Florianópolis/SC",
       mapsUrl: "https://maps.app.goo.gl/exemplo-studio-marina",
       whatsapp: "48991234567",

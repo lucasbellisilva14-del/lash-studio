@@ -2,12 +2,21 @@
 
 import { useEffect } from "react";
 
-/** Registra o service worker (PWA instalável). */
+/**
+ * Registra o service worker (PWA instalável) — só em produção.
+ * Em dev, desregistra qualquer SW antigo para nunca servir estáticos velhos.
+ */
 export function PwaRegister() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => {
-        // dev sem HTTPS/support — segue sem PWA
+        // sem HTTPS/suporte — segue sem PWA
+      });
+    } else {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) void reg.unregister();
       });
     }
   }, []);
