@@ -8,7 +8,6 @@ import {
   IconChart,
   IconChevronRight,
   IconLogout,
-  IconMoney,
   IconScissors,
   IconSettings,
   IconTrophy,
@@ -19,7 +18,6 @@ export const metadata = { title: "Mais" };
 const links = [
   { href: "/conquistas", label: "Conquistas", description: "Seu nível, medalhas e desafios da semana", icon: IconTrophy },
   { href: "/servicos", label: "Serviços", description: "Catálogo, preços e durações", icon: IconScissors },
-  { href: "/financeiro", label: "Financeiro", description: "Receitas, despesas e meta do mês", icon: IconMoney },
   { href: "/estoque", label: "Estoque", description: "Insumos, colas e validades", icon: IconBox },
   { href: "/relatorios", label: "Relatórios", description: "Clientes, serviços e origens", icon: IconChart },
   { href: "/config", label: "Configurações", description: "Perfil, horários e políticas", icon: IconSettings },
