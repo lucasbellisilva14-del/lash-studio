@@ -86,7 +86,12 @@ const criarSolicitacaoSchema = z.object({
   servicoId: z.string().min(1),
   dia: diaSchema,
   hora: horaSchema,
-  nome: z.string().trim().min(2, "Informe seu nome completo.").max(80),
+  nome: z
+    .string()
+    .trim()
+    .min(2, "Informe seu nome completo.")
+    .max(80)
+    .regex(/\p{L}\p{L}/u, "Informe seu nome completo."),
   whatsapp: z.string().min(8, "Informe seu WhatsApp.").max(25),
   /** Honeypot — humano nunca preenche. */
   site: z.string().optional(),
