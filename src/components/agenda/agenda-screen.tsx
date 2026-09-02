@@ -243,6 +243,7 @@ export function AgendaScreen({
         compromisso={detalhe}
         onClose={() => setDetalhe(null)}
         config={config}
+        servicos={servicos}
       />
     </div>
   );

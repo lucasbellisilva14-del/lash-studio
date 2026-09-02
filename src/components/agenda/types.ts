@@ -60,6 +60,7 @@ export type AgendaConfig = {
   minAdvanceHours: number;
   cancellationWindowHours: number;
   maintenanceLimitDays: number;
+  maintenanceNoticeDay: number;
   depositType: string;
   depositValue: number;
   noShowThreshold: number;

@@ -8,7 +8,14 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { requireProfessional } from "@/lib/session";
 import { formatBRL } from "@/lib/money";
-import { formatDateLong, formatTime, localToUtc, formatDate, localDayKey } from "@/lib/dates";
+import {
+  diffLocalDays,
+  formatDate,
+  formatDateLong,
+  formatTime,
+  localDayKey,
+  localToUtc,
+} from "@/lib/dates";
 import { buildPixPayload } from "@/lib/pix";
 import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
 import { freeSlotsForDay, validateSlot } from "@/lib/domain/scheduling";
@@ -192,7 +199,109 @@ const criarAgendamentoSchema = z.object({
   dia: diaSchema,
   hora: horaSchema,
   observacoes: z.string().trim().max(500).optional(),
+  /** Opcional: já deixa a manutenção do ciclo agendada junto com a aplicação. */
+  manutencao: z.object({ dia: diaSchema, hora: horaSchema }).optional(),
 });
+
+type ProfessionalRow = NonNullable<
+  Awaited<ReturnType<typeof prisma.professional.findFirst>>
+>;
+
+/**
+ * Cria a manutenção vinculada a uma aplicação (usada no fluxo de criação e no
+ * detalhe do agendamento). Valida a janela do ciclo, conflitos e sinal.
+ */
+async function criarManutencaoVinculada(params: {
+  professional: ProfessionalRow;
+  clientId: string;
+  clientNoShowCount: number;
+  aplicacaoServiceId: string;
+  aplicacaoStartAt: Date;
+  dia: string;
+  hora: string;
+}): Promise<{ ok: boolean; aviso: string }> {
+  const { professional, clientId, clientNoShowCount, aplicacaoServiceId, aplicacaoStartAt, dia, hora } =
+    params;
+  const tz = professional.timezone;
+
+  const manutServico = await prisma.service.findFirst({
+    where: {
+      professionalId: professional.id,
+      maintenanceOfId: aplicacaoServiceId,
+      active: true,
+    },
+  });
+  if (!manutServico) {
+    return { ok: false, aviso: "Manutenção não agendada: nenhum serviço de manutenção vinculado a essa aplicação." };
+  }
+
+  const startAt = localToUtc(dia, hora, tz);
+  const diasDepois = diffLocalDays(aplicacaoStartAt, startAt, tz);
+  if (diasDepois < 1) {
+    return { ok: false, aviso: "Manutenção não agendada: precisa ser depois da aplicação." };
+  }
+  if (diasDepois > professional.maintenanceLimitDays) {
+    return {
+      ok: false,
+      aviso: `Manutenção não agendada: ficaria ${diasDepois} dias após a aplicação — acima do prazo de ${professional.maintenanceLimitDays} dias do ciclo.`,
+    };
+  }
+
+  const endAt = new Date(startAt.getTime() + manutServico.durationMin * 60_000);
+  const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
+    getGradeAgenda(professional.id),
+    getOcupacoesDoDia(professional.id, dia, tz),
+  ]);
+  const bloqueantes = validateSlot({
+    startAt,
+    durationMin: manutServico.durationMin,
+    bufferMinutes: professional.bufferMinutes,
+    minAdvanceHours: 0,
+    timezone: tz,
+    workingHours,
+    blocks,
+    appointments: ocupacoes,
+    skipAdvanceCheck: true,
+  }).filter((v) => v.code !== "ANTECEDENCIA");
+  if (bloqueantes.length > 0) {
+    return { ok: false, aviso: `Manutenção não agendada: ${bloqueantes[0].message}` };
+  }
+
+  const sinal = computeDeposit({
+    policy: {
+      depositType: professional.depositType,
+      depositValue: professional.depositValue,
+      noShowThreshold: professional.noShowThreshold,
+    },
+    serviceRequiresDeposit: manutServico.requiresDeposit,
+    clientNoShowCount,
+    priceCents: manutServico.priceCents,
+  });
+
+  await prisma.appointment.create({
+    data: {
+      professionalId: professional.id,
+      clientId,
+      serviceId: manutServico.id,
+      startAt,
+      endAt,
+      status: sinal.required ? "PRE_AGENDADO" : "CONFIRMADO",
+      priceCents: manutServico.priceCents,
+      depositRequired: sinal.required,
+      depositCents: sinal.required ? sinal.depositCents : null,
+      source: "INTERNO",
+    },
+  });
+
+  const quando = `${formatDate(startAt, tz)} às ${hora}`;
+  const extraSinal = sinal.required
+    ? ` (sinal de ${formatBRL(sinal.depositCents)} — entra como pré-agendada)`
+    : "";
+  return {
+    ok: true,
+    aviso: `Manutenção já garantida para ${quando}, dia ${diasDepois} do ciclo${extraSinal}. 💗`,
+  };
+}
 
 export type CriarAgendamentoResult =
   | { ok: true; id: string; status: string; aviso: string | null }
@@ -206,7 +315,7 @@ export async function criarAgendamento(
   if (!parsed.success) {
     return { ok: false, erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { clienteId, servicoId, dia, hora, observacoes } = parsed.data;
+  const { clienteId, servicoId, dia, hora, observacoes, manutencao } = parsed.data;
   const tz = professional.timezone;
 
   const [client, service] = await Promise.all([
@@ -295,9 +404,90 @@ export async function criarAgendamento(
     );
   }
 
+  // Opcional: já deixa a manutenção do ciclo agendada junto.
+  if (manutencao) {
+    const r = await criarManutencaoVinculada({
+      professional,
+      clientId: client.id,
+      clientNoShowCount: client.noShowCount,
+      aplicacaoServiceId: service.id,
+      aplicacaoStartAt: startAt,
+      dia: manutencao.dia,
+      hora: manutencao.hora,
+    });
+    avisos.push(r.aviso);
+  }
+
   revalidatePath("/agenda");
   revalidatePath("/");
   return { ok: true, id: created.id, status, aviso: avisos.length ? avisos.join(" ") : null };
+}
+
+/* ------------------------------------------------------------------ */
+/* Programar manutenção a partir de uma aplicação já agendada          */
+/* ------------------------------------------------------------------ */
+
+const agendarManutencaoSchema = z.object({
+  aplicacaoId: z.string().min(1),
+  dia: diaSchema,
+  hora: horaSchema,
+});
+
+export type ManutencaoResult = { ok: true; aviso: string } | { ok: false; erro: string };
+
+export async function agendarManutencaoDe(
+  input: z.infer<typeof agendarManutencaoSchema>,
+): Promise<ManutencaoResult> {
+  const professional = await requireProfessional();
+  const parsed = agendarManutencaoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const { aplicacaoId, dia, hora } = parsed.data;
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id: aplicacaoId, professionalId: professional.id },
+    include: {
+      client: { select: { id: true, name: true, noShowCount: true } },
+      service: { select: { id: true, category: true } },
+    },
+  });
+  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+  if (appt.service.category !== "APLICACAO") {
+    return { ok: false, erro: "Só dá para programar manutenção a partir de uma aplicação." };
+  }
+
+  // Evita duplicar: cliente já tem manutenção futura marcada?
+  const jaTem = await prisma.appointment.findFirst({
+    where: {
+      professionalId: professional.id,
+      clientId: appt.client.id,
+      status: { in: ["PRE_AGENDADO", "CONFIRMADO"] },
+      startAt: { gt: new Date() },
+      service: { category: "MANUTENCAO" },
+    },
+  });
+  if (jaTem) {
+    return {
+      ok: false,
+      erro: `${appt.client.name.split(" ")[0]} já tem manutenção marcada para ${formatDate(jaTem.startAt, professional.timezone)}.`,
+    };
+  }
+
+  const r = await criarManutencaoVinculada({
+    professional,
+    clientId: appt.client.id,
+    clientNoShowCount: appt.client.noShowCount,
+    aplicacaoServiceId: appt.service.id,
+    aplicacaoStartAt: appt.startAt,
+    dia,
+    hora,
+  });
+  if (!r.ok) return { ok: false, erro: r.aviso };
+
+  revalidatePath("/agenda");
+  revalidatePath("/");
+  return { ok: true, aviso: r.aviso };
 }
 
 /* ------------------------------------------------------------------ */

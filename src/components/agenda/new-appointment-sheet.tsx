@@ -26,6 +26,15 @@ import {
 import type { AgendaCliente, AgendaConfig, AgendaServico } from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
 
+/** Soma dias a uma chave "yyyy-MM-dd" (meio-dia local evita pulo de fuso). */
+export function somarDiasKey(dayKey: string, dias: number): string {
+  const d = new Date(`${dayKey}T12:00:00`);
+  d.setDate(d.getDate() + dias);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 export function NewAppointmentSheet({
   open,
   onClose,
@@ -56,6 +65,12 @@ export function NewAppointmentSheet({
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
 
+  // Programar a manutenção do ciclo junto com a aplicação
+  const [manutAtiva, setManutAtiva] = useState(false);
+  const [diaManut, setDiaManut] = useState("");
+  const [horaManut, setHoraManut] = useState("");
+  const [slotsManut, setSlotsManut] = useState<string[] | null>(null);
+
   // Busca / cadastro rápido
   const [busca, setBusca] = useState("");
   const [extraClientes, setExtraClientes] = useState<AgendaCliente[]>([]);
@@ -80,6 +95,10 @@ export function NewAppointmentSheet({
     setSlots(null);
     setManut(null);
     setErro(null);
+    setManutAtiva(false);
+    setDiaManut("");
+    setHoraManut("");
+    setSlotsManut(null);
     setBusca("");
     setCadastroAberto(false);
     setNovoNome("");
@@ -118,6 +137,40 @@ export function NewAppointmentSheet({
       ativo = false;
     };
   }, [open, etapa, dia, servicoId, clienteId, categoriaServico]);
+
+  // Serviço de manutenção vinculado à aplicação escolhida (se houver)
+  const manutServico = useMemo(
+    () =>
+      servico?.categoria === "APLICACAO"
+        ? servicos.find((s) => s.manutencaoDeId === servico.id) ?? null
+        : null,
+    [servico, servicos],
+  );
+
+  // Horários livres para a manutenção programada
+  const manutServicoId = manutServico?.id ?? null;
+  useEffect(() => {
+    if (!open || !manutAtiva || !manutServicoId || !diaManut) return;
+    let ativo = true;
+    setSlotsManut(null);
+    horariosLivres({ dia: diaManut, servicoId: manutServicoId })
+      .then((r) => ativo && setSlotsManut(r.slots))
+      .catch(() => ativo && setSlotsManut([]));
+    return () => {
+      ativo = false;
+    };
+  }, [open, manutAtiva, diaManut, manutServicoId]);
+
+  function alternarManutencao() {
+    setManutAtiva((atual) => {
+      const proxima = !atual;
+      if (proxima) {
+        setDiaManut(somarDiasKey(dia, config.maintenanceNoticeDay));
+        setHoraManut("");
+      }
+      return proxima;
+    });
+  }
 
   const todosClientes = useMemo(() => {
     const ids = new Set(clientes.map((c) => c.id));
@@ -216,10 +269,13 @@ export function NewAppointmentSheet({
     );
     setManut(null);
     setHora("");
+    setManutAtiva(false);
+    setHoraManut("");
   }
 
   function agendar() {
     if (!cliente || !servico || !dia || !hora) return;
+    if (manutAtiva && (!diaManut || !horaManut)) return;
     setErro(null);
     startEnvio(async () => {
       const res = await criarAgendamento({
@@ -228,6 +284,10 @@ export function NewAppointmentSheet({
         dia,
         hora,
         observacoes: observacoes.trim() || undefined,
+        manutencao:
+          manutAtiva && diaManut && horaManut
+            ? { dia: diaManut, hora: horaManut }
+            : undefined,
       });
       if (!res.ok) {
         setErro(res.erro);
@@ -260,6 +320,8 @@ export function NewAppointmentSheet({
                 detalhe={`${servico.duracaoMin} min · ${formatBRL(servico.precoCents)}`}
                 onTrocar={() => {
                   setServico(null);
+                  setManutAtiva(false);
+                  setHoraManut("");
                   setEtapa(2);
                 }}
               />
@@ -530,18 +592,117 @@ export function NewAppointmentSheet({
               </p>
             ) : null}
 
+            {/* Já programar a manutenção do ciclo */}
+            {manutServico ? (
+              <div
+                className={cn(
+                  "rounded-xl border px-3.5 py-3 space-y-3",
+                  manutAtiva ? "border-accent/40 bg-accent-soft/50" : "border-line",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={alternarManutencao}
+                  className="w-full flex items-center justify-between gap-3 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">
+                      💗 Já deixar a manutenção agendada
+                    </span>
+                    <span className="block text-xs text-ink-soft mt-0.5">
+                      {manutServico.nome} · {formatBRL(manutServico.precoCents)} — sugestão:
+                      dia {config.maintenanceNoticeDay} do ciclo (prazo até{" "}
+                      {config.maintenanceLimitDays} dias)
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "shrink-0 h-6 w-10 rounded-full p-0.5 transition-colors",
+                      manutAtiva ? "bg-accent" : "bg-line",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "block h-5 w-5 rounded-full bg-white shadow transition-transform",
+                        manutAtiva && "translate-x-4",
+                      )}
+                    />
+                  </span>
+                </button>
+
+                {manutAtiva ? (
+                  <div className="space-y-3">
+                    <Field label="Data da manutenção" htmlFor="manut-dia">
+                      <Input
+                        id="manut-dia"
+                        type="date"
+                        value={diaManut}
+                        min={somarDiasKey(dia, 1)}
+                        max={somarDiasKey(dia, config.maintenanceLimitDays)}
+                        onChange={(e) => {
+                          setDiaManut(e.target.value);
+                          setHoraManut("");
+                        }}
+                      />
+                    </Field>
+                    {slotsManut === null ? (
+                      <p className="text-sm text-ink-faint">Buscando horários...</p>
+                    ) : slotsManut.length === 0 ? (
+                      <p className="text-sm text-ink-faint">
+                        Nenhum horário livre nesse dia — tente outro dentro do ciclo.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {slotsManut.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setHoraManut(s)}
+                            className={cn(
+                              "h-9 px-3.5 rounded-full border text-sm font-medium tabular-nums transition-colors",
+                              horaManut === s
+                                ? "bg-accent text-accent-ink border-accent"
+                                : "border-line text-ink-soft hover:bg-surface-sunken",
+                            )}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {horaManut ? (
+                      <p className="text-xs font-medium text-accent-strong">
+                        ✓ Manutenção: {diaManut.split("-").reverse().join("/")} às{" "}
+                        {horaManut}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-ink-faint">
+                        Escolha o horário da manutenção (ou desligue a opção).
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {erro ? (
               <p className="text-sm text-danger bg-danger-soft rounded-xl px-3.5 py-2.5">
                 {erro}
               </p>
             ) : null}
 
-            <Button size="lg" onClick={agendar} disabled={!hora || enviando}>
+            <Button
+              size="lg"
+              onClick={agendar}
+              disabled={!hora || enviando || (manutAtiva && !horaManut)}
+            >
               {enviando
                 ? "Agendando..."
-                : hora
-                  ? `Agendar ${hora} · ${formatBRL(servico.precoCents)}`
-                  : "Escolha um horário"}
+                : !hora
+                  ? "Escolha um horário"
+                  : manutAtiva && !horaManut
+                    ? "Escolha o horário da manutenção"
+                    : `Agendar ${hora} · ${formatBRL(servico.precoCents)}${manutAtiva && horaManut ? " + manutenção" : ""}`}
             </Button>
           </div>
         ) : null}

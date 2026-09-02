@@ -18,6 +18,7 @@ import {
   localDayKey,
 } from "@/lib/dates";
 import {
+  agendarManutencaoDe,
   cancelarAgendamento,
   concluirAgendamento,
   horariosLivres,
@@ -27,19 +28,22 @@ import {
   reverterStatus,
   sinalRecebido,
 } from "@/app/(app)/agenda/actions";
-import type { AgendaCompromisso, AgendaConfig, EsperaChamada } from "./types";
+import type { AgendaCompromisso, AgendaConfig, AgendaServico, EsperaChamada } from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
+import { somarDiasKey } from "./new-appointment-sheet";
 
-type Modo = "detalhe" | "cancelar" | "falta" | "reagendar" | "espera";
+type Modo = "detalhe" | "cancelar" | "falta" | "reagendar" | "espera" | "manutencao";
 
 export function AppointmentDetailSheet({
   compromisso,
   onClose,
   config,
+  servicos,
 }: {
   compromisso: AgendaCompromisso | null;
   onClose: () => void;
   config: AgendaConfig;
+  servicos: AgendaServico[];
 }) {
   const tz = config.timezone;
   const [modo, setModo] = useState<Modo>("detalhe");
@@ -53,6 +57,12 @@ export function AppointmentDetailSheet({
   const [novoDia, setNovoDia] = useState("");
   const [novaHora, setNovaHora] = useState("");
   const [slots, setSlots] = useState<string[] | null>(null);
+
+  // Programar manutenção (a partir de uma aplicação)
+  const [diaManut, setDiaManut] = useState("");
+  const [horaManut, setHoraManut] = useState("");
+  const [slotsManut, setSlotsManut] = useState<string[] | null>(null);
+  const [avisoManut, setAvisoManut] = useState<string | null>(null);
 
   const id = compromisso?.id ?? null;
   const aberto = compromisso !== null;
@@ -79,6 +89,25 @@ export function AppointmentDetailSheet({
       ativo = false;
     };
   }, [modo, id, servicoId, novoDia]);
+
+  // Manutenção vinculada disponível para esta aplicação?
+  const manutServico =
+    compromisso && compromisso.servico.categoria === "APLICACAO"
+      ? servicos.find((s) => s.manutencaoDeId === compromisso.servico.id) ?? null
+      : null;
+
+  const manutServicoId = manutServico?.id ?? null;
+  useEffect(() => {
+    if (modo !== "manutencao" || !manutServicoId || !diaManut) return;
+    let ativo = true;
+    setSlotsManut(null);
+    horariosLivres({ dia: diaManut, servicoId: manutServicoId })
+      .then((r) => ativo && setSlotsManut(r.slots))
+      .catch(() => ativo && setSlotsManut([]));
+    return () => {
+      ativo = false;
+    };
+  }, [modo, manutServicoId, diaManut]);
 
   if (!compromisso) return null;
 
@@ -112,6 +141,29 @@ export function AppointmentDetailSheet({
     rodarAcao(async () => {
       const res = await reverterStatus(c.id);
       if (res.ok) onClose();
+      return res;
+    });
+  }
+
+  function abrirManutencao() {
+    const diaAplic = localDayKey(inicio, tz);
+    setDiaManut(somarDiasKey(diaAplic, config.maintenanceNoticeDay));
+    setHoraManut("");
+    setAvisoManut(null);
+    setErro(null);
+    setModo("manutencao");
+  }
+
+  function confirmarManutencao() {
+    if (!horaManut) return;
+    rodarAcao(async () => {
+      const res = await agendarManutencaoDe({
+        aplicacaoId: c.id,
+        dia: diaManut,
+        hora: horaManut,
+      });
+      if (!res.ok) return res;
+      setAvisoManut(res.aviso);
       return res;
     });
   }
@@ -178,8 +230,14 @@ export function AppointmentDetailSheet({
     <Sheet
       open
       onClose={onClose}
-      title={modo === "espera" ? "Lista de espera" : "Agendamento"}
-      tall={modo === "reagendar"}
+      title={
+        modo === "espera"
+          ? "Lista de espera"
+          : modo === "manutencao"
+            ? "Programar manutenção"
+            : "Agendamento"
+      }
+      tall={modo === "reagendar" || modo === "manutencao"}
     >
       {modo === "espera" ? (
         <div className="space-y-3 pt-1">
@@ -356,6 +414,16 @@ export function AppointmentDetailSheet({
                   Abrir ficha técnica
                 </Link>
               ) : null}
+              {manutServico && (ativo || c.status === "CONCLUIDO") ? (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={abrirManutencao}
+                  disabled={pendente}
+                >
+                  💗 Programar manutenção
+                </Button>
+              ) : null}
               {c.status === "FALTOU" ? (
                 <>
                   <p className="text-sm text-ink-soft text-center">
@@ -418,6 +486,86 @@ export function AppointmentDetailSheet({
               <Button size="lg" variant="ghost" onClick={() => setModo("detalhe")}>
                 Voltar
               </Button>
+            </div>
+          ) : null}
+
+          {/* Programar manutenção do ciclo */}
+          {modo === "manutencao" && manutServico ? (
+            <div className="space-y-4">
+              {avisoManut ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-success bg-success-soft rounded-xl px-3.5 py-3">
+                    {avisoManut}
+                  </p>
+                  <Button size="lg" onClick={onClose}>
+                    Pronto
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-ink-soft bg-accent-soft/60 rounded-xl px-3.5 py-3">
+                    {manutServico.nome} · {formatBRL(manutServico.precoCents)} — sugestão:
+                    dia {config.maintenanceNoticeDay} do ciclo (prazo de até{" "}
+                    {config.maintenanceLimitDays} dias após a aplicação).
+                  </p>
+                  <Field label="Data da manutenção" htmlFor="manut-dia">
+                    <Input
+                      id="manut-dia"
+                      type="date"
+                      value={diaManut}
+                      min={somarDiasKey(localDayKey(inicio, tz), 1)}
+                      max={somarDiasKey(localDayKey(inicio, tz), config.maintenanceLimitDays)}
+                      onChange={(e) => {
+                        setDiaManut(e.target.value);
+                        setHoraManut("");
+                      }}
+                    />
+                  </Field>
+                  <div>
+                    <p className="text-[13px] font-medium text-ink-soft mb-1.5">
+                      Horários livres
+                    </p>
+                    {slotsManut === null ? (
+                      <p className="text-sm text-ink-faint py-2">Buscando horários...</p>
+                    ) : slotsManut.length === 0 ? (
+                      <p className="text-sm text-ink-faint py-2">
+                        Nenhum horário livre nesse dia — tente outro dentro do ciclo.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {slotsManut.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setHoraManut(s)}
+                            className={cn(
+                              "h-9 px-3.5 rounded-full border text-sm font-medium tabular-nums transition-colors",
+                              horaManut === s
+                                ? "bg-accent text-accent-ink border-accent"
+                                : "border-line text-ink-soft hover:bg-surface-sunken",
+                            )}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="lg"
+                    onClick={confirmarManutencao}
+                    disabled={!horaManut || pendente}
+                  >
+                    {pendente
+                      ? "Agendando..."
+                      : horaManut
+                        ? `Agendar manutenção — ${horaManut}`
+                        : "Escolha um horário"}
+                  </Button>
+                  <Button size="lg" variant="ghost" onClick={() => setModo("detalhe")}>
+                    Voltar
+                  </Button>
+                </>
+              )}
             </div>
           ) : null}
 

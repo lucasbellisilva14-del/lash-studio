@@ -126,6 +126,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
     minAdvanceHours: professional.minAdvanceHours,
     cancellationWindowHours: professional.cancellationWindowHours,
     maintenanceLimitDays: professional.maintenanceLimitDays,
+    maintenanceNoticeDay: professional.maintenanceNoticeDay,
     depositType: professional.depositType,
     depositValue: professional.depositValue,
     noShowThreshold: professional.noShowThreshold,
