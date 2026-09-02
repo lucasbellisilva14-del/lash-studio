@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Agenda, clientes, ficha técnica, WhatsApp e financeiro — tudo no seu celular.",
     start_url: "/",
     display: "standalone",
-    background_color: "#fdf4f6",
-    theme_color: "#fdf4f6",
+    background_color: "#ffd0e3",
+    theme_color: "#ffd0e3",
     orientation: "portrait",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

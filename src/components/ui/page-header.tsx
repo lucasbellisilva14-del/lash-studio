@@ -27,7 +27,7 @@ export function PageHeader({
           </Link>
         ) : null}
         <div className="min-w-0">
-          <h1 className="font-display text-[26px] leading-8 font-semibold text-ink truncate">
+          <h1 className="font-display text-[26px] leading-8 font-semibold text-accent-gradient truncate pb-0.5">
             {title}
           </h1>
           {subtitle ? <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p> : null}

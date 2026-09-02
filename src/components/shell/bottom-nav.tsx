@@ -27,9 +27,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur border-t border-line pb-safe"
+      className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] inset-x-3 z-40"
     >
-      <div className="mx-auto max-w-lg grid grid-cols-6">
+      <div className="mx-auto max-w-lg rounded-[26px] bg-surface/90 backdrop-blur-xl border border-white/70 shadow-[var(--shadow-pop)] grid grid-cols-6 p-1.5">
         {items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -39,8 +39,10 @@ export function BottomNav() {
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-w-0",
-                active ? "text-accent" : "text-ink-faint hover:text-ink-soft",
+                "flex flex-col items-center gap-0.5 py-2 rounded-2xl text-[10px] font-medium transition-colors min-w-0",
+                active
+                  ? "bg-accent-soft text-accent-strong"
+                  : "text-ink-faint hover:text-ink-soft",
               )}
             >
               <Icon width={21} height={21} strokeWidth={active ? 2.1 : 1.75} />

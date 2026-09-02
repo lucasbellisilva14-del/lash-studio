@@ -18,8 +18,8 @@ export function Greeting({
     <header className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-[13px] text-ink-soft">{dateLabel}</p>
-        <h1 className="font-display text-[26px] leading-8 font-semibold text-ink mt-0.5 truncate">
-          {greeting}, {firstName}
+        <h1 className="font-display text-[27px] leading-8 font-semibold text-accent-gradient mt-0.5 truncate pb-0.5">
+          {greeting}, {firstName} ✨
         </h1>
         <p className="text-[13px] text-ink-faint mt-1 truncate">{studioName}</p>
       </div>

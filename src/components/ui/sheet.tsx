@@ -39,14 +39,14 @@ export function Sheet({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
       <button
         aria-label="Fechar"
-        className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-ink/35 backdrop-blur-[3px]"
         onClick={onClose}
       />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full sm:max-w-lg bg-surface rounded-t-3xl sm:rounded-3xl shadow-xl",
+          "relative w-full sm:max-w-lg bg-surface rounded-t-[30px] sm:rounded-[30px] shadow-2xl",
           "flex flex-col overflow-hidden pb-safe",
           tall ? "max-h-[92dvh] h-[92dvh] sm:h-auto sm:max-h-[85dvh]" : "max-h-[85dvh]",
         )}

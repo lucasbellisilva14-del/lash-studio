@@ -67,7 +67,7 @@ export function InstallPrompt() {
   if (!deferred && !showIosHint) return null;
 
   return (
-    <div className="fixed z-30 inset-x-4 bottom-[calc(76px+env(safe-area-inset-bottom))] mx-auto max-w-lg">
+    <div className="fixed z-30 inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] mx-auto max-w-lg">
       <div className="flex items-center gap-3 rounded-2xl bg-accent text-accent-ink shadow-lg px-4 py-3">
         <div className="grow min-w-0">
           <p className="text-sm font-medium">Instale o LashOS no seu celular</p>
