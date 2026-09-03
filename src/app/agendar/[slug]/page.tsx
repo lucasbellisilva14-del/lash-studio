@@ -73,8 +73,11 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
 
   return (
     <div
-      className="accent-scope min-h-dvh bg-background"
-      style={{ ["--accent" as string]: estudio.accentColor }}
+      className="accent-scope app-bg min-h-dvh"
+      style={{
+        ["--accent" as string]: estudio.accentColor,
+        ["--bg" as string]: estudio.backgroundColor,
+      }}
     >
       <div className="h-1.5 w-full bg-accent" aria-hidden />
       <main className="mx-auto w-full max-w-lg px-4 pb-12 pt-8">

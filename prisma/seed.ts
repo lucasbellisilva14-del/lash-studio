@@ -2,7 +2,7 @@
  * Seed de demonstração: 1 profissional, 6 serviços, 5 clientes com históricos
  * variados — toda tela já nasce demonstrável.
  *
- * Login: demo@lashos.com.br / lashos123
+ * Login: kay@kaycilios.com.br / kaycilios123
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -34,17 +34,19 @@ async function main() {
   console.log("🌱 Criando profissional...");
   const professional = await prisma.professional.create({
     data: {
-      email: "demo@lashos.com.br",
-      passwordHash: bcrypt.hashSync("lashos123", 10),
-      name: "Marina Duarte",
-      studioName: "Studio Marina Lash",
-      slug: "studio-marina-lash",
-      accentColor: "#D6336C",
-      addressLine: "Rua das Gaivotas, 120 — Ingleses, Florianópolis/SC",
-      mapsUrl: "https://maps.app.goo.gl/exemplo-studio-marina",
-      whatsapp: "48991234567",
-      instagram: "@studiomarinalash",
-      pixKey: "48991234567",
+      email: "kay@kaycilios.com.br",
+      passwordHash: bcrypt.hashSync("kaycilios123", 10),
+      name: "Kay Camargo",
+      studioName: "Kay Cílios",
+      slug: "kay-cilios",
+      // Identidade Kay Camargo Studio Beauty: dourado champagne da logo
+      accentColor: "#8B6C31",
+      backgroundColor: "#F6EBDD",
+      addressLine: "R. Campolino Alves, 300 — Capoeiras, Florianópolis/SC",
+      mapsUrl: "https://maps.google.com/?q=R.+Campolino+Alves,+300+Capoeiras+Florianopolis",
+      whatsapp: "48998371479",
+      instagram: "kaycilios_sobrancelhas",
+      pixKey: "48998371479",
       onboardingDone: true,
       workingHours: {
         create: [
@@ -107,37 +109,37 @@ async function main() {
     {
       kind: "LEMBRETE_24H",
       name: "Lembrete 24h antes",
-      body: "Oi, {{nome}}! Passando para lembrar do seu horário amanhã 💚\n\n📅 {{data}} às {{hora}}\n✨ {{servico}}\n📍 {{endereco}}\n\nDica: venha sem maquiagem nos olhos e evite cafeína antes. Até amanhã!",
+      body: "Oi, {{nome}}! Passando para lembrar do seu horário amanhã 💗\n\n📅 {{data}} às {{hora}}\n✨ {{servico}}\n📍 {{endereco}}\n\nDica: venha sem maquiagem nos olhos e evite cafeína antes. Até amanhã!",
     },
     {
       kind: "POS_APLICACAO",
       name: "Cuidados pós-aplicação",
-      body: "Oi, {{nome}}! Obrigada pela visita de hoje 💚 Seus cílios ficaram lindos!\n\nCuidados para durar mais:\n💧 Não molhar por 24h\n🚿 Evitar vapor quente e sauna nos primeiros dias\n🙅‍♀️ Nada de rímel à prova d'água\n🧴 Não usar demaquilante oleoso\n🪮 Escovar diariamente com a escovinha\n😴 Dormir de barriga para cima ajuda muito\n\nQualquer coisa, me chama!",
+      body: "Oi, {{nome}}! Obrigada pela visita de hoje 💗 Seus cílios ficaram lindos!\n\nCuidados para durar mais:\n💧 Não molhar por 24h\n🚿 Evitar vapor quente e sauna nos primeiros dias\n🙅‍♀️ Nada de rímel à prova d'água\n🧴 Não usar demaquilante oleoso\n🪮 Escovar diariamente com a escovinha\n😴 Dormir de barriga para cima ajuda muito\n\nQualquer coisa, me chama!",
     },
     {
       kind: "MANUTENCAO",
       name: "Aviso de manutenção",
-      body: "Oi, {{nome}}! 💚 Seus cílios já estão pedindo manutenção — estamos chegando no limite do ciclo.\n\nQuer garantir seu horário essa semana? Me diz o melhor dia que eu encaixo você. Depois do prazo, precisa ser aplicação nova, então vale aproveitar!",
+      body: "Oi, {{nome}}! 💗 Seus cílios já estão pedindo manutenção — estamos chegando no limite do ciclo.\n\nQuer garantir seu horário essa semana? Me diz o melhor dia que eu encaixo você. Depois do prazo, precisa ser aplicação nova, então vale aproveitar!",
     },
     {
       kind: "ANIVERSARIO",
       name: "Feliz aniversário",
-      body: "{{nome}}, parabéns! 🎉💚\n\nO {{nome_estudio}} deseja um dia incrível para você! E tem presente: 10% de desconto em qualquer serviço este mês. É só agendar e mencionar essa mensagem. Beijos!",
+      body: "{{nome}}, parabéns! 🎉💗\n\nO {{nome_estudio}} deseja um dia incrível para você! E tem presente: 10% de desconto em qualquer serviço este mês. É só agendar e mencionar essa mensagem. Beijos!",
     },
     {
       kind: "RESGATE_45",
       name: "Resgate — 45 dias",
-      body: "Oi, {{nome}}! Sentimos sua falta por aqui 💚 Já faz um tempinho desde seu último atendimento.\n\nQue tal renovar o olhar? Me conta qual dia fica bom que eu encontro um horário especial para você!",
+      body: "Oi, {{nome}}! Sentimos sua falta por aqui 💗 Já faz um tempinho desde seu último atendimento.\n\nQue tal renovar o olhar? Me conta qual dia fica bom que eu encontro um horário especial para você!",
     },
     {
       kind: "RESGATE_60",
       name: "Resgate — 60 dias",
-      body: "Oi, {{nome}}! Tudo bem? 💚 Faz 2 meses que você não aparece no {{nome_estudio}} e a gente sente falta!\n\nPreparei uma condição especial para o seu retorno. Me chama que te conto!",
+      body: "Oi, {{nome}}! Tudo bem? 💗 Faz 2 meses que você não aparece no {{nome_estudio}} e a gente sente falta!\n\nPreparei uma condição especial para o seu retorno. Me chama que te conto!",
     },
     {
       kind: "RESGATE_90",
       name: "Resgate — 90 dias",
-      body: "Oi, {{nome}}! 💚 Já faz 3 meses… seu olhar merece esse carinho de novo!\n\nPara facilitar seu retorno: 15% de desconto em qualquer aplicação este mês. Vamos agendar?",
+      body: "Oi, {{nome}}! 💗 Já faz 3 meses… seu olhar merece esse carinho de novo!\n\nPara facilitar seu retorno: 15% de desconto em qualquer aplicação este mês. Vamos agendar?",
     },
   ];
   const templateByKind = new Map<string, string>();
@@ -440,8 +442,8 @@ async function main() {
   });
 
   console.log("✅ Seed concluído!");
-  console.log("   Login: demo@lashos.com.br");
-  console.log("   Senha: lashos123");
+  console.log("   Login: kay@kaycilios.com.br");
+  console.log("   Senha: kaycilios123");
 }
 
 main()

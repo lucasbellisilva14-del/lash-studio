@@ -23,11 +23,24 @@ const PALETTE = [
   { hex: "#44403C", nome: "Grafite" },
 ] as const;
 
+/** Tons claros para o plano de fundo (o gradiente é derivado deles). */
+const BG_PALETTE = [
+  { hex: "#FFD9E9", nome: "Rosa vivo" },
+  { hex: "#FFEDF4", nome: "Rosa claro" },
+  { hex: "#F6EBDD", nome: "Champagne" },
+  { hex: "#F3E8FA", nome: "Lavanda" },
+  { hex: "#E4F0FA", nome: "Céu" },
+  { hex: "#E7F4EC", nome: "Menta" },
+  { hex: "#FBEFE6", nome: "Pêssego" },
+  { hex: "#F7F6F3", nome: "Neutro" },
+] as const;
+
 export type PerfilDefaults = {
   name: string;
   studioName: string;
   logoUrl: string | null;
   accentColor: string;
+  backgroundColor: string;
   addressLine: string;
   mapsUrl: string;
   whatsapp: string;
@@ -42,6 +55,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
   );
 
   const [accent, setAccent] = useState(defaults.accentColor);
+  const [bg, setBg] = useState(defaults.backgroundColor);
   const [logoPreview, setLogoPreview] = useState<string | null>(defaults.logoUrl);
   const objectUrlRef = useRef<string | null>(null);
 
@@ -62,11 +76,16 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
   const isCustom = !PALETTE.some(
     (p) => p.hex.toLowerCase() === accent.toLowerCase(),
   );
+  const isCustomBg = !BG_PALETTE.some(
+    (p) => p.hex.toLowerCase() === bg.toLowerCase(),
+  );
 
   const previewVars = {
     "--accent": accent,
     "--accent-soft": `color-mix(in srgb, ${accent} 10%, white)`,
     "--accent-strong": `color-mix(in srgb, ${accent} 85%, black)`,
+    "--bg": bg,
+    "--background": bg,
   } as CSSProperties;
 
   const errors = state.fieldErrors ?? {};
@@ -208,6 +227,76 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
             </span>
           </label>
           <FieldError message={errors.accentColor} />
+
+          <div className="pt-1">
+            <h3 className="text-sm font-semibold text-ink">Cor do fundo</h3>
+            <p className="text-[13px] text-ink-soft mt-0.5 mb-3">
+              O plano de fundo do app inteiro (o degradê nasce dela).
+            </p>
+
+            <input type="hidden" name="backgroundColor" value={bg} />
+
+            <div className="grid grid-cols-4 gap-3">
+              {BG_PALETTE.map((tone) => {
+                const selected = tone.hex.toLowerCase() === bg.toLowerCase();
+                return (
+                  <button
+                    key={tone.hex}
+                    type="button"
+                    onClick={() => setBg(tone.hex)}
+                    aria-label={`Fundo ${tone.nome}`}
+                    aria-pressed={selected}
+                    className="flex flex-col items-center gap-1.5"
+                  >
+                    <span
+                      className={cn(
+                        "h-11 w-11 rounded-full flex items-center justify-center text-ink border border-line transition-all",
+                        selected
+                          ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface"
+                          : "hover:scale-105",
+                      )}
+                      style={{ backgroundColor: tone.hex }}
+                    >
+                      {selected ? <IconCheck width={16} height={16} /> : null}
+                    </span>
+                    <span className="text-[11px] text-ink-soft">{tone.nome}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <label className="flex items-center gap-3 cursor-pointer mt-3">
+              <span
+                className={cn(
+                  "relative h-11 w-11 rounded-full overflow-hidden border border-line transition-all",
+                  isCustomBg ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface" : "",
+                )}
+                style={{
+                  background: isCustomBg
+                    ? bg
+                    : "conic-gradient(#ffd9e9, #f6ebdd, #f3e8fa, #e4f0fa, #e7f4ec, #ffd9e9)",
+                }}
+              >
+                <input
+                  type="color"
+                  value={bg}
+                  onChange={(e) => setBg(e.target.value)}
+                  aria-label="Fundo personalizado"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                {isCustomBg ? (
+                  <span className="absolute inset-0 flex items-center justify-center text-ink pointer-events-none">
+                    <IconCheck width={16} height={16} />
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-sm text-ink-soft">
+                Fundo personalizado
+                <span className="block text-xs text-ink-faint uppercase">{bg}</span>
+              </span>
+            </label>
+            <FieldError message={errors.backgroundColor} />
+          </div>
 
           <div
             style={previewVars}

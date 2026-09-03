@@ -21,6 +21,7 @@ export default async function PerfilPage() {
           studioName: p.studioName,
           logoUrl: p.logoUrl,
           accentColor: p.accentColor,
+          backgroundColor: p.backgroundColor,
           addressLine: p.addressLine ?? "",
           mapsUrl: p.mapsUrl ?? "",
           whatsapp: p.whatsapp ? formatPhone(p.whatsapp) : "",

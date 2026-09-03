@@ -24,9 +24,9 @@ npm run dev              # http://localhost:3000
 
 > O arquivo `.env` já vem pronto para dev (copie de `.env.example` se não existir).
 
-**Login de demonstração:** `demo@lashos.com.br` / `lashos123`
+**Login de demonstração:** `kay@kaycilios.com.br` / `kaycilios123`
 
-O seed cria a profissional Marina (Studio Marina Lash), 6 serviços com preços de mercado, 8 templates de WhatsApp e 5 clientes com históricos pensados para demonstrar cada regra:
+O seed cria a profissional Kay Camargo (Kay Cílios — baseada no perfil real @kaycilios_sobrancelhas, com tema champagne + dourado), 6 serviços com preços de mercado, 8 templates de WhatsApp e 5 clientes com históricos pensados para demonstrar cada regra:
 
 | Cliente | Situação |
 | --- | --- |

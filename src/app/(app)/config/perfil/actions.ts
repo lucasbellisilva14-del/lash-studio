@@ -26,6 +26,10 @@ const schema = z.object({
     .string()
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida — escolha uma da paleta."),
+  backgroundColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Cor de fundo inválida — escolha uma da paleta."),
   addressLine: z.string().trim().max(180, "Endereço muito longo."),
   mapsUrl: z
     .string()
@@ -56,6 +60,7 @@ export async function salvarPerfilAction(
     name: String(formData.get("name") ?? ""),
     studioName: String(formData.get("studioName") ?? ""),
     accentColor: String(formData.get("accentColor") ?? ""),
+    backgroundColor: String(formData.get("backgroundColor") ?? ""),
     addressLine: String(formData.get("addressLine") ?? ""),
     mapsUrl: String(formData.get("mapsUrl") ?? ""),
     whatsapp: String(formData.get("whatsapp") ?? ""),
@@ -111,6 +116,7 @@ export async function salvarPerfilAction(
         name: v.name,
         studioName: v.studioName,
         accentColor: v.accentColor.toUpperCase(),
+        backgroundColor: v.backgroundColor.toUpperCase(),
         addressLine: v.addressLine || null,
         mapsUrl: v.mapsUrl || null,
         whatsapp: v.whatsapp ? normalizePhone(v.whatsapp) : null,

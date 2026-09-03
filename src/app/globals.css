@@ -49,11 +49,19 @@
  * no elemento onde são declaradas, então o escopo que recebe --accent inline
  * (layout autenticado) precisa recalcular as derivações localmente.
  */
+:root {
+  --bg: #ffd9e9; /* base do fundo — personalizável por profissional */
+}
+
 :root,
 .accent-scope {
   --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
   --accent-strong: color-mix(in srgb, var(--accent) 85%, black);
-  --accent-glow: color-mix(in srgb, var(--accent) 55%, #ffb3cd);
+  --accent-glow: color-mix(in srgb, var(--accent) 50%, #fff5f8);
+  /* Tons neutros derivados da cor de fundo escolhida */
+  --background: var(--bg);
+  --surface-sunken: color-mix(in srgb, var(--bg) 50%, white);
+  --line: color-mix(in srgb, var(--bg) 80%, white);
   /* Sombras com o tom do acento — cards e botões "flutuam" em rosa */
   --shadow-card:
     0 1px 2px color-mix(in srgb, var(--accent) 8%, transparent),
@@ -106,13 +114,26 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  /* Fundo rosa vivo com profundidade: brilho no topo + gradiente suave */
+/*
+ * Fundo com profundidade derivado da cor escolhida (--bg): tom levemente
+ * puxado para o acento no topo, clareado no meio, base embaixo.
+ * Aplicado no body (padrão) e em .app-bg (escopos com --bg da profissional).
+ */
+body,
+.app-bg {
   background:
     radial-gradient(120% 55% at 80% -12%, rgba(255, 255, 255, 0.6), transparent 60%),
-    linear-gradient(165deg, #ffd0e3 0%, #ffe5f0 45%, #ffd6e7 100%);
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--bg) 90%, var(--accent) 10%) 0%,
+      color-mix(in srgb, var(--bg) 55%, white) 45%,
+      var(--bg) 100%
+    );
   background-attachment: fixed;
   background-color: var(--background);
+}
+
+body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01";
