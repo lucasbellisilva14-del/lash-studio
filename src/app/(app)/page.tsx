@@ -300,40 +300,47 @@ export default async function HomePage() {
 
       <GamificationHomeCard game={game} />
 
-      <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
-        <TodayAgenda
-          items={agendaItems}
-          nextId={next?.id ?? null}
-          nextLabel={nextLabel}
-          tz={tz}
-          agendaHref={agendaHref}
-        />
-      </HomeSection>
+      {/* Desktop: duas colunas p/ preencher bem a tela; celular: fluxo único */}
+      <div className="space-y-7 xl:space-y-0 xl:grid xl:grid-cols-2 xl:items-start xl:gap-7">
+        <div className="space-y-7">
+          <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
+            <TodayAgenda
+              items={agendaItems}
+              nextId={next?.id ?? null}
+              nextLabel={nextLabel}
+              tz={tz}
+              agendaHref={agendaHref}
+            />
+          </HomeSection>
 
-      <HomeSection title="Fila de mensagens">
-        <MessageQueueCard
-          total={queue.length}
-          items={queue.slice(0, 3).map((item) => ({
-            key: item.key,
-            clientName: item.client.name,
-            kindLabel: item.kindLabel,
-          }))}
-        />
-      </HomeSection>
+          <HomeSection title={`Resumo de ${monthLabel}`}>
+            <MonthSummary
+              netCents={netCents}
+              doneCount={monthDoneCount}
+              goal={goal ? { targetCents: goal.revenueTargetCents } : null}
+            />
+          </HomeSection>
+        </div>
 
-      {alerts.length > 0 ? (
-        <HomeSection title="Precisa de atenção">
-          <AlertsCard alerts={alerts} />
-        </HomeSection>
-      ) : null}
+        <div className="space-y-7">
+          <HomeSection title="Fila de mensagens">
+            <MessageQueueCard
+              total={queue.length}
+              items={queue.slice(0, 3).map((item) => ({
+                key: item.key,
+                clientName: item.client.name,
+                kindLabel: item.kindLabel,
+              }))}
+            />
+          </HomeSection>
 
-      <HomeSection title={`Resumo de ${monthLabel}`}>
-        <MonthSummary
-          netCents={netCents}
-          doneCount={monthDoneCount}
-          goal={goal ? { targetCents: goal.revenueTargetCents } : null}
-        />
-      </HomeSection>
+          {alerts.length > 0 ? (
+            <HomeSection title="Precisa de atenção">
+              <AlertsCard alerts={alerts} />
+            </HomeSection>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

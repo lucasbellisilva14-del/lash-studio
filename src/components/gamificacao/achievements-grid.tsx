@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 /** Grade de conquistas: desbloqueadas em cor, bloqueadas suaves com progresso. */
 export function AchievementsGrid({ achievements }: { achievements: Achievement[] }) {
   return (
-    <div className="grid grid-cols-3 gap-2.5">
+    <div className="grid grid-cols-3 lg:grid-cols-5 gap-2.5">
       {achievements.map((a) => (
         <div
           key={a.key}

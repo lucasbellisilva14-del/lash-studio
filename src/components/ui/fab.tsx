@@ -12,7 +12,7 @@ export function Fab({
     <button
       aria-label={label ?? "Adicionar"}
       className={cn(
-        "fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4",
+        "fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 lg:bottom-8 lg:right-8",
         "h-14 rounded-full bg-accent-gradient text-accent-ink shadow-[var(--shadow-pop)]",
         "flex items-center justify-center gap-2 px-4 active:scale-95 transition-transform",
         className,
