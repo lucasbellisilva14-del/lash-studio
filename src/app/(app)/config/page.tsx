@@ -5,7 +5,7 @@ import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { IconBell, IconChevronRight, IconClock } from "@/components/ui/icons";
+import { IconBell, IconChevronRight, IconClock, IconLock } from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
 export const metadata = { title: "Configurações" };
@@ -64,6 +64,12 @@ export default async function ConfigPage() {
           ? `${feeCount} ${feeCount === 1 ? "forma configurada" : "formas configuradas"}`
           : "Configure a taxa de cada forma de pagamento",
       icon: IconPercent,
+    },
+    {
+      href: "/config/senha",
+      label: "Senha de acesso",
+      description: "Troque a senha do seu login",
+      icon: IconLock,
     },
     {
       href: "/config/notificacoes",

@@ -100,6 +100,9 @@ export const IconLogout = (p: SVGProps<SVGSVGElement>) => (
 export const IconBell = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" /><path d="M10 19.5a2 2 0 0 0 4 0" /></svg>
 );
+export const IconLock = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="5" y="10.5" width="14" height="9.5" rx="2.5" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /><circle cx="12" cy="15.2" r="1.1" fill="currentColor" stroke="none" /></svg>
+);
 export const IconTrophy = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" /><path d="M8 5H4.5v1.5A3.5 3.5 0 0 0 8 10M16 5h3.5v1.5A3.5 3.5 0 0 1 16 10" /><path d="M12 13v3.5M8.5 20h7M10 20a2 2 0 0 1 2-3.5A2 2 0 0 1 14 20" /></svg>
 );

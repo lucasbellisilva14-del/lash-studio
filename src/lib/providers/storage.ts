@@ -76,10 +76,66 @@ export class LocalStorageProvider implements StorageProvider {
   }
 }
 
+/**
+ * Produção (Vercel + Supabase): arquivos no Supabase Storage via API REST,
+ * autenticados com a service key (bucket privado — o acesso público continua
+ * passando pelas rotas autenticadas do app).
+ */
+export class SupabaseStorageProvider implements StorageProvider {
+  readonly name = "supabase";
+  private readonly baseUrl: string;
+  private readonly serviceKey: string;
+  private readonly bucket: string;
+
+  constructor() {
+    this.baseUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+    this.serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+    this.bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "uploads";
+  }
+
+  private objectUrl(key: string): string {
+    return `${this.baseUrl}/storage/v1/object/${this.bucket}/${safeKey(key)}`;
+  }
+
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    return { Authorization: `Bearer ${this.serviceKey}`, ...extra };
+  }
+
+  async put(key: string, data: Buffer, contentType: string): Promise<void> {
+    const res = await fetch(this.objectUrl(key), {
+      method: "POST",
+      headers: this.headers({ "Content-Type": contentType, "x-upsert": "true" }),
+      body: new Uint8Array(data),
+    });
+    if (!res.ok) {
+      throw new Error(`Supabase Storage: upload falhou (${res.status} ${await res.text()})`);
+    }
+  }
+
+  async get(key: string): Promise<StoredFile | null> {
+    const res = await fetch(this.objectUrl(key), { headers: this.headers() });
+    if (!res.ok) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    return {
+      data,
+      contentType: res.headers.get("content-type") ?? "application/octet-stream",
+    };
+  }
+
+  async delete(key: string): Promise<void> {
+    await fetch(this.objectUrl(key), { method: "DELETE", headers: this.headers() });
+  }
+}
+
 let provider: StorageProvider | null = null;
 
 export function getStorageProvider(): StorageProvider {
-  if (!provider) provider = new LocalStorageProvider();
+  if (!provider) {
+    provider =
+      process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? new SupabaseStorageProvider()
+        : new LocalStorageProvider();
+  }
   return provider;
 }
 
