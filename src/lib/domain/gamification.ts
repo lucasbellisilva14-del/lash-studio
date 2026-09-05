@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { LASH_CYCLE_CATEGORIES } from "@/lib/constants";
 import { dayKeyToUtcStart, diffLocalDays, localDayKey } from "@/lib/dates";
-import { buildMessageQueue } from "@/lib/domain/queue";
+import { getMessageQueueCached } from "@/lib/domain/queue";
 import { addHours } from "date-fns";
 
 export type LevelInfo = {
@@ -173,7 +173,7 @@ export async function getGamification(
         startAt: { gte: now, lte: addHours(now, 48) },
       },
     }),
-    buildMessageQueue(professionalId, now),
+    getMessageQueueCached(professionalId),
   ]);
 
   // Metas batidas: receita líquida do mês ≥ alvo da meta

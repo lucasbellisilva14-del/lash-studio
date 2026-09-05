@@ -7,7 +7,7 @@ import "server-only";
 import Link from "next/link";
 import type { Professional } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { buildMessageQueue } from "@/lib/domain/queue";
+import { getMessageQueueCached } from "@/lib/domain/queue";
 import {
   dayKeyToUtcStart,
   formatTime,
@@ -72,7 +72,7 @@ async function DesktopRailInner({ professional }: { professional: Professional }
         service: { select: { name: true } },
       },
     }),
-    buildMessageQueue(professionalId, now),
+    getMessageQueueCached(professionalId),
     prisma.appointment.count({
       where: {
         professionalId,

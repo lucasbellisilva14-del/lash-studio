@@ -3,6 +3,7 @@
  * Cada item já vem com o texto renderizado e o link wa.me pronto.
  * Dedup: MessageLog (kind + appointmentId/refDate) marca o que já saiu.
  */
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { LASH_CYCLE_CATEGORIES, type TemplateKind } from "@/lib/constants";
 import { addDays } from "date-fns";
@@ -36,6 +37,15 @@ const KIND_LABELS: Record<TemplateKind, string> = {
   RESGATE_60: "Resgate 60d",
   RESGATE_90: "Resgate 90d",
 };
+
+/**
+ * Versão memoizada por request (React cache): home, gamificação e a coluna
+ * desktop compartilham UMA construção da fila — essencial no serverless com
+ * pool de 1 conexão.
+ */
+export const getMessageQueueCached = cache((professionalId: string) =>
+  buildMessageQueue(professionalId),
+);
 
 export async function buildMessageQueue(
   professionalId: string,

@@ -1,7 +1,7 @@
 import { addDays, addHours } from "date-fns";
 import { requireProfessional } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { buildMessageQueue } from "@/lib/domain/queue";
+import { getMessageQueueCached } from "@/lib/domain/queue";
 import {
   dayKeyToUtcStart,
   diffLocalDays,
@@ -79,7 +79,6 @@ async function HomeInner() {
     monthRevenue,
     monthDoneCount,
     goal,
-    game,
   ] = await Promise.all([
     // Agenda de hoje (cancelados ficam de fora)
     prisma.appointment.findMany({
@@ -99,8 +98,8 @@ async function HomeInner() {
         service: { select: { name: true } },
       },
     }),
-    // Fila de mensagens do dia
-    buildMessageQueue(professionalId, now),
+    // Fila de mensagens do dia (memoizada por request)
+    getMessageQueueCached(professionalId),
     // Sinais pendentes nas próximas 48h
     prisma.appointment.findMany({
       where: {
@@ -158,9 +157,11 @@ async function HomeInner() {
     prisma.goal.findUnique({
       where: { professionalId_month: { professionalId, month: monthKey } },
     }),
-    // Nível, medalhas e desafios
-    getGamification(professionalId, now),
   ]);
+
+  // Fora da rajada paralela: pool serverless tem poucas conexões e a
+  // gamificação reaproveita a fila memoizada acima.
+  const game = await getGamification(professionalId, now);
 
   // ── Saudação ──
   const hour = Number(formatWithPattern(now, "HH", tz));
