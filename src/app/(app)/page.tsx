@@ -38,23 +38,7 @@ function formatQty(quantity: number): string {
   return Number.isInteger(quantity) ? String(quantity) : quantity.toLocaleString("pt-BR");
 }
 
-// Diagnóstico temporário: em caso de erro, mostra a causa na tela
-// (página autenticada) em vez do digest opaco de produção.
 export default async function HomePage() {
-  try {
-    return await HomeInner();
-  } catch (e) {
-    if (e && typeof e === "object" && "digest" in e) throw e; // redirect/notFound
-    const msg = e instanceof Error ? `${e.message}\n\n${e.stack ?? ""}` : String(e);
-    return (
-      <pre className="text-xs whitespace-pre-wrap p-4 bg-danger-soft text-danger rounded-2xl overflow-auto">
-        ERRO NA HOME:{"\n"}{msg}
-      </pre>
-    );
-  }
-}
-
-async function HomeInner() {
   const professional = await requireProfessional();
   const professionalId = professional.id;
   const tz = professional.timezone;

@@ -26,19 +26,6 @@ import {
 } from "@/components/ui/icons";
 
 export async function DesktopRail({ professional }: { professional: Professional }) {
-  try {
-    return await DesktopRailInner({ professional });
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
-    return (
-      <pre className="hidden lg:block w-72 xl:w-80 shrink-0 text-[10px] whitespace-pre-wrap p-3 bg-danger-soft text-danger rounded-2xl overflow-auto">
-        ERRO NO RAIL:{"\n"}{msg}
-      </pre>
-    );
-  }
-}
-
-async function DesktopRailInner({ professional }: { professional: Professional }) {
   const professionalId = professional.id;
   const tz = professional.timezone;
   const now = new Date();
