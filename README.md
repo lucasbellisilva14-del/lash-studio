@@ -7,22 +7,22 @@ Gestão completa para **lash designers autônomas** no Brasil — agenda, client
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript, Turbopack) + **Tailwind 4**
-- **Prisma 6 + SQLite** no dev — schema 100% compatível com Postgres (Supabase) para deploy
-- **Auth.js v5** (e-mail/senha, sessão JWT) — schema já nasce **multi-tenant** (`professionalId` em toda tabela)
+- **Prisma 6 + Postgres (Supabase)** — schema **multi-tenant** desde o início (`professionalId` em toda tabela)
+- **Auth.js v5** (e-mail/senha, sessão JWT) com freio de força bruta
 - **PWA**: manifest + service worker, instalável no celular
-- Fotos atrás de `StorageProvider` (dev: `/uploads` local; produção: trocar por S3/Supabase Storage sem refatorar)
-- WhatsApp atrás de `MessageProvider` (Fase 1: links `wa.me` prontos; Fase 3: Meta Cloud API / Evolution API)
+- Fotos atrás de `StorageProvider` — `SupabaseStorageProvider` (bucket privado `uploads`) quando as envs do Supabase existem; disco local como fallback de dev
+- WhatsApp atrás de `MessageProvider` (Fases 1-2: links `wa.me` prontos; Fase 3: Meta Cloud API / Evolution API)
 
 ## Como rodar
 
 ```bash
-npm install
-npx prisma migrate dev   # cria o SQLite + aplica migrations
-npm run db:seed          # dados de demonstração
-npm run dev              # http://localhost:3000
+npm install                  # roda prisma generate no postinstall
+npx prisma migrate deploy    # aplica migrations no banco do .env
+npm run db:seed              # dados de demonstração (APAGA e recria os dados!)
+npm run dev                  # http://localhost:3000
 ```
 
-> O arquivo `.env` já vem pronto para dev (copie de `.env.example` se não existir).
+> O `.env` (não versionado) precisa de `DATABASE_URL`/`DIRECT_URL` (Supabase Postgres — localmente use o **session pooler**, porta 5432), `AUTH_SECRET`, `AUTH_TRUST_HOST`, chaves VAPID, `CRON_SECRET` e `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`. Veja `.env.example`.
 
 **Login de demonstração:** `kay@kaycilios.com.br` / `kaycilios123`
 
@@ -60,11 +60,12 @@ scripts/              testes das regras de negócio
 
 ## Deploy (Vercel + Supabase)
 
-1. **Banco**: crie um projeto no Supabase e copie a connection string (pooler, porta 6543 com `?pgbouncer=true` para runtime; porta 5432 para migrations).
-2. **Schema**: em `prisma/schema.prisma`, troque `provider = "sqlite"` por `postgresql` (nenhum tipo usado é exclusivo do SQLite) e crie a baseline: `npx prisma migrate dev --name init-postgres` apontando para o banco novo, depois `npx prisma migrate deploy` no CI.
-3. **Vercel**: importe o repositório; configure as variáveis `DATABASE_URL`, `AUTH_SECRET` (gere com `npx auth secret`) e `AUTH_TRUST_HOST=true`. Build padrão (`next build`) já funciona.
-4. **Fotos**: implemente `SupabaseStorageProvider` (mesma interface de `src/lib/providers/storage.ts`) e troque em `getStorageProvider()` — nada mais muda.
-5. **Seed**: rode `npm run db:seed` apontando para o banco de produção só se quiser dados demo.
+O projeto já está pronto: `postinstall` roda `prisma generate` e o `build` roda `prisma migrate deploy && next build` — cada deploy aplica as migrations sozinho.
+
+1. **Supabase**: projeto Postgres + bucket privado `uploads` no Storage.
+2. **Vercel**: importe o repositório e configure as envs — `DATABASE_URL` (transaction pooler 6543 com `?pgbouncer=true&connection_limit=1&sslmode=require`), `DIRECT_URL` (session pooler 5432 com `?sslmode=require`), `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`, `CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+3. **Deploy** — o cron do resumo diário (`vercel.json`, 07:30 BRT) passa a rodar automaticamente com o `CRON_SECRET` configurado.
+4. **Seed** (opcional): `npm run db:seed` com o `.env` apontando para produção cria a conta demo (atenção: apaga os dados existentes).
 
 ## Fases
 
