@@ -96,11 +96,19 @@ export async function salvarPerfilAction(
       };
     }
     const key = newStorageKey(professionalId, "logo", logo.type);
-    await getStorageProvider().put(
-      key,
-      Buffer.from(await logo.arrayBuffer()),
-      logo.type,
-    );
+    try {
+      await getStorageProvider().put(
+        key,
+        Buffer.from(await logo.arrayBuffer()),
+        logo.type,
+      );
+    } catch {
+      return {
+        ok: false,
+        fieldErrors: { logo: "Não foi possível enviar a imagem. Tente novamente." },
+        error: "Revise os campos destacados.",
+      };
+    }
     logoUrl = `/api/uploads/${key}`;
   }
 
