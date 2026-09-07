@@ -33,6 +33,24 @@ export async function GET(request: Request) {
     return Response.json({ passos });
   }
 
+  // ?storage=1 — testa put/get/delete no provider de storage ativo
+  if (url.searchParams.get("storage") === "1") {
+    const { getStorageProvider } = await import("@/lib/providers/storage");
+    const provider = getStorageProvider();
+    const key = "diagnostico/ping.txt";
+    try {
+      await provider.put(key, Buffer.from("ping"), "text/plain");
+      const back = await provider.get(key);
+      await provider.delete(key);
+      return Response.json({ provider: provider.name, put: "ok", get: back ? "ok" : "vazio" });
+    } catch (e) {
+      return Response.json({
+        provider: provider.name,
+        erro: e instanceof Error ? `${e.message}\n${(e.stack ?? "").slice(0, 400)}` : String(e),
+      });
+    }
+  }
+
   const envs = Object.fromEntries(
     [
       "DATABASE_URL",
