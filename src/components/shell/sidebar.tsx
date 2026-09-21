@@ -11,6 +11,7 @@ import {
   IconChat,
   IconCheck,
   IconHome,
+  IconLogout,
   IconMoney,
   IconScissors,
   IconSettings,
@@ -19,6 +20,7 @@ import {
   IconWhatsApp,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { sairDaConta } from "./sign-out-action";
 
 const NAV = [
   { href: "/", label: "Hoje", icon: IconHome },
@@ -124,7 +126,16 @@ export function Sidebar({
             </span>
           </span>
         </button>
-        <p className="mt-3 text-center text-[10px] font-medium tracking-wide text-ink-faint">
+        <form action={sairDaConta} className="mt-2">
+          <button
+            type="submit"
+            className="w-full flex items-center justify-center gap-2 rounded-2xl px-3.5 py-2.5 text-[13px] font-medium text-ink-faint hover:text-danger hover:bg-surface-sunken/60 transition-colors"
+          >
+            <IconLogout width={16} height={16} />
+            Sair da conta
+          </button>
+        </form>
+        <p className="mt-1 text-center text-[10px] font-medium tracking-wide text-ink-faint">
           LashOS 💗
         </p>
       </div>

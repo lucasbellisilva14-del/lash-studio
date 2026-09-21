@@ -73,6 +73,14 @@ model Professional {
   pushSubscriptions PushSubscription[]
 }
 
+/// Freio de força bruta no login: contador de erros por e-mail com janela.
+/// Compartilhado entre instâncias serverless (o antigo era em memória).
+model LoginAttempt {
+  email   String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+}
+
 model WorkingHour {
   id             String  @id @default(cuid())
   professionalId String
