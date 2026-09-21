@@ -4,8 +4,9 @@
  * Fotos antes/depois do atendimento: captura pela câmera (ou galeria),
  * grade de miniaturas e exclusão com confirmação.
  */
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { SavedToast } from "@/components/config/feedback";
 import { cn } from "@/lib/cn";
 import { Card, CardBody } from "@/components/ui/card";
 import { IconCamera, IconTrash } from "@/components/ui/icons";
@@ -69,6 +70,15 @@ function PhotoGroup({
   photos: PhotoItem[];
 }) {
   const [state, formAction, pending] = useActionState(uploadPhotoAction, initialState);
+  const [savedAt, setSavedAt] = useState<number | undefined>();
+  const [savedMessage, setSavedMessage] = useState("Foto adicionada!");
+
+  useEffect(() => {
+    if (state.success) {
+      setSavedMessage(state.success);
+      setSavedAt(Date.now());
+    }
+  }, [state]);
 
   return (
     <div>
@@ -119,6 +129,7 @@ function PhotoGroup({
         </form>
       </div>
       {state.error ? <p className="mt-2 text-xs text-danger">{state.error}</p> : null}
+      <SavedToast savedAt={savedAt} message={savedMessage} />
     </div>
   );
 }
@@ -135,13 +146,7 @@ function Thumb({ photo, appointmentId }: { photo: PhotoItem; appointmentId: stri
           loading="lazy"
         />
       </a>
-      <form
-        action={deletePhotoAction}
-        onSubmit={(e) => {
-          if (!window.confirm("Excluir esta foto?")) e.preventDefault();
-        }}
-        className="absolute top-1.5 right-1.5"
-      >
+      <form action={deletePhotoAction} className="absolute top-1.5 right-1.5">
         <input type="hidden" name="photoId" value={photo.id} />
         <input type="hidden" name="appointmentId" value={appointmentId} />
         <DeleteButton />
@@ -150,20 +155,41 @@ function Thumb({ photo, appointmentId }: { photo: PhotoItem; appointmentId: stri
   );
 }
 
+/** Exclusão em dois toques (padrão do app): lixeira → "Excluir?" → confirma. */
 function DeleteButton() {
   const { pending } = useFormStatus();
+  const [confirmando, setConfirmando] = useState(false);
+
+  useEffect(() => {
+    if (!confirmando) return;
+    const timer = setTimeout(() => setConfirmando(false), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmando]);
+
+  if (!confirmando && !pending) {
+    return (
+      <button
+        type="button"
+        aria-label="Excluir foto"
+        onClick={() => setConfirmando(true)}
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-ink/60 text-white backdrop-blur-sm"
+      >
+        <IconTrash width={14} height={14} />
+      </button>
+    );
+  }
   return (
     <button
       type="submit"
-      aria-label="Excluir foto"
       disabled={pending}
       className={cn(
-        "flex items-center justify-center w-7 h-7 rounded-full",
-        "bg-ink/60 text-white backdrop-blur-sm transition-opacity",
-        pending && "opacity-50",
+        "flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold",
+        "bg-danger text-white shadow-sm",
+        pending && "opacity-60",
       )}
     >
-      <IconTrash width={14} height={14} />
+      <IconTrash width={12} height={12} />
+      {pending ? "Excluindo..." : "Excluir?"}
     </button>
   );
 }

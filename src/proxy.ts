@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/api/auth",
   "/api/cron",
   "/api/health",
+  "/api/calendario", // feed .ics (protegido por token secreto próprio)
   "/manifest.webmanifest",
   "/sw.js",
   "/icons",

@@ -47,6 +47,9 @@ model Professional {
   inactiveDays   Int @default(60) // "inativa": mais de N dias sem atendimento
 
   dailySummaryTime String  @default("07:30")
+  /// Token secreto do feed .ics (assinatura no Google Calendar/iPhone).
+  /// Nulo = feed desligado; regerar = revogar o link antigo.
+  calendarToken    String? @unique
   consentText      String? // termo de consentimento (anamnese)
   onboardingDone   Boolean @default(false)
 

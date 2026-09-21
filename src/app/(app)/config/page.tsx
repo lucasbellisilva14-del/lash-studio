@@ -5,7 +5,13 @@ import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { IconBell, IconChevronRight, IconClock, IconLock } from "@/components/ui/icons";
+import {
+  IconBell,
+  IconCalendar,
+  IconChevronRight,
+  IconClock,
+  IconLock,
+} from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
 export const metadata = { title: "Configurações" };
@@ -64,6 +70,14 @@ export default async function ConfigPage() {
           ? `${feeCount} ${feeCount === 1 ? "forma configurada" : "formas configuradas"}`
           : "Configure a taxa de cada forma de pagamento",
       icon: IconPercent,
+    },
+    {
+      href: "/config/calendario",
+      label: "Agenda no calendário",
+      description: professional.calendarToken
+        ? "Feed ativo — atendimentos no seu calendário pessoal"
+        : "Veja os atendimentos no Google Calendar ou iPhone",
+      icon: IconCalendar,
     },
     {
       href: "/config/senha",
