@@ -50,6 +50,10 @@ model Professional {
   /// Token secreto do feed .ics (assinatura no Google Calendar/iPhone).
   /// Nulo = feed desligado; regerar = revogar o link antigo.
   calendarToken    String? @unique
+
+  /// Redefinição de senha: hash sha256 do token enviado por e-mail + validade.
+  resetTokenHash      String?   @unique
+  resetTokenExpiresAt DateTime?
   consentText      String? // termo de consentimento (anamnese)
   onboardingDone   Boolean @default(false)
 
