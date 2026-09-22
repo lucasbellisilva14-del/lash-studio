@@ -114,13 +114,15 @@
   --cat-outro: var(--surface);
 }
 
-/* Entrada de página: fade + subida sutil a cada navegação (sensação nativa) */
+/* Entrada de página: fade sutil a cada navegação (sensação nativa).
+   IMPORTANTE: sem transform aqui — transform em ancestral prende
+   position:fixed (FABs, sheets, backdrops) dentro da coluna de conteúdo. */
 @keyframes lashos-page-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .page-in {
-  animation: lashos-page-in 0.22s ease-out both;
+  animation: lashos-page-in 0.25s ease-out both;
 }
 
 /* Sheets: subida com leve overshoot de mola */

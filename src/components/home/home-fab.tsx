@@ -25,7 +25,7 @@ export function HomeFab() {
       {aberto ? (
         <button
           aria-label="Fechar menu"
-          className="fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px]"
+          className="fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
           onClick={() => setAberto(false)}
         />
       ) : null}
