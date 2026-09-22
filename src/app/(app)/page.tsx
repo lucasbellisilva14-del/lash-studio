@@ -17,6 +17,8 @@ import { LASH_CYCLE_CATEGORIES, type AppointmentStatus } from "@/lib/constants";
 import { Greeting } from "@/components/home/greeting";
 import { QuickActions } from "@/components/home/quick-actions";
 import { HomeFab } from "@/components/home/home-fab";
+import { WeeklyRecapBanner } from "@/components/home/weekly-recap-banner";
+import { localWeekday } from "@/lib/dates";
 import { OnboardingCard } from "@/components/home/onboarding-card";
 import { HomeSection } from "@/components/home/section";
 import { TodayAgenda, type TodayAgendaItem } from "@/components/home/today-agenda";
@@ -300,6 +302,9 @@ export default async function HomePage() {
       />
 
       <QuickActions />
+
+      {/* Dom/seg: convite pro resumo comemorativo da semana */}
+      {[0, 1].includes(localWeekday(now, tz)) ? <WeeklyRecapBanner /> : null}
 
       {!professional.onboardingDone ? <OnboardingCard /> : null}
 

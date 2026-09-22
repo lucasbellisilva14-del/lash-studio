@@ -365,7 +365,7 @@ export function BookingFlow({
         <section className="space-y-4">
           <h2 className="font-display text-xl font-semibold text-ink">Seus dados</h2>
 
-          <form onSubmit={enviar} className="space-y-4">
+          <form id="ag-form" onSubmit={enviar} className="space-y-4">
             <Field label="Nome completo" htmlFor="ag-nome">
               <Input
                 id="ag-nome"
@@ -417,18 +417,47 @@ export function BookingFlow({
               </p>
             ) : null}
 
-            <Button size="lg" type="submit" disabled={enviando}>
-              {enviando
-                ? "Enviando..."
-                : `Solicitar ${hora} · ${formatBRL(servico.precoCents)}`}
-            </Button>
-
             <p className="flex items-center justify-center gap-1.5 text-xs text-ink-faint">
               <IconLock width={13} height={13} className="shrink-0" />
               Seus dados serão usados só para este agendamento.
             </p>
           </form>
         </section>
+      ) : null}
+
+      {/* Barra fixa (estilo iFood): resumo sempre à vista + CTA contextual */}
+      {servico ? (
+        <div className="fixed inset-x-0 bottom-0 z-40">
+          <div className="mx-auto w-full max-w-lg px-4 pb-[max(12px,env(safe-area-inset-bottom))]">
+            <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3 shadow-[var(--shadow-pop)] backdrop-blur-xl">
+              <div className="min-w-0 grow">
+                <p className="truncate text-[13px] font-semibold text-ink">
+                  {servico.nome}
+                </p>
+                <p className="truncate text-xs text-ink-soft">
+                  {etapa >= 3 && diaEscolhido && hora
+                    ? `${diaEscolhido.rotulo} ${diaEscolhido.dataCurta} às ${hora} · ${formatBRL(servico.precoCents)}`
+                    : `${servico.duracaoMin} min · ${formatBRL(servico.precoCents)}`}
+                </p>
+              </div>
+              {etapa === 2 ? (
+                <span className="shrink-0 rounded-full bg-surface-sunken px-3.5 py-2 text-[13px] font-medium text-ink-faint">
+                  Escolha um horário
+                </span>
+              ) : (
+                <Button
+                  size="md"
+                  type="submit"
+                  form="ag-form"
+                  disabled={enviando}
+                  className="shrink-0 w-auto px-5"
+                >
+                  {enviando ? "Enviando..." : "Confirmar"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

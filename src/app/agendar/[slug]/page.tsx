@@ -80,7 +80,7 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
       }}
     >
       <div className="h-1.5 w-full bg-accent" aria-hidden />
-      <main className="mx-auto w-full max-w-lg px-4 pb-12 pt-8">
+      <main className="mx-auto w-full max-w-lg px-4 pb-32 pt-8">
         <header className="text-center mb-8">
           <StudioLogo src={logoSrc} nome={estudio.studioName} />
           <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong">
