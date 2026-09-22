@@ -42,6 +42,7 @@ export function NewAppointmentSheet({
   servicos,
   config,
   diaInicial,
+  horaInicial = null,
   clienteInicialId,
   onCriado,
 }: {
@@ -51,6 +52,8 @@ export function NewAppointmentSheet({
   servicos: AgendaServico[];
   config: AgendaConfig;
   diaInicial: string;
+  /** Pré-preenche o horário (toque num espaço vazio da timeline). */
+  horaInicial?: string | null;
   clienteInicialId: string | null;
   onCriado: (resultado: { dia: string; aviso: string | null }) => void;
 }) {
@@ -90,7 +93,7 @@ export function NewAppointmentSheet({
     setEtapa(inicial ? 2 : 1);
     setServico(null);
     setDia(diaInicial);
-    setHora("");
+    setHora(horaInicial ?? "");
     setObservacoes("");
     setSlots(null);
     setManut(null);

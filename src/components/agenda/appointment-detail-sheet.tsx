@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field";
 import { AppointmentStatusBadge, Badge } from "@/components/ui/badge";
 import { IconWhatsApp } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { hapticSuccess } from "@/lib/haptics";
 import { formatBRL } from "@/lib/money";
 import { formatPhone, waLink } from "@/lib/phone";
 import {
@@ -171,12 +172,16 @@ export function AppointmentDetailSheet({
   function confirmarSinal() {
     rodarAcao(async () => {
       const res = await sinalRecebido(c.id);
-      if (res.ok) onClose();
+      if (res.ok) {
+        hapticSuccess();
+        onClose();
+      }
       return res;
     });
   }
 
   function concluir() {
+    hapticSuccess(); // o sucesso redireciona pra ficha — vibra já no toque
     rodarAcao(async () => {
       const res = await concluirAgendamento(c.id);
       return res; // sucesso redireciona para a ficha técnica

@@ -105,6 +105,38 @@
   .celebrate { animation: none; }
 }
 
+/* Cores por categoria de serviço (timeline da agenda) — tons suaves
+   derivados do acento pra manter a identidade em qualquer tema. */
+:root, .accent-scope {
+  --cat-aplicacao: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --cat-manutencao: color-mix(in srgb, #7c9885 18%, var(--surface));
+  --cat-lifting: color-mix(in srgb, #d9905f 16%, var(--surface));
+  --cat-outro: var(--surface);
+}
+
+/* Entrada de página: fade + subida sutil a cada navegação (sensação nativa) */
+@keyframes lashos-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-in {
+  animation: lashos-page-in 0.22s ease-out both;
+}
+
+/* Sheets: subida com leve overshoot de mola */
+@keyframes lashos-sheet-in {
+  0% { opacity: 0; transform: translateY(28px); }
+  70% { opacity: 1; transform: translateY(-3px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.sheet-in {
+  animation: lashos-sheet-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-in, .sheet-in { animation: none; }
+}
+
 @theme inline {
   --color-accent-soft: var(--accent-soft);
   --color-accent-strong: var(--accent-strong);

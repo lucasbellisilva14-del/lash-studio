@@ -16,7 +16,7 @@ const items = [
   { href: "/", label: "Hoje", icon: IconHome },
   { href: "/agenda", label: "Agenda", icon: IconCalendar },
   { href: "/clientes", label: "Clientes", icon: IconUsers },
-  { href: "/mensagens", label: "Mensagens", icon: IconChat },
+  { href: "/mensagens", label: "Fila", icon: IconChat },
   { href: "/financeiro", label: "Financeiro", icon: IconMoney },
   { href: "/mais", label: "Mais", icon: IconMore },
 ] as const;

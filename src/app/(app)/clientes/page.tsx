@@ -7,8 +7,10 @@ import { ClientsList, type ClientRow } from "./clients-list";
 
 export const metadata = { title: "Clientes" };
 
-export default async function ClientesPage() {
+export default async function ClientesPage(props: PageProps<"/clientes">) {
   const professional = await requireProfessional();
+  const sp = await props.searchParams;
+  const novaInicial = (Array.isArray(sp.nova) ? sp.nova[0] : sp.nova) === "1";
 
   const [clients, lastLashRows] = await Promise.all([
     prisma.client.findMany({
@@ -56,7 +58,7 @@ export default async function ClientesPage() {
   return (
     <>
       <PageHeader title="Clientes" subtitle={subtitle} />
-      <ClientsList clients={rows} />
+      <ClientsList clients={rows} novaInicial={novaInicial} />
     </>
   );
 }

@@ -1,7 +1,11 @@
 "use client";
 
-/** Visão DIA: linha do tempo vertical com agendamentos e bloqueios. */
-import { useEffect, useMemo, useState } from "react";
+/**
+ * Visão DIA: linha do tempo vertical com agendamentos e bloqueios.
+ * Abre já rolada pro momento relevante, pinta os cards pela categoria do
+ * serviço e cria agendamento com um toque em qualquer espaço vazio.
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconAlert } from "@/components/ui/icons";
 import { AppointmentStatusBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
@@ -28,6 +32,13 @@ const STATUS_BARRA: Record<string, string> = {
   FALTOU: "bg-danger",
 };
 
+/** Fundo suave por categoria do serviço (tokens em globals.css). */
+const CATEGORIA_FUNDO: Record<string, string> = {
+  APLICACAO: "var(--cat-aplicacao)",
+  MANUTENCAO: "var(--cat-manutencao)",
+  LASH_LIFTING: "var(--cat-lifting)",
+};
+
 type BloqueioDoDia = { id: string; titulo: string; inicioMin: number; fimMin: number };
 
 export function DayTimeline({
@@ -38,6 +49,7 @@ export function DayTimeline({
   bloqueios,
   horarios,
   onSelecionar,
+  onNovoHorario,
 }: {
   diaKey: string;
   hojeKey: string;
@@ -46,8 +58,11 @@ export function DayTimeline({
   bloqueios: AgendaBloqueio[];
   horarios: HorarioFuncionamento[];
   onSelecionar: (c: AgendaCompromisso) => void;
+  /** Toque num espaço vazio da timeline → agendar já naquele horário. */
+  onNovoHorario?: (hora: string) => void;
 }) {
   const [agoraMin, setAgoraMin] = useState<number | null>(null);
+  const gradeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (diaKey !== hojeKey) {
@@ -103,6 +118,43 @@ export function DayTimeline({
     return { regra, bloqueiosDoDia: doDia, inicioMin, fimMin };
   }, [diaKey, tz, horarios, bloqueios, compromissos]);
 
+  // Abre já rolada pro que importa: o "agora" (hoje) ou o 1º agendamento.
+  useEffect(() => {
+    const grade = gradeRef.current;
+    if (!grade) return;
+    let alvoMin: number | null = null;
+    if (agoraMin !== null && agoraMin >= inicioMin && agoraMin <= fimMin) {
+      alvoMin = agoraMin;
+    } else if (compromissos.length > 0) {
+      const primeiro = compromissos.reduce((a, b) => (a.inicio < b.inicio ? a : b));
+      alvoMin = timeToMinutes(localTimeOf(new Date(primeiro.inicio), tz));
+    }
+    if (alvoMin === null) return;
+    const y =
+      grade.getBoundingClientRect().top +
+      window.scrollY +
+      (alvoMin - inicioMin) * PX_POR_MIN -
+      180;
+    if (y > 40) window.scrollTo({ top: y, behavior: "auto" });
+    // roda só na troca de dia — não a cada tick do relógio
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diaKey]);
+
+  function clicarVazio(e: React.MouseEvent<HTMLDivElement>) {
+    if (!onNovoHorario) return;
+    // só espaço vazio: cliques em agendamentos/bloqueios não contam
+    if ((e.target as HTMLElement).closest("button")) return;
+    const grade = gradeRef.current;
+    if (!grade) return;
+    const offsetY = e.clientY - grade.getBoundingClientRect().top;
+    const minuto = inicioMin + offsetY / PX_POR_MIN;
+    const arredondado = Math.max(
+      inicioMin,
+      Math.min(fimMin - 30, Math.round(minuto / 30) * 30),
+    );
+    onNovoHorario(minutesToTime(arredondado));
+  }
+
   if (!regra && compromissos.length === 0 && bloqueiosDoDia.length === 0) {
     return (
       <div className="bg-surface border border-line rounded-2xl py-14 px-6 text-center">
@@ -125,7 +177,13 @@ export function DayTimeline({
           Nenhum agendamento neste dia.
         </p>
       ) : null}
-      <div className="relative" style={{ height: alturaTotal }}>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div
+        ref={gradeRef}
+        className="relative"
+        style={{ height: alturaTotal }}
+        onClick={clicarVazio}
+      >
         {/* Linhas de hora */}
         {horas.map((m) => (
           <div
@@ -178,11 +236,15 @@ export function DayTimeline({
               key={c.id}
               onClick={() => onSelecionar(c)}
               className={cn(
-                "absolute left-12 right-1 text-left rounded-xl border border-line bg-surface",
+                "absolute left-12 right-1 text-left rounded-xl border border-line",
                 "shadow-[0_1px_3px_rgba(28,25,23,0.08)] overflow-hidden",
                 "active:scale-[0.99] transition-transform",
               )}
-              style={{ top: topo, height: altura }}
+              style={{
+                top: topo,
+                height: altura,
+                background: CATEGORIA_FUNDO[c.servico.categoria] ?? "var(--cat-outro)",
+              }}
             >
               <span
                 className={cn(

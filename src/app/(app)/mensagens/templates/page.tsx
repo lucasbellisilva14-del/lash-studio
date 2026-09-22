@@ -9,7 +9,7 @@ import { requireProfessional } from "@/lib/session";
 import { localDayKey, localToUtc } from "@/lib/dates";
 import { TEMPLATE_KINDS, type TemplateKind } from "@/lib/constants";
 
-export const metadata = { title: "Templates de mensagem" };
+export const metadata = { title: "Modelos de mensagem" };
 
 export default async function TemplatesPage() {
   const professional = await requireProfessional();
@@ -40,7 +40,7 @@ export default async function TemplatesPage() {
   return (
     <>
       <PageHeader
-        title="Templates"
+        title="Modelos"
         subtitle="As mensagens automáticas da sua fila"
         backHref="/mensagens"
       />

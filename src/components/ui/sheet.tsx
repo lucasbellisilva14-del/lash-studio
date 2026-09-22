@@ -47,7 +47,7 @@ export function Sheet({
         aria-modal="true"
         className={cn(
           "relative w-full sm:max-w-lg bg-surface rounded-t-[30px] sm:rounded-[30px] shadow-2xl",
-          "flex flex-col overflow-hidden pb-safe",
+          "flex flex-col overflow-hidden pb-safe sheet-in",
           tall ? "max-h-[92dvh] h-[92dvh] sm:h-auto sm:max-h-[85dvh]" : "max-h-[85dvh]",
         )}
       >

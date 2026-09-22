@@ -1,12 +1,14 @@
 "use client";
 
-/** Fab "Nova despesa" + Sheet de lançamento. */
+/** Fab "Nova despesa" + Sheet de lançamento. Abre direto com ?despesa=1. */
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Fab } from "@/components/ui/fab";
 import { ExpenseSheet } from "./expense-sheet";
 
 export function FinanceiroFab({ todayKey }: { todayKey: string }) {
-  const [open, setOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const [open, setOpen] = useState(searchParams.get("despesa") === "1");
 
   return (
     <>

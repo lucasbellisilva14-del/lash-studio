@@ -81,6 +81,7 @@ export function AgendaScreen({
   const router = useRouter();
   const tz = config.timezone;
   const [novoAberto, setNovoAberto] = useState(novoInicial);
+  const [novaHora, setNovaHora] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<AgendaCompromisso | null>(null);
   const [avisoCriacao, setAvisoCriacao] = useState<string | null>(null);
 
@@ -96,8 +97,14 @@ export function AgendaScreen({
     return capitalizar(formatWithPattern(inicio, "MMMM 'de' yyyy", tz));
   }, [visao, diaKey, tz]);
 
+  function abrirNovoNoHorario(hora: string) {
+    setNovaHora(hora);
+    setNovoAberto(true);
+  }
+
   function fecharNovo() {
     setNovoAberto(false);
+    setNovaHora(null);
     if (novoInicial) {
       router.replace(`/agenda?visao=${visao}&dia=${diaKey}`);
     }
@@ -207,6 +214,7 @@ export function AgendaScreen({
           bloqueios={bloqueios}
           horarios={horarios}
           onSelecionar={setDetalhe}
+          onNovoHorario={abrirNovoNoHorario}
         />
       ) : null}
       {visao === "semana" ? (
@@ -245,6 +253,7 @@ export function AgendaScreen({
         servicos={servicos}
         config={config}
         diaInicial={diaKey >= hojeKey ? diaKey : hojeKey}
+        horaInicial={novaHora}
         clienteInicialId={clienteInicialId}
         onCriado={aoCriar}
       />

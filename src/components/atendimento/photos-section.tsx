@@ -7,6 +7,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { SavedToast } from "@/components/config/feedback";
+import { hapticSuccess } from "@/lib/haptics";
 import { cn } from "@/lib/cn";
 import { Card, CardBody } from "@/components/ui/card";
 import { IconCamera, IconTrash } from "@/components/ui/icons";
@@ -75,6 +76,7 @@ function PhotoGroup({
 
   useEffect(() => {
     if (state.success) {
+      hapticSuccess();
       setSavedMessage(state.success);
       setSavedAt(Date.now());
     }

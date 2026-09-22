@@ -1,17 +1,28 @@
 "use client";
 
-/** Lista de clientes com busca instantânea (nome/telefone) + Fab "Nova cliente". */
+/**
+ * Lista de clientes com busca instantânea (nome/telefone) + Fab "Nova cliente".
+ * Gestos: deslizar pra direita abre o WhatsApp; pra esquerda, agenda.
+ */
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ClientStatus } from "@/lib/constants";
-import { formatPhone } from "@/lib/phone";
+import { formatPhone, waLink } from "@/lib/phone";
 import { Card } from "@/components/ui/card";
 import { ClientStatusBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Fab } from "@/components/ui/fab";
 import { Button } from "@/components/ui/button";
-import { IconChevronRight, IconSearch, IconUsers } from "@/components/ui/icons";
+import { SwipeRow } from "@/components/ui/swipe-row";
+import {
+  IconCalendar,
+  IconChevronRight,
+  IconSearch,
+  IconUsers,
+  IconWhatsApp,
+} from "@/components/ui/icons";
 import { ClientAvatar } from "@/components/clientes/client-avatar";
 import { ClientFormSheet } from "@/components/clientes/client-form-sheet";
 
@@ -31,9 +42,16 @@ function searchable(text: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
-export function ClientsList({ clients }: { clients: ClientRow[] }) {
+export function ClientsList({
+  clients,
+  novaInicial = false,
+}: {
+  clients: ClientRow[];
+  novaInicial?: boolean;
+}) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(novaInicial);
 
   const filtered = useMemo(() => {
     const q = searchable(query.trim());
@@ -88,6 +106,22 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
           <ul className="divide-y divide-line">
             {filtered.map((client) => (
               <li key={client.id}>
+                <SwipeRow
+                  leftAction={{
+                    label: "WhatsApp",
+                    icon: <IconWhatsApp width={18} height={18} />,
+                    className: "bg-success",
+                    onTrigger: () =>
+                      window.open(waLink(client.phone), "_blank", "noopener"),
+                  }}
+                  rightAction={{
+                    label: "Agendar",
+                    icon: <IconCalendar width={18} height={18} />,
+                    className: "bg-accent",
+                    onTrigger: () =>
+                      router.push(`/agenda?novo=1&cliente=${client.id}`),
+                  }}
+                >
                 <Link
                   href={`/clientes/${client.id}`}
                   className="flex items-center gap-3 px-4 py-3 active:bg-surface-sunken transition-colors"
@@ -115,6 +149,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
                     className="text-ink-faint shrink-0"
                   />
                 </Link>
+                </SwipeRow>
               </li>
             ))}
           </ul>

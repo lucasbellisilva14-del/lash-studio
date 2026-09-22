@@ -90,7 +90,7 @@ export default async function MensagensPage(props: PageProps<"/mensagens">) {
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-background"
           >
             <IconSettings width={16} height={16} />
-            Templates
+            Modelos
           </Link>
         }
       />

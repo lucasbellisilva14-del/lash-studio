@@ -15,6 +15,8 @@ import {
 import { formatBRL } from "@/lib/money";
 import { LASH_CYCLE_CATEGORIES, type AppointmentStatus } from "@/lib/constants";
 import { Greeting } from "@/components/home/greeting";
+import { QuickActions } from "@/components/home/quick-actions";
+import { HomeFab } from "@/components/home/home-fab";
 import { OnboardingCard } from "@/components/home/onboarding-card";
 import { HomeSection } from "@/components/home/section";
 import { TodayAgenda, type TodayAgendaItem } from "@/components/home/today-agenda";
@@ -297,6 +299,8 @@ export default async function HomePage() {
         logoUrl={professional.logoUrl}
       />
 
+      <QuickActions />
+
       {!professional.onboardingDone ? <OnboardingCard /> : null}
 
       <GamificationHomeCard game={game} />
@@ -342,6 +346,8 @@ export default async function HomePage() {
           ) : null}
         </div>
       </div>
+
+      <HomeFab />
     </div>
   );
 }
