@@ -7,6 +7,8 @@
 export const CONTRAINDICATION_LABELS: Record<string, string> = {
   ALERGIA_CIANOACRILATO: "Alergia a cianoacrilato (cola)",
   GLAUCOMA_COLIRIO: "Glaucoma / colírio contínuo",
+  REACAO_EXTENSAO: "Reação anterior a extensão ou cola",
+  DOENCA_OCULAR: "Doença ocular",
   GESTANTE: "Gestante",
   LACTANTE: "Lactante",
   GESTANTE_LACTANTE: "Gestante ou lactante",

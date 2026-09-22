@@ -6,14 +6,14 @@
  */
 
 export type AnamnesisQuestionId =
-  | "gestante_lactante"
+  | "irritacao_hoje"
   | "alergias"
-  | "glaucoma_colirio"
-  | "irritacao_ocular"
-  | "cirurgia_ocular"
+  | "reacao_extensao"
+  | "olhos_sensiveis"
   | "lentes_contato"
-  | "tireoide_oncologico"
-  | "extensao_anterior";
+  | "doenca_ocular"
+  | "cirurgia_ocular"
+  | "gestante_lactante";
 
 export type AnamnesisQuestion = {
   id: AnamnesisQuestionId;
@@ -31,35 +31,27 @@ export const FLAG_ALERGIA_CIANOACRILATO = "ALERGIA_CIANOACRILATO";
 
 export const ANAMNESIS_QUESTIONS: readonly AnamnesisQuestion[] = [
   {
-    id: "gestante_lactante",
-    label: "Está gestante ou amamentando?",
-    detailPlaceholder: "Semanas de gestação, liberação médica...",
-    flag: "GESTANTE_LACTANTE",
+    id: "irritacao_hoje",
+    label: "Está com alguma irritação ou sensibilidade hoje?",
+    detailPlaceholder: "O que está sentindo?",
+    flag: "IRRITACAO_OCULAR",
   },
   {
     id: "alergias",
-    label: "Tem alergias conhecidas?",
-    hint: "Cosméticos, esmaltes, medicamentos, látex...",
-    detailPlaceholder: "Quais alergias? Descreva.",
+    label: "Você tem alguma alergia?",
+    detailPlaceholder: "Qual? (cosméticos, cola, medicamentos...)",
     // Sem flag automática: só o checkbox de cianoacrilato contraindica.
   },
   {
-    id: "glaucoma_colirio",
-    label: "Tem glaucoma ou usa colírio contínuo?",
-    detailPlaceholder: "Qual colírio / tratamento?",
-    flag: "GLAUCOMA_COLIRIO",
+    id: "reacao_extensao",
+    label: "Já teve reação a extensão ou cola?",
+    detailPlaceholder: "O que aconteceu?",
+    flag: "REACAO_EXTENSAO",
   },
   {
-    id: "irritacao_ocular",
-    label: "Teve blefarite, conjuntivite, terçol ou irritação ocular recente?",
-    detailPlaceholder: "Quando foi e como está agora?",
-    flag: "IRRITACAO_OCULAR_RECENTE",
-  },
-  {
-    id: "cirurgia_ocular",
-    label: "Fez cirurgia ocular nos últimos 6 meses?",
-    detailPlaceholder: "Qual cirurgia e quando?",
-    flag: "CIRURGIA_OCULAR_6M",
+    id: "olhos_sensiveis",
+    label: "Olhos sensíveis ou lacrimejamento?",
+    detailPlaceholder: "Conte como costuma ser.",
   },
   {
     id: "lentes_contato",
@@ -68,16 +60,23 @@ export const ANAMNESIS_QUESTIONS: readonly AnamnesisQuestion[] = [
     detailPlaceholder: "Com que frequência?",
   },
   {
-    id: "tireoide_oncologico",
-    label: "Tem disfunção de tireoide ou está em tratamento oncológico?",
-    hint: "Pode afetar a retenção dos fios.",
-    detailPlaceholder: "Qual condição / tratamento?",
-    flag: "TIREOIDE_ONCOLOGICO",
+    id: "doenca_ocular",
+    label: "Possui alguma doença ocular?",
+    detailPlaceholder: "Qual? (glaucoma, blefarite, conjuntivite...)",
+    flag: "DOENCA_OCULAR",
   },
   {
-    id: "extensao_anterior",
-    label: "Já fez extensão de cílios antes?",
-    detailPlaceholder: "Teve alguma reação? Conte como foi.",
+    id: "cirurgia_ocular",
+    label: "Já fez procedimento ocular (6m)?",
+    hint: "Cirurgia ou procedimento nos olhos nos últimos 6 meses.",
+    detailPlaceholder: "Qual procedimento e quando?",
+    flag: "CIRURGIA_OCULAR_6M",
+  },
+  {
+    id: "gestante_lactante",
+    label: "Está gestante ou amamentando?",
+    detailPlaceholder: "Semanas de gestação, liberação médica...",
+    flag: "GESTANTE_LACTANTE",
   },
 ];
 
@@ -88,37 +87,13 @@ export type ParsedAnamnesis = {
   alergiaCianoacrilato: boolean;
 };
 
-/** Formato da Fase 1 (seed): chaves camelCase soltas → converte para o atual. */
-function parseLegacyAnswers(raw: Record<string, unknown>): ParsedAnamnesis | null {
-  const legacyKeys = ["gestanteOuLactante", "glaucomaOuColirio", "jaFezExtensao"];
-  if (!legacyKeys.some((k) => k in raw)) return null;
-  const yes = (v: unknown): boolean =>
-    v === true || (typeof v === "string" && v.trim() !== "");
-  const detail = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
-  return {
-    respostas: {
-      gestante_lactante: { sim: yes(raw.gestanteOuLactante), detalhe: detail(raw.gestanteOuLactante) },
-      alergias: { sim: yes(raw.alergias), detalhe: detail(raw.alergias) },
-      glaucoma_colirio: { sim: yes(raw.glaucomaOuColirio), detalhe: detail(raw.glaucomaOuColirio) },
-      irritacao_ocular: { sim: yes(raw.irritacaoOcularRecente), detalhe: detail(raw.irritacaoOcularRecente) },
-      cirurgia_ocular: { sim: yes(raw.cirurgiaOcular6m), detalhe: detail(raw.cirurgiaOcular6m) },
-      lentes_contato: { sim: yes(raw.lentesDeContato), detalhe: detail(raw.lentesDeContato) },
-      tireoide_oncologico: { sim: yes(raw.tireoideOuOncologico), detalhe: detail(raw.tireoideOuOncologico) },
-      extensao_anterior: { sim: yes(raw.jaFezExtensao), detalhe: detail(raw.reacaoAnterior) },
-    },
-    alergiaCianoacrilato: false, // no legado, vem da flag gravada (mesclada na página)
-  };
-}
-
-/** Parse defensivo de AnamnesisForm.answersJson (aceita o formato legado). */
+/** Parse defensivo de AnamnesisForm.answersJson. */
 export function parseAnamnesisAnswers(json: string | null | undefined): ParsedAnamnesis {
   const empty: ParsedAnamnesis = { respostas: {}, alergiaCianoacrilato: false };
   if (!json) return empty;
   try {
     const parsed: unknown = JSON.parse(json);
     if (!parsed || typeof parsed !== "object") return empty;
-    const legacy = parseLegacyAnswers(parsed as Record<string, unknown>);
-    if (legacy) return legacy;
     const raw = parsed as {
       respostas?: unknown;
       alergiaCianoacrilato?: unknown;
