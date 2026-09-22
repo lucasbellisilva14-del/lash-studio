@@ -49,19 +49,20 @@ export function MonthGrid({
               aria-current={selecionado ? "date" : undefined}
               className={cn(
                 "aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5",
-                "transition-colors",
-                !selecionado && "hover:bg-surface-sunken",
-                !selecionado && ehHoje && "bg-accent-soft",
+                "transition-all",
+                selecionado
+                  ? "bg-accent-soft ring-2 ring-accent shadow-[var(--shadow-card)]"
+                  : "hover:bg-surface-sunken",
                 !doMes && "opacity-35",
               )}
             >
               <span
                 className={cn(
                   "flex items-center justify-center h-7 w-7 rounded-full text-[13px] leading-none tabular-nums transition-colors",
-                  selecionado
+                  ehHoje
                     ? "bg-accent text-white font-semibold shadow-sm"
-                    : ehHoje
-                      ? "font-semibold text-accent-strong ring-1 ring-accent/40"
+                    : selecionado
+                      ? "font-bold text-accent-strong"
                       : "text-ink",
                 )}
               >
