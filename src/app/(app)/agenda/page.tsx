@@ -16,7 +16,6 @@ import {
   toAgendaBloqueio,
   toHorarioFuncionamento,
 } from "./data";
-import { prisma } from "@/lib/prisma";
 import { BLOCKING_STATUSES } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Agenda" };
@@ -102,19 +101,19 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
       cursor = addDays(cursor, 1);
     }
 
+    // Carrega os compromissos da grade inteira: alimenta as bolinhas da
+    // grade E a lista do dia selecionado (toque num dia mostra os cards).
     const gridStart = dayKeyToUtcStart(chaves[0], tz);
     const gridEnd = addDays(dayKeyToUtcStart(chaves[chaves.length - 1], tz), 1);
-    const appts = await prisma.appointment.findMany({
-      where: {
-        professionalId: professional.id,
-        startAt: { gte: gridStart, lt: gridEnd },
-        status: { in: [...BLOCKING_STATUSES] },
-      },
-      select: { startAt: true },
-    });
+    compromissos = await getCompromissosNoIntervalo(
+      professional.id,
+      gridStart,
+      gridEnd,
+    );
     const contagem: Record<string, number> = {};
-    for (const a of appts) {
-      const k = localDayKey(a.startAt, tz);
+    for (const c of compromissos) {
+      if (!(BLOCKING_STATUSES as readonly string[]).includes(c.status)) continue;
+      const k = localDayKey(new Date(c.inicio), tz);
       contagem[k] = (contagem[k] ?? 0) + 1;
     }
     mes = { chaves, contagem };

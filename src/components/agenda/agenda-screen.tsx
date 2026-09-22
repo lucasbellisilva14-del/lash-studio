@@ -33,6 +33,7 @@ import type {
 import { DayTimeline } from "./day-timeline";
 import { WeekList } from "./week-list";
 import { MonthGrid } from "./month-grid";
+import { MonthDayList } from "./month-day-list";
 import { NewAppointmentSheet } from "./new-appointment-sheet";
 import { AppointmentDetailSheet } from "./appointment-detail-sheet";
 
@@ -218,12 +219,21 @@ export function AgendaScreen({
         />
       ) : null}
       {visao === "mes" && mes ? (
-        <MonthGrid
-          chaves={mes.chaves}
-          contagem={mes.contagem}
-          diaKey={diaKey}
-          hojeKey={hojeKey}
-        />
+        <>
+          <MonthGrid
+            chaves={mes.chaves}
+            contagem={mes.contagem}
+            diaKey={diaKey}
+            hojeKey={hojeKey}
+          />
+          <MonthDayList
+            diaKey={diaKey}
+            hojeKey={hojeKey}
+            tz={tz}
+            compromissos={compromissos}
+            onSelecionar={setDetalhe}
+          />
+        </>
       ) : null}
 
       <Fab label="Agendar" onClick={() => setNovoAberto(true)} />
