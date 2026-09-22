@@ -106,6 +106,9 @@ export const IconLock = (p: SVGProps<SVGSVGElement>) => (
 export const IconTrophy = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" /><path d="M8 5H4.5v1.5A3.5 3.5 0 0 0 8 10M16 5h3.5v1.5A3.5 3.5 0 0 1 16 10" /><path d="M12 13v3.5M8.5 20h7M10 20a2 2 0 0 1 2-3.5A2 2 0 0 1 14 20" /></svg>
 );
+export const IconStar = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m12 3.5 2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.11l-4.94 2.6.94-5.5-4-3.9 5.53-.8L12 3.5Z" /></svg>
+);
 export const IconCalendarX = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M8 3v4M16 3v4M3 10h18" /><path d="m9.75 13.5 4.5 4.5m0-4.5-4.5 4.5" /></svg>
 );

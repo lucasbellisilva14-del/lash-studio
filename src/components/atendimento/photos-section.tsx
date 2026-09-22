@@ -10,14 +10,21 @@ import { SavedToast } from "@/components/config/feedback";
 import { hapticSuccess } from "@/lib/haptics";
 import { cn } from "@/lib/cn";
 import { Card, CardBody } from "@/components/ui/card";
-import { IconCamera, IconTrash } from "@/components/ui/icons";
+import { IconCamera, IconStar, IconTrash } from "@/components/ui/icons";
 import {
   deletePhotoAction,
+  toggleVitrineAction,
   uploadPhotoAction,
   type PhotoState,
 } from "@/app/(app)/atendimentos/[appointmentId]/actions";
 
-export type PhotoItem = { id: string; kind: string; storageKey: string; thumbKey?: string | null };
+export type PhotoItem = {
+  id: string;
+  kind: string;
+  storageKey: string;
+  thumbKey?: string | null;
+  naVitrine?: boolean;
+};
 
 export function PhotosSection({
   appointmentId,
@@ -35,7 +42,8 @@ export function PhotosSection({
         <div className="mb-3">
           <h2 className="text-[15px] font-semibold text-ink">Fotos</h2>
           <p className="text-xs text-ink-soft mt-0.5">
-            Antes e depois — o retrato da sua entrega
+            Antes e depois — o retrato da sua entrega. Toque na ⭐ para exibir
+            a foto na vitrine do seu link público (peça autorização da cliente!).
           </p>
         </div>
         <div className="space-y-5">
@@ -153,7 +161,33 @@ function Thumb({ photo, appointmentId }: { photo: PhotoItem; appointmentId: stri
         <input type="hidden" name="appointmentId" value={appointmentId} />
         <DeleteButton />
       </form>
+      <form action={toggleVitrineAction} className="absolute top-1.5 left-1.5">
+        <input type="hidden" name="photoId" value={photo.id} />
+        <input type="hidden" name="appointmentId" value={appointmentId} />
+        <VitrineButton naVitrine={photo.naVitrine ?? false} />
+      </form>
     </div>
+  );
+}
+
+/** Estrela da vitrine: exibe/esconde a foto no link público. */
+function VitrineButton({ naVitrine }: { naVitrine: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      aria-label={naVitrine ? "Tirar da vitrine do link público" : "Exibir na vitrine do link público"}
+      aria-pressed={naVitrine}
+      title={naVitrine ? "Na vitrine do link público" : "Exibir na vitrine"}
+      className={cn(
+        "flex items-center justify-center w-7 h-7 rounded-full backdrop-blur-sm transition-colors",
+        naVitrine ? "bg-accent text-white" : "bg-ink/60 text-white/85",
+        pending && "opacity-50",
+      )}
+    >
+      <IconStar width={14} height={14} fill={naVitrine ? "currentColor" : "none"} />
+    </button>
   );
 }
 

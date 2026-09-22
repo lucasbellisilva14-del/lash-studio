@@ -221,6 +221,8 @@ model Photo {
   kind               String  @default("OUTRO") // ANTES | DEPOIS | OUTRO
   storageKey         String
   thumbKey           String? // miniatura webp gerada no upload
+  /// Na vitrine do link público (nulo = privada); data usada na ordenação.
+  showcaseAt         DateTime?
   createdAt          DateTime @default(now())
 
   professional     Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
@@ -228,6 +230,7 @@ model Photo {
   attendanceRecord AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
+  @@index([professionalId, showcaseAt])
 }
 
 model AnamnesisForm {

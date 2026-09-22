@@ -200,6 +200,7 @@ export default async function AtendimentoPage(
             kind: p.kind,
             storageKey: p.storageKey,
             thumbKey: p.thumbKey,
+            naVitrine: p.showcaseAt !== null,
           }))}
         />
 
