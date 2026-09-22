@@ -30,7 +30,9 @@ export async function GET(
   return new Response(new Uint8Array(file.data), {
     headers: {
       "Content-Type": file.contentType,
-      "Cache-Control": "public, max-age=3600",
+      // Curto de propósito: tirar a foto da vitrine (LGPD/arrependimento)
+      // precisa valer rápido — 60s de cache na borda, navegador revalida.
+      "Cache-Control": "public, max-age=0, s-maxage=60, must-revalidate",
     },
   });
 }
