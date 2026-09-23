@@ -31,6 +31,11 @@ export interface PaymentProvider {
   }>;
 }
 
+/**
+ * Mercado Pago via Orders API (a nova — a Payments API clássica está em
+ * descontinuação). Pedido "online" com pagamento Pix; a order paga fica
+ * com status "processed".
+ */
 class MercadoPagoProvider implements PaymentProvider {
   readonly name = "mercadopago";
   private readonly token = process.env.MP_ACCESS_TOKEN ?? "";
@@ -42,12 +47,9 @@ class MercadoPagoProvider implements PaymentProvider {
     payerName: string;
     expiresInHours: number;
   }): Promise<PixCharge> {
-    const expiration = new Date(Date.now() + params.expiresInHours * 3600_000)
-      .toISOString()
-      .replace("Z", "-00:00");
-    const [firstName, ...rest] = params.payerName.trim().split(/\s+/);
+    const valor = (params.amountCents / 100).toFixed(2);
 
-    const res = await fetch("https://api.mercadopago.com/v1/payments", {
+    const res = await fetch("https://api.mercadopago.com/v1/orders", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -56,16 +58,24 @@ class MercadoPagoProvider implements PaymentProvider {
         "X-Idempotency-Key": `lashos-sinal-${params.externalReference}`,
       },
       body: JSON.stringify({
-        transaction_amount: Number((params.amountCents / 100).toFixed(2)),
-        description: params.description,
-        payment_method_id: "pix",
+        type: "online",
+        processing_mode: "automatic",
+        total_amount: valor,
         external_reference: params.externalReference,
-        date_of_expiration: expiration,
+        description: params.description,
+        transactions: {
+          payments: [
+            {
+              amount: valor,
+              payment_method: { id: "pix", type: "bank_transfer" },
+              // Duração ISO 8601 — expira junto com a janela do sinal.
+              expiration_time: `PT${params.expiresInHours}H`,
+            },
+          ],
+        },
         payer: {
           // MP exige e-mail; o real da cliente não é coletado no agendamento.
-          email: `sinal-${params.externalReference}@lashos.com.br`,
-          first_name: firstName,
-          last_name: rest.join(" ") || firstName,
+          email: `sinal-${params.externalReference.toLowerCase()}@lashos.com.br`,
         },
       }),
     });
@@ -74,26 +84,39 @@ class MercadoPagoProvider implements PaymentProvider {
       throw new Error(`Mercado Pago: cobrança falhou (${res.status} ${detail})`);
     }
     const data = (await res.json()) as {
-      id: number;
-      point_of_interaction?: { transaction_data?: { qr_code?: string } };
+      id: string;
+      transactions?: {
+        payments?: Array<{ payment_method?: { qr_code?: string } }>;
+      };
     };
-    const pix = data.point_of_interaction?.transaction_data?.qr_code;
+    const pix = data.transactions?.payments?.[0]?.payment_method?.qr_code;
     if (!pix) throw new Error("Mercado Pago: resposta sem código Pix");
-    return { paymentId: String(data.id), pixCopiaECola: pix };
+    return { paymentId: data.id, pixCopiaECola: pix };
   }
 
   async getPaymentStatus(paymentId: string) {
-    const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { Authorization: `Bearer ${this.token}` },
-    });
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/orders/${encodeURIComponent(paymentId)}`,
+      { headers: { Authorization: `Bearer ${this.token}` } },
+    );
     if (!res.ok) {
       throw new Error(`Mercado Pago: consulta falhou (${res.status})`);
     }
     const data = (await res.json()) as {
       status: string;
       external_reference?: string | null;
+      transactions?: { payments?: Array<{ status?: string }> };
     };
-    return { status: data.status, externalReference: data.external_reference ?? null };
+    // Normaliza: order "processed" (ou pagamento interno idem) = sinal pago.
+    const pago =
+      data.status === "processed" ||
+      data.transactions?.payments?.some(
+        (p) => p.status === "processed" || p.status === "approved",
+      );
+    return {
+      status: pago ? "approved" : data.status,
+      externalReference: data.external_reference ?? null,
+    };
   }
 }
 
