@@ -5,11 +5,42 @@
  * Autenticidade: nunca confiamos no corpo — pegamos só o id e CONSULTAMOS
  * o pagamento na API do MP com o nosso token. O que a API disser, vale.
  */
+import crypto from "node:crypto";
 import { getPaymentProvider } from "@/lib/providers/payment";
 import { confirmarSinalPago } from "@/lib/domain/deposit-charge";
 import { prisma } from "@/lib/prisma";
 import { sendPushToProfessional } from "@/components/push/send";
 import { formatBRL } from "@/lib/money";
+
+/**
+ * Valida a assinatura oficial do MP (x-signature: ts=...,v1=...):
+ * HMAC-SHA256 do manifesto "id:{data.id};request-id:{x-request-id};ts:{ts};"
+ * com a MP_WEBHOOK_SECRET. Sem a env, pula (a consulta à API já protege).
+ */
+function assinaturaValida(request: Request, dataId: string | null): boolean {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) return true;
+
+  const xSignature = request.headers.get("x-signature") ?? "";
+  const requestId = request.headers.get("x-request-id") ?? "";
+  const partes = new Map(
+    xSignature.split(",").map((p) => {
+      const [k, ...v] = p.split("=");
+      return [k.trim(), v.join("=").trim()] as const;
+    }),
+  );
+  const ts = partes.get("ts");
+  const v1 = partes.get("v1");
+  if (!ts || !v1) return false;
+
+  const manifesto = `id:${(dataId ?? "").toLowerCase()};request-id:${requestId};ts:${ts};`;
+  const esperado = crypto.createHmac("sha256", secret).update(manifesto).digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(v1));
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   const provider = getPaymentProvider();
@@ -27,6 +58,10 @@ export async function POST(request: Request) {
     paymentId = new URL(request.url).searchParams.get("data.id");
   }
   if (!paymentId) return Response.json({ ok: true, ignorado: "sem id" });
+
+  if (!assinaturaValida(request, paymentId)) {
+    return Response.json({ error: "assinatura inválida" }, { status: 401 });
+  }
 
   try {
     const pagamento = await provider.getPaymentStatus(paymentId);
