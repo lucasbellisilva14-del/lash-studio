@@ -47,6 +47,12 @@ model Professional {
   inactiveDays   Int @default(60) // "inativa": mais de N dias sem atendimento
 
   dailySummaryTime String  @default("07:30")
+  /// Dedup do resumo diário: último dia local (yyyy-MM-dd) já enviado.
+  dailySummarySentDay String?
+  /// Envio automático da fila via API de WhatsApp (quando configurada).
+  autoSendMessages Boolean @default(false)
+  /// Dedup do envio automático: último dia local já processado.
+  autoSendSentDay  String?
   /// Token secreto do feed .ics (assinatura no Google Calendar/iPhone).
   /// Nulo = feed desligado; regerar = revogar o link antigo.
   calendarToken    String? @unique
@@ -171,6 +177,10 @@ model Appointment {
   depositRequired Boolean @default(false)
   depositCents   Int?
   depositPaidAt  DateTime?
+  /// Cobrança Pix do sinal no Mercado Pago (quando integrado).
+  mpPaymentId    String?   @unique
+  /// Copia-e-cola do sinal (MP quando integrado; senão EMV estático).
+  pixCopiaCola   String?
   notes          String?
   source         String   @default("INTERNO") // INTERNO | PUBLICO
   createdAt      DateTime @default(now())

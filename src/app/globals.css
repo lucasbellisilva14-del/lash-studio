@@ -139,6 +139,14 @@
   .page-in, .sheet-in { animation: none; }
 }
 
+/* Impressão (Fechamento do mês → Salvar como PDF): só o documento. */
+@media print {
+  nav, aside, .no-print { display: none !important; }
+  body, .app-bg { background: #ffffff !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  .print-report { max-width: none; }
+}
+
 @theme inline {
   --color-accent-soft: var(--accent-soft);
   --color-accent-strong: var(--accent-strong);

@@ -14,6 +14,7 @@ import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
 import { freeSlotsForDay, validateSlot } from "@/lib/domain/scheduling";
 import { computeDeposit } from "@/lib/domain/deposit";
 import { buildPixPayload } from "@/lib/pix";
+import { criarCobrancaSinal } from "@/lib/domain/deposit-charge";
 import type {
   HorariosPublicosResult,
   SolicitacaoResult,
@@ -239,7 +240,7 @@ export async function criarSolicitacao(
     priceCents: service.priceCents,
   });
 
-  await prisma.appointment.create({
+  const criado = await prisma.appointment.create({
     data: {
       professionalId: estudio.id,
       clientId: cliente.id,
@@ -254,18 +255,32 @@ export async function criarSolicitacao(
     },
   });
 
+  // Mercado Pago integrado: cobrança com confirmação automática do sinal.
+  let pixAutomatico: string | null = null;
+  if (sinal.required && sinal.depositCents > 0) {
+    await criarCobrancaSinal(criado.id);
+    pixAutomatico = (
+      await prisma.appointment.findUnique({
+        where: { id: criado.id },
+        select: { pixCopiaCola: true },
+      })
+    )?.pixCopiaCola ?? null;
+  }
+
   const dataFmt = formatDate(startAt, tz);
   let sucessoSinal: SolicitacaoSucesso["sinal"] = null;
   if (sinal.required && sinal.depositCents > 0) {
     sucessoSinal = {
       valorCents: sinal.depositCents,
-      pixCodigo: estudio.pixKey
-        ? buildPixPayload({
-            pixKey: estudio.pixKey,
-            merchantName: estudio.studioName,
-            amountCents: sinal.depositCents,
-          })
-        : null,
+      pixCodigo:
+        pixAutomatico ??
+        (estudio.pixKey
+          ? buildPixPayload({
+              pixKey: estudio.pixKey,
+              merchantName: estudio.studioName,
+              amountCents: sinal.depositCents,
+            })
+          : null),
       waComprovanteUrl: estudio.whatsapp
         ? waLink(
             estudio.whatsapp,

@@ -21,6 +21,7 @@ import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
 import { freeSlotsForDay, validateSlot } from "@/lib/domain/scheduling";
 import { checkMaintenanceWindow } from "@/lib/domain/maintenance";
 import { computeDeposit } from "@/lib/domain/deposit";
+import { criarCobrancaSinal } from "@/lib/domain/deposit-charge";
 import { getLastLashAppointment } from "@/lib/domain/cycle";
 import {
   getGradeAgenda,
@@ -278,7 +279,7 @@ async function criarManutencaoVinculada(params: {
     priceCents: manutServico.priceCents,
   });
 
-  await prisma.appointment.create({
+  const manutCriada = await prisma.appointment.create({
     data: {
       professionalId: professional.id,
       clientId,
@@ -292,6 +293,7 @@ async function criarManutencaoVinculada(params: {
       source: "INTERNO",
     },
   });
+  if (sinal.required) await criarCobrancaSinal(manutCriada.id);
 
   const quando = `${formatDate(startAt, tz)} às ${hora}`;
   const extraSinal = sinal.required
@@ -395,6 +397,8 @@ export async function criarAgendamento(
   });
 
   if (sinal.required) {
+    // Mercado Pago integrado: Pix com confirmação automática do sinal.
+    await criarCobrancaSinal(created.id);
     const motivo =
       sinal.reason === "NO_SHOW"
         ? `cliente com ${client.noShowCount} falta${client.noShowCount === 1 ? "" : "s"}`
@@ -750,16 +754,20 @@ export type PixCodigoResult =
   | { ok: true; codigo: string; valorCents: number }
   | { ok: false; erro: string };
 
-/** Pix copia-e-cola do sinal (BR Code com valor travado). */
+/** Pix copia-e-cola do sinal (MP com confirmação automática, senão BR Code). */
 export async function pixDoSinal(id: string): Promise<PixCodigoResult> {
   const professional = await requireProfessional();
-  if (!professional.pixKey) {
-    return { ok: false, erro: "Cadastre sua chave Pix em Configurações → Perfil." };
-  }
   const appt = await getAgendamentoDaProfissional(id, professional.id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (!appt.depositCents || appt.depositCents <= 0) {
     return { ok: false, erro: "Esse agendamento não tem sinal definido." };
+  }
+  // Cobrança do Mercado Pago (paga = confirma sozinho) tem prioridade.
+  if (appt.pixCopiaCola) {
+    return { ok: true, codigo: appt.pixCopiaCola, valorCents: appt.depositCents };
+  }
+  if (!professional.pixKey) {
+    return { ok: false, erro: "Cadastre sua chave Pix em Configurações → Perfil." };
   }
   const codigo = buildPixPayload({
     pixKey: professional.pixKey,

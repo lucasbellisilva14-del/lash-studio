@@ -9,6 +9,32 @@ import { sendPushToProfessional } from "@/components/push/send";
 /** Resultado das ações de push (consumido direto pelo client component). */
 export type PushActionResult = { ok: true } | { ok: false; error: string };
 
+/** Salva o horário do resumo diário (HH:mm). */
+export async function salvarHorarioResumoAction(hora: string): Promise<PushActionResult> {
+  const professionalId = await requireProfessionalId();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
+    return { ok: false, error: "Horário inválido — use o formato HH:mm." };
+  }
+  await prisma.professional.update({
+    where: { id: professionalId },
+    // Zera o dedup: se o novo horário ainda vai chegar hoje, o resumo sai hoje.
+    data: { dailySummaryTime: hora, dailySummarySentDay: null },
+  });
+  revalidatePath("/config/notificacoes");
+  return { ok: true };
+}
+
+/** Liga/desliga o envio automático da fila via API de WhatsApp. */
+export async function salvarEnvioAutomaticoAction(ativo: boolean): Promise<PushActionResult> {
+  const professionalId = await requireProfessionalId();
+  await prisma.professional.update({
+    where: { id: professionalId },
+    data: { autoSendMessages: ativo, autoSendSentDay: null },
+  });
+  revalidatePath("/config/notificacoes");
+  return { ok: true };
+}
+
 const inscricaoSchema = z.object({
   endpoint: z.url({ error: "Inscrição de push inválida." }).max(2000),
   p256dh: z.string().min(1, "Inscrição de push inválida.").max(512),

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireProfessional } from "@/lib/session";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { PeriodoSwitch } from "@/components/relatorios/periodo-switch";
 import { ReportSection } from "@/components/relatorios/section";
@@ -34,6 +35,22 @@ export default async function RelatoriosPage(props: PageProps<"/relatorios">) {
   return (
     <>
       <PageHeader title="Relatórios" subtitle="Os números do seu estúdio" />
+
+      <Link
+        href="/relatorios/mensal"
+        className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 shadow-[var(--shadow-card)] hover:bg-surface-sunken/50 transition-colors"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent-strong shrink-0 text-lg" aria-hidden>
+          📄
+        </span>
+        <span className="min-w-0 grow">
+          <span className="block font-medium text-[15px] text-ink">Fechamento do mês</span>
+          <span className="block text-[13px] text-ink-soft">
+            Relatório completo em PDF, com a sua identidade
+          </span>
+        </span>
+      </Link>
+
       <PeriodoSwitch periodo={periodo} />
 
       <div className="mt-6 space-y-7">

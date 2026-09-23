@@ -28,9 +28,48 @@ export class WaLinkProvider implements MessageProvider {
   }
 }
 
+/**
+ * Evolution API (WhatsApp self-hosted): envio real, sem toque manual.
+ * Envs: EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE.
+ */
+export class EvolutionApiProvider implements MessageProvider {
+  readonly name = "evolution";
+  private readonly baseUrl = (process.env.EVOLUTION_API_URL ?? "").replace(/\/$/, "");
+  private readonly apiKey = process.env.EVOLUTION_API_KEY ?? "";
+  private readonly instance = process.env.EVOLUTION_INSTANCE ?? "";
+
+  async send(message: OutgoingMessage): Promise<PreparedMessage> {
+    const res = await fetch(
+      `${this.baseUrl}/message/sendText/${encodeURIComponent(this.instance)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: this.apiKey },
+        body: JSON.stringify({ number: `55${message.phone}`, text: message.body }),
+      },
+    );
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 300);
+      throw new Error(`Evolution API: envio falhou (${res.status} ${detail})`);
+    }
+    return { mode: "SENT" };
+  }
+}
+
 let provider: MessageProvider | null = null;
 
 export function getMessageProvider(): MessageProvider {
-  if (!provider) provider = new WaLinkProvider();
+  if (!provider) {
+    provider =
+      process.env.EVOLUTION_API_URL &&
+      process.env.EVOLUTION_API_KEY &&
+      process.env.EVOLUTION_INSTANCE
+        ? new EvolutionApiProvider()
+        : new WaLinkProvider();
+  }
   return provider;
+}
+
+/** O provider ativo envia sozinho (API) em vez de gerar link manual? */
+export function messageProviderIsAutomatic(): boolean {
+  return getMessageProvider().name !== "wa-link";
 }

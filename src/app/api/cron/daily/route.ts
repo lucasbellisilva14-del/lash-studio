@@ -13,6 +13,10 @@ import { LASH_CYCLE_CATEGORIES } from "@/lib/constants";
 import { diffLocalDays, formatTime, localDayKey, localDayRange } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { sendPushToProfessional } from "@/components/push/send";
+import {
+  getMessageProvider,
+  messageProviderIsAutomatic,
+} from "@/lib/providers/message";
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
@@ -168,6 +172,54 @@ async function buildSummaryLines(professional: SummaryInput, now: Date): Promise
   return lines;
 }
 
+/**
+ * Janela de disparo: o cron roda a cada 15min (pinger externo) e envia
+ * quando o horário local da profissional entrou na janela
+ * [dailySummaryTime, dailySummaryTime + 20min). Dedup por dia local.
+ */
+function dentroDaJanela(nowLocalMin: number, alvo: string): boolean {
+  const [h, m] = alvo.split(":").map(Number);
+  const alvoMin = h * 60 + (m || 0);
+  return nowLocalMin >= alvoMin && nowLocalMin < alvoMin + 20;
+}
+
+function minutosLocais(now: Date, tz: string): number {
+  const [h, m] = formatTime(now, tz).split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Envia a fila inteira via API de WhatsApp e registra cada mensagem. */
+async function enviarFilaAutomatica(professionalId: string, now: Date): Promise<number> {
+  const queue = await buildMessageQueue(professionalId, now);
+  const provider = getMessageProvider();
+  let enviadas = 0;
+  for (const item of queue) {
+    try {
+      const prepared = await provider.send({ phone: item.client.phone, body: item.body });
+      if (prepared.mode !== "SENT") break; // provider virou manual? aborta
+      await prisma.messageLog.create({
+        data: {
+          professionalId,
+          clientId: item.client.id,
+          appointmentId: item.appointmentId,
+          templateId: item.templateId,
+          kind: item.kind,
+          channel: "WHATSAPP",
+          body: item.body,
+          status: "ENVIADA",
+          refDate: item.refDate,
+          sentAt: new Date(),
+        },
+      });
+      enviadas += 1;
+    } catch (e) {
+      console.error(`[cron] envio automático falhou (${professionalId}):`, e);
+      break; // API fora do ar — tenta de novo no próximo tick, sem duplicar
+    }
+  }
+  return enviadas;
+}
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization");
@@ -179,26 +231,64 @@ export async function GET(request: Request) {
   const professionals = await prisma.professional.findMany({
     include: { _count: { select: { pushSubscriptions: true } } },
   });
+  const waAutomatico = messageProviderIsAutomatic();
 
   let sent = 0;
+  let waSent = 0;
   for (const professional of professionals) {
-    // Sem aparelho inscrito não há para onde enviar — pula o trabalho pesado.
-    if (professional._count.pushSubscriptions === 0) continue;
-    try {
-      const lines = await buildSummaryLines(professional, now);
-      if (lines.length === 0) continue;
+    const tz = professional.timezone;
+    const todayKey = localDayKey(now, tz);
+    const nowMin = minutosLocais(now, tz);
+    if (!dentroDaJanela(nowMin, professional.dailySummaryTime)) continue;
 
-      const firstName = professional.name.trim().split(/\s+/)[0];
-      const result = await sendPushToProfessional(professional.id, {
-        title: `Bom dia, ${firstName}! ✨`,
-        body: lines.slice(0, 3).join("\n"),
-        url: "/",
-      });
-      if (result.sent > 0) sent += 1;
-    } catch {
-      // Uma profissional com erro não derruba o resumo das demais.
+    // ── Resumo por push, no horário escolhido por ELA ──
+    if (
+      professional._count.pushSubscriptions > 0 &&
+      professional.dailySummarySentDay !== todayKey
+    ) {
+      try {
+        // Marca antes de enviar: melhor perder 1 resumo do que duplicar.
+        await prisma.professional.update({
+          where: { id: professional.id },
+          data: { dailySummarySentDay: todayKey },
+        });
+        const lines = await buildSummaryLines(professional, now);
+        if (lines.length > 0) {
+          const firstName = professional.name.trim().split(/\s+/)[0];
+          const result = await sendPushToProfessional(professional.id, {
+            title: `Bom dia, ${firstName}! ✨`,
+            body: lines.slice(0, 3).join("\n"),
+            url: "/",
+          });
+          if (result.sent > 0) sent += 1;
+        }
+      } catch {
+        // Uma profissional com erro não derruba o resumo das demais.
+      }
+    }
+
+    // ── WhatsApp automático: fila do dia sai sozinha (Evolution + opt-in) ──
+    if (
+      waAutomatico &&
+      professional.autoSendMessages &&
+      professional.autoSendSentDay !== todayKey
+    ) {
+      try {
+        await prisma.professional.update({
+          where: { id: professional.id },
+          data: { autoSendSentDay: todayKey },
+        });
+        waSent += await enviarFilaAutomatica(professional.id, now);
+      } catch (e) {
+        console.error(`[cron] fila automática falhou (${professional.id}):`, e);
+      }
     }
   }
 
-  return Response.json({ professionals: professionals.length, sent });
+  return Response.json({
+    professionals: professionals.length,
+    sent,
+    waSent,
+    waAutomatico,
+  });
 }

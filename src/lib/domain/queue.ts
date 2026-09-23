@@ -9,7 +9,7 @@ import { LASH_CYCLE_CATEGORIES, type TemplateKind } from "@/lib/constants";
 import { addDays } from "date-fns";
 import { dayKeyToUtcStart, diffLocalDays, localDayKey } from "@/lib/dates";
 import { renderTemplate } from "@/lib/domain/templates";
-import { getMessageProvider } from "@/lib/providers/message";
+import { waLink } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 
 export type QueueItem = {
@@ -66,7 +66,6 @@ export async function buildMessageQueue(
   const templateByKind = new Map(templates.map((t) => [t.kind as TemplateKind, t]));
 
   const items: QueueItem[] = [];
-  const provider = getMessageProvider();
 
   const baseCtx = {
     addressLine: professional.addressLine,
@@ -95,7 +94,8 @@ export async function buildMessageQueue(
       });
     }
     const body = renderTemplate(template.body, ctx, { dropEmptyLines: true });
-    const prepared = await provider.send({ phone: params.client.phone, body });
+    // Montar a fila NUNCA envia nada — só prepara o link manual (wa.me).
+    // Envio real por API é ato explícito (cron de envio automático).
     items.push({
       key: `${params.kind}:${params.client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,
       kind: params.kind,
@@ -104,7 +104,7 @@ export async function buildMessageQueue(
       appointmentId: params.appointmentId ?? null,
       templateId: template.id,
       body,
-      waUrl: prepared.mode === "LINK" ? prepared.url : null,
+      waUrl: waLink(params.client.phone, body),
       refDate: params.refDate,
     });
   }
@@ -132,6 +132,8 @@ export async function buildMessageQueue(
         serviceName: appt.service.name,
         priceCents: appt.priceCents,
         depositCents: appt.depositCents,
+        // Mercado Pago integrado: usa o Pix da cobrança (confirma sozinho)
+        pixCopiaECola: appt.pixCopiaCola,
       },
     });
   }
