@@ -11,6 +11,7 @@ import {
   IconChevronRight,
   IconClock,
   IconLock,
+  IconMoney as IconMoneyCfg,
 } from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
@@ -70,6 +71,14 @@ export default async function ConfigPage() {
           ? `${feeCount} ${feeCount === 1 ? "forma configurada" : "formas configuradas"}`
           : "Configure a taxa de cada forma de pagamento",
       icon: IconPercent,
+    },
+    {
+      href: "/config/pagamentos",
+      label: "Pagamentos",
+      description: professional.mpConnectedAt
+        ? "Mercado Pago conectado — sinal confirma sozinho"
+        : "Conecte o Mercado Pago e receba o sinal direto",
+      icon: IconMoneyCfg,
     },
     {
       href: "/config/calendario",

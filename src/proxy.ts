@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/calendario", // feed .ics (protegido por token secreto próprio)
   "/api/webhooks", // webhooks de provedores (autenticidade validada na rota)
+  "/api/mp/callback", // retorno do OAuth do MP (autenticado pelo state assinado)
   "/manifest.webmanifest",
   "/sw.js",
   "/icons",

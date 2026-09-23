@@ -6,23 +6,37 @@ import "server-only";
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getPaymentProvider } from "@/lib/providers/payment";
+import {
+  getPaymentProvider,
+  paymentProviderComToken,
+  type PaymentProvider,
+} from "@/lib/providers/payment";
+import { tokenDaProfissional } from "@/lib/mp-oauth";
+
+/**
+ * Provider de pagamento do estúdio: conta MP conectada via OAuth tem
+ * prioridade (dinheiro cai pra ELA); senão o token global do app; senão null.
+ */
+export async function paymentProviderDoEstudio(
+  professionalId: string,
+): Promise<PaymentProvider | null> {
+  const tokenDela = await tokenDaProfissional(professionalId);
+  if (tokenDela) return paymentProviderComToken(tokenDela);
+  return getPaymentProvider();
+}
 
 /**
  * Cria a cobrança Pix do sinal pro agendamento (melhor esforço).
  * Falha silenciosa: sem MP ou com erro, o EMV estático continua valendo.
  */
 export async function criarCobrancaSinal(appointmentId: string): Promise<void> {
-  const provider = getPaymentProvider();
-  if (!provider) return;
-
   try {
     const appt = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
         client: { select: { name: true } },
         service: { select: { name: true } },
-        professional: { select: { studioName: true, cancellationWindowHours: true } },
+        professional: { select: { id: true, studioName: true, cancellationWindowHours: true } },
       },
     });
     if (
@@ -34,6 +48,9 @@ export async function criarCobrancaSinal(appointmentId: string): Promise<void> {
     ) {
       return;
     }
+
+    const provider = await paymentProviderDoEstudio(appt.professional.id);
+    if (!provider) return;
 
     const charge = await provider.createPixCharge({
       amountCents: appt.depositCents,

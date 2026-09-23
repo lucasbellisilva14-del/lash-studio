@@ -243,26 +243,6 @@ export async function deletePhotoAction(formData: FormData): Promise<void> {
   revalidateAtendimento(appointmentId, photo.clientId);
 }
 
-/** Liga/desliga a foto na vitrine do link público de agendamento. */
-export async function toggleVitrineAction(formData: FormData): Promise<void> {
-  const professionalId = await requireProfessionalId();
-  const photoId = textOrNull(formData.get("photoId")) ?? "";
-  const appointmentId = textOrNull(formData.get("appointmentId")) ?? "";
-
-  const photo = await prisma.photo.findFirst({
-    where: { id: photoId, professionalId },
-    select: { id: true, clientId: true, showcaseAt: true },
-  });
-  if (!photo) return;
-
-  await prisma.photo.update({
-    where: { id: photo.id },
-    data: { showcaseAt: photo.showcaseAt ? null : new Date() },
-  });
-
-  revalidateAtendimento(appointmentId, photo.clientId);
-}
-
 /* ------------------------------------------------------------------ */
 /* Pagamento (lançamento financeiro do atendimento)                    */
 /* ------------------------------------------------------------------ */

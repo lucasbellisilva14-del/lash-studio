@@ -7,7 +7,10 @@
  */
 import crypto from "node:crypto";
 import { getPaymentProvider } from "@/lib/providers/payment";
-import { confirmarSinalPago } from "@/lib/domain/deposit-charge";
+import {
+  confirmarSinalPago,
+  paymentProviderDoEstudio,
+} from "@/lib/domain/deposit-charge";
 import { prisma } from "@/lib/prisma";
 import { sendPushToProfessional } from "@/components/push/send";
 import { formatBRL } from "@/lib/money";
@@ -43,9 +46,6 @@ function assinaturaValida(request: Request, dataId: string | null): boolean {
 }
 
 export async function POST(request: Request) {
-  const provider = getPaymentProvider();
-  if (!provider) return Response.json({ ok: true, ignorado: "sem integração" });
-
   // MP manda o id no corpo ({data:{id}}) ou na query (?data.id=...)
   let paymentId: string | null = null;
   try {
@@ -64,6 +64,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    // A cobrança pode ser da conta OAuth da profissional: acha o agendamento
+    // pela order e consulta com o provider CERTO (o dela; senão o global).
+    const apptDaOrder = await prisma.appointment.findUnique({
+      where: { mpPaymentId: paymentId },
+      select: { professionalId: true },
+    });
+    const provider = apptDaOrder
+      ? await paymentProviderDoEstudio(apptDaOrder.professionalId)
+      : getPaymentProvider();
+    if (!provider) return Response.json({ ok: true, ignorado: "sem integração" });
+
     const pagamento = await provider.getPaymentStatus(paymentId);
     if (pagamento.status !== "approved" || !pagamento.externalReference) {
       return Response.json({ ok: true, status: pagamento.status });

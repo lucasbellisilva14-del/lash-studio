@@ -51,6 +51,14 @@ model Professional {
   dailySummarySentDay String?
   /// Envio automático da fila via API de WhatsApp (quando configurada).
   autoSendMessages Boolean @default(false)
+
+  /// Mercado Pago conectado via OAuth (sinal cai na conta DELA).
+  /// Tokens criptografados (AES-GCM, chave derivada do AUTH_SECRET).
+  mpUserId         String?
+  mpAccessToken    String?
+  mpRefreshToken   String?
+  mpTokenExpiresAt DateTime?
+  mpConnectedAt    DateTime?
   /// Dedup do envio automático: último dia local já processado.
   autoSendSentDay  String?
   /// Token secreto do feed .ics (assinatura no Google Calendar/iPhone).

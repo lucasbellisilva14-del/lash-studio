@@ -38,7 +38,11 @@ export interface PaymentProvider {
  */
 class MercadoPagoProvider implements PaymentProvider {
   readonly name = "mercadopago";
-  private readonly token = process.env.MP_ACCESS_TOKEN ?? "";
+  private readonly token: string;
+
+  constructor(token: string) {
+    this.token = token;
+  }
 
   async createPixCharge(params: {
     amountCents: number;
@@ -120,11 +124,13 @@ class MercadoPagoProvider implements PaymentProvider {
   }
 }
 
-let provider: PaymentProvider | null = null;
+/** Provider com o token da PROFISSIONAL (OAuth) — o dinheiro cai pra ela. */
+export function paymentProviderComToken(token: string): PaymentProvider {
+  return new MercadoPagoProvider(token);
+}
 
-/** null = integração desligada (sem MP_ACCESS_TOKEN). */
+/** Provider global (MP_ACCESS_TOKEN do app) — fallback/testes. null = desligado. */
 export function getPaymentProvider(): PaymentProvider | null {
-  if (!process.env.MP_ACCESS_TOKEN) return null;
-  if (!provider) provider = new MercadoPagoProvider();
-  return provider;
+  const token = process.env.MP_ACCESS_TOKEN;
+  return token ? new MercadoPagoProvider(token) : null;
 }

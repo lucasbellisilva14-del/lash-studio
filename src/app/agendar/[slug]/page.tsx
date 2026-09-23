@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { formatPhone, waLink } from "@/lib/phone";
 import type { ServiceCategory } from "@/lib/constants";
 import { BookingFlow } from "@/components/agendar/booking-flow";
-import { Gallery } from "@/components/agendar/gallery";
 import { StudioLogo } from "@/components/agendar/studio-logo";
 import { IconInstagram, IconMapPin } from "@/components/agendar/icons";
 import { IconWhatsApp } from "@/components/ui/icons";
@@ -39,18 +38,12 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
   const estudio = await getEstudioPorSlug(slug);
   if (!estudio) notFound();
 
-  const [servicosDb, { workingHours }, fotosVitrine] = await Promise.all([
+  const [servicosDb, { workingHours }] = await Promise.all([
     prisma.service.findMany({
       where: { professionalId: estudio.id, active: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     getGradePublica(estudio.id),
-    prisma.photo.findMany({
-      where: { professionalId: estudio.id, showcaseAt: { not: null } },
-      orderBy: { showcaseAt: "desc" },
-      take: 12,
-      select: { id: true },
-    }),
   ]);
 
   const servicos: AgendarServico[] = servicosDb.map((s) => ({
@@ -141,15 +134,6 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
             </div>
           ) : null}
         </header>
-
-        <Gallery
-          nomeEstudio={estudio.studioName}
-          fotos={fotosVitrine.map((f) => ({
-            id: f.id,
-            thumbSrc: `/agendar/${slug}/foto/${f.id}?t=1`,
-            fullSrc: `/agendar/${slug}/foto/${f.id}`,
-          }))}
-        />
 
         <BookingFlow
           estudio={{
