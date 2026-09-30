@@ -52,6 +52,15 @@ model Professional {
   /// Envio automático da fila via API de WhatsApp (quando configurada).
   autoSendMessages Boolean @default(false)
 
+  /// Assinatura do LashOS (receita do app, cobrada via MP Assinaturas).
+  /// CORTESIA nunca bloqueia; TRIAL até trialEndsAt; ATIVA até
+  /// subscriptionPaidUntil + 3 dias de graça; SUSPENSA bloqueia já.
+  subscriptionStatus    String    @default("CORTESIA") // CORTESIA | TRIAL | ATIVA | SUSPENSA
+  subscriptionPaidUntil DateTime?
+  trialEndsAt           DateTime?
+  planPriceCents        Int       @default(9900) // preço calibrado por cliente
+  mpPreapprovalId       String?   @unique
+
   /// Mercado Pago conectado via OAuth (sinal cai na conta DELA).
   /// Tokens criptografados (AES-GCM, chave derivada do AUTH_SECRET).
   mpUserId         String?

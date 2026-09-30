@@ -11,6 +11,7 @@ import {
   confirmarSinalPago,
   paymentProviderDoEstudio,
 } from "@/lib/domain/deposit-charge";
+import { sincronizarAssinatura } from "@/lib/mp-subscription";
 import { prisma } from "@/lib/prisma";
 import { sendPushToProfessional } from "@/components/push/send";
 import { formatBRL } from "@/lib/money";
@@ -46,21 +47,34 @@ function assinaturaValida(request: Request, dataId: string | null): boolean {
 }
 
 export async function POST(request: Request) {
-  // MP manda o id no corpo ({data:{id}}) ou na query (?data.id=...)
+  // MP manda o id no corpo ({type, data:{id}}) ou na query (?data.id=...&type=...)
+  const url = new URL(request.url);
   let paymentId: string | null = null;
+  let topico = "";
   try {
-    const body = (await request.json()) as { type?: string; data?: { id?: unknown } };
+    const body = (await request.json()) as { type?: string; topic?: string; data?: { id?: unknown } };
     if (body?.data?.id != null) paymentId = String(body.data.id);
+    topico = body?.type ?? body?.topic ?? "";
   } catch {
     // corpo vazio/não-JSON — tenta a query
   }
-  if (!paymentId) {
-    paymentId = new URL(request.url).searchParams.get("data.id");
-  }
+  if (!paymentId) paymentId = url.searchParams.get("data.id");
+  if (!topico) topico = url.searchParams.get("type") ?? url.searchParams.get("topic") ?? "";
   if (!paymentId) return Response.json({ ok: true, ignorado: "sem id" });
 
   if (!assinaturaValida(request, paymentId)) {
     return Response.json({ error: "assinatura inválida" }, { status: 401 });
+  }
+
+  // Assinatura mensal do LashOS (preapproval) — fluxo próprio.
+  if (topico.includes("preapproval") || topico.includes("subscription")) {
+    try {
+      const ok = await sincronizarAssinatura(paymentId, topico);
+      return Response.json({ ok, tipo: "assinatura" });
+    } catch (e) {
+      console.error("[mp] sync de assinatura falhou:", e);
+      return Response.json({ ok: false }, { status: 500 });
+    }
   }
 
   try {
