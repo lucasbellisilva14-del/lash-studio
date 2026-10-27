@@ -20,12 +20,12 @@ export type ResumoMes = {
 function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <Card>
-      <CardBody className="p-3.5">
-        <p className="text-xs text-ink-soft">{label}</p>
-        <p className="mt-0.5 truncate font-display text-lg font-semibold text-ink">
+      <CardBody className="p-4 sm:p-5">
+        <p className="text-[13px] font-semibold text-ink">{label}</p>
+        <p className="mt-1.5 truncate text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums text-ink">
           {value}
         </p>
-        <p className="mt-0.5 text-[11px] text-ink-faint">{hint}</p>
+        <p className="mt-2 text-[12px] leading-snug text-ink-soft">{hint}</p>
       </CardBody>
     </Card>
   );
@@ -39,36 +39,36 @@ export function SummaryCards({ resumo }: { resumo: ResumoMes }) {
     <div className="space-y-3">
       <Card>
         <CardBody>
-          <p className="text-[13px] text-ink-soft">Lucro do mês</p>
+          <p className="text-[13px] font-semibold text-ink">Lucro do mês</p>
           <p
             className={cn(
-              "mt-1 font-display text-[28px] font-semibold leading-9",
+              "mt-1.5 text-[32px] font-bold leading-none tracking-[-0.04em] tabular-nums",
               lucroPositivo ? "text-success" : "text-danger",
             )}
           >
             {lucroPositivo ? "" : "− "}
             {formatBRL(Math.abs(resumo.lucroCents))}
           </p>
-          <p className="mt-0.5 text-xs text-ink-faint">
-            faturamento líquido menos despesas
+          <p className="mt-2 text-[12.5px] text-ink-soft">
+            Faturamento líquido menos despesas
           </p>
 
-          <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-3.5">
+          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
             <div>
-              <p className="text-[11px] text-ink-faint">Bruto</p>
-              <p className="mt-0.5 text-[13px] font-semibold text-ink">
+              <p className="text-[12px] font-semibold text-ink-soft">Bruto</p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums tracking-[-0.02em] text-ink">
                 {formatBRL(resumo.brutoCents)}
               </p>
             </div>
             <div>
-              <p className="text-[11px] text-ink-faint">Líquido</p>
-              <p className="mt-0.5 text-[13px] font-semibold text-ink">
+              <p className="text-[12px] font-semibold text-ink-soft">Líquido</p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums tracking-[-0.02em] text-ink">
                 {formatBRL(resumo.liquidoCents)}
               </p>
             </div>
             <div>
-              <p className="text-[11px] text-ink-faint">Despesas</p>
-              <p className="mt-0.5 text-[13px] font-semibold text-danger">
+              <p className="text-[12px] font-semibold text-ink-soft">Despesas</p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums tracking-[-0.02em] text-danger">
                 − {formatBRL(resumo.despesasCents)}
               </p>
             </div>

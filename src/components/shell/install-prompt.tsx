@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * Convite discreto para instalar o app (Android/desktop via beforeinstallprompt).
+ * Convite discreto para instalar o app (Android via beforeinstallprompt), como
+ * cartão da tela inicial — nunca flutuando por cima do conteúdo.
  * iOS não dispara o evento — mostramos a dica de "Adicionar à Tela de Início".
  */
 import { useEffect, useState } from "react";
-import { IconX } from "@/components/ui/icons";
+import { IconDownload, IconX } from "@/components/ui/icons";
 
 const DISMISS_KEY = "lashos.installPromptDismissedAt";
 const DISMISS_DAYS = 14;
@@ -67,28 +68,35 @@ export function InstallPrompt() {
   if (!deferred && !showIosHint) return null;
 
   return (
-    <div className="fixed z-30 inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] mx-auto max-w-lg">
-      <div className="flex items-center gap-3 rounded-2xl bg-accent text-accent-ink shadow-lg px-4 py-3">
-        <div className="grow min-w-0">
-          <p className="text-sm font-medium">Instale o LashOS no seu celular</p>
-          <p className="text-xs opacity-85">
-            {deferred
-              ? "Abre direto da tela inicial, como um app."
-              : "No Safari: Compartilhar → Adicionar à Tela de Início."}
-          </p>
-        </div>
-        {deferred ? (
-          <button
-            onClick={install}
-            className="shrink-0 h-9 px-3.5 rounded-lg bg-white/15 text-sm font-semibold"
-          >
-            Instalar
-          </button>
-        ) : null}
-        <button onClick={dismiss} aria-label="Dispensar" className="shrink-0 p-1.5 opacity-80">
-          <IconX width={16} height={16} />
-        </button>
+    <div className="flex items-center gap-3.5 rounded-[22px] bg-surface px-5 py-4 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] lg:hidden">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink">
+        <IconDownload width={18} height={18} />
+      </span>
+      <div className="min-w-0 grow">
+        <p className="text-[15px] font-semibold text-ink">Instale o LashOS no celular</p>
+        <p className="text-[13px] text-ink-soft">
+          {deferred
+            ? "Abre direto da tela inicial, como um app."
+            : "No Safari: Compartilhar → Adicionar à Tela de Início."}
+        </p>
       </div>
+      {deferred ? (
+        <button
+          type="button"
+          onClick={install}
+          className="h-9 shrink-0 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-ink"
+        >
+          Instalar
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Dispensar"
+        className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint hover:bg-surface-sunken hover:text-ink"
+      >
+        <IconX width={15} height={15} />
+      </button>
     </div>
   );
 }

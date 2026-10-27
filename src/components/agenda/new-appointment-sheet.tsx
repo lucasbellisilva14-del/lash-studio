@@ -7,13 +7,14 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { IconAlert, IconCheck, IconPlus, IconSearch } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/money";
 import { formatPhone, isValidPhone } from "@/lib/phone";
-import { localToUtc } from "@/lib/dates";
+import { dayKeyToUtcStart, formatDateShort, localToUtc } from "@/lib/dates";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
 import { computeDeposit } from "@/lib/domain/deposit";
 import {
@@ -300,9 +301,55 @@ export function NewAppointmentSheet({
     });
   }
 
+  const podeAgendar = etapa === 3 && Boolean(hora) && !enviando && !(manutAtiva && !horaManut);
+  const quando =
+    hora && dia
+      ? `${formatDateShort(dayKeyToUtcStart(dia, config.timezone), config.timezone)} às ${hora}`
+      : null;
+  const resumoLinha1 = cliente
+    ? `${cliente.nome}${servico ? ` · ${servico.nome}` : ""}`
+    : "Escolha a cliente";
+  const resumoLinha2 = servico
+    ? [
+        quando ?? `${servico.duracaoMin} min`,
+        formatBRL(servico.precoCents),
+        sinal?.required ? `sinal ${formatBRL(sinal.depositCents)}` : null,
+        manutAtiva && horaManut ? "+ manutenção" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : cliente
+      ? "Agora escolha o serviço"
+      : "Depois o serviço e o horário";
+
+  const rodape = (
+    <div className="flex items-center gap-3">
+      <div className="min-w-0 grow">
+        <p className="truncate text-[14px] font-semibold text-ink">{resumoLinha1}</p>
+        <p className="truncate text-[12.5px] tabular-nums text-ink-soft">{resumoLinha2}</p>
+      </div>
+      <Button onClick={agendar} disabled={!podeAgendar} className="shrink-0">
+        {enviando
+          ? "Agendando…"
+          : etapa === 3 && !hora
+            ? "Escolha o horário"
+            : manutAtiva && !horaManut
+              ? "Falta a manutenção"
+              : "Agendar"}
+      </Button>
+    </div>
+  );
+
   return (
-    <Sheet open={open} onClose={onClose} title="Novo agendamento" tall>
-      <div className="space-y-4 pt-1">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Novo agendamento"
+      description="Cliente, serviço e horário. O resumo fica aqui embaixo até você confirmar."
+      footer={rodape}
+      tall
+    >
+      <div className="space-y-4">
         {/* Resumo das escolhas feitas */}
         {cliente ? (
           <div className="space-y-2.5">
@@ -356,7 +403,7 @@ export function NewAppointmentSheet({
             {!cadastroAberto ? (
               <button
                 onClick={() => setCadastroAberto(true)}
-                className="w-full flex items-center gap-2 px-3.5 py-3 rounded-xl border border-dashed border-line text-sm font-medium text-accent-strong hover:bg-accent-soft/60"
+                className="w-full flex items-center gap-2 px-4 py-3 rounded-[14px] border border-dashed border-line-strong text-[14px] font-semibold text-ink hover:bg-surface-muted"
               >
                 <IconPlus width={18} height={18} />
                 Cadastrar nova cliente
@@ -454,10 +501,10 @@ export function NewAppointmentSheet({
             ) : (
               gruposServicos.map(({ categoria, itens }) => (
                 <div key={categoria}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-1.5">
+                  <p className="mb-2 text-[13px] font-semibold text-ink">
                     {SERVICE_CATEGORIES[categoria]}
                   </p>
-                  <ul className="rounded-xl border border-line divide-y divide-line/70 overflow-hidden">
+                  <ul className="rounded-[16px] border border-line divide-y divide-line overflow-hidden">
                     {itens.map((s) => (
                       <li key={s.id}>
                         <button
@@ -465,7 +512,7 @@ export function NewAppointmentSheet({
                             setServico(s);
                             setEtapa(3);
                           }}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-sunken/60"
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-muted"
                         >
                           <span className="min-w-0">
                             <span className="block font-medium text-[15px] text-ink truncate">
@@ -504,9 +551,7 @@ export function NewAppointmentSheet({
             </Field>
 
             <div>
-              <p className="text-[13px] font-medium text-ink-soft mb-1.5">
-                Horários livres
-              </p>
+              <p className="mb-2 text-[13px] font-semibold text-ink">Horários livres</p>
               {slots === null ? (
                 <p className="text-sm text-ink-faint py-2">Buscando horários...</p>
               ) : slots.length === 0 ? (
@@ -517,18 +562,15 @@ export function NewAppointmentSheet({
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {slots.map((s) => (
-                    <button
+                    <Chip
                       key={s}
+                      size="sm"
+                      selected={hora === s}
                       onClick={() => setHora(s)}
-                      className={cn(
-                        "h-9 px-3.5 rounded-full border text-sm font-medium tabular-nums transition-colors",
-                        hora === s
-                          ? "bg-accent text-accent-ink border-accent"
-                          : "border-line text-ink-soft hover:bg-surface-sunken",
-                      )}
+                      className="h-9 px-3.5 text-[13.5px] tabular-nums"
                     >
                       {s}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
               )}
@@ -549,7 +591,7 @@ export function NewAppointmentSheet({
 
             {/* Regra de ouro da manutenção */}
             {manut ? (
-              <div className="bg-warning-soft text-warning rounded-xl px-3.5 py-3 space-y-2.5">
+              <div className="bg-warning-soft text-warning rounded-[16px] px-4 py-3 space-y-2.5">
                 <div className="flex items-start gap-2">
                   <IconAlert width={18} height={18} className="shrink-0 mt-0.5" />
                   <p className="text-sm">{manut.message}</p>
@@ -575,7 +617,7 @@ export function NewAppointmentSheet({
             </Field>
 
             {sinal?.required ? (
-              <div className="bg-accent-soft text-accent-strong rounded-xl px-3.5 py-3 text-sm">
+              <div className="rounded-[16px] bg-surface-sunken px-4 py-3 text-[13.5px] text-ink">
                 <p className="font-semibold">
                   Sinal de {formatBRL(sinal.depositCents)} será exigido
                 </p>
@@ -589,7 +631,7 @@ export function NewAppointmentSheet({
             ) : null}
 
             {antecedenciaCurta ? (
-              <p className="text-sm text-warning bg-warning-soft rounded-xl px-3.5 py-2.5">
+              <p className="text-[13.5px] text-warning bg-warning-soft rounded-[16px] px-4 py-2.5">
                 Menos de {config.minAdvanceHours}h de antecedência — tudo bem por ser
                 agendamento interno, só confira se dá tempo.
               </p>
@@ -599,8 +641,8 @@ export function NewAppointmentSheet({
             {manutServico ? (
               <div
                 className={cn(
-                  "rounded-xl border px-3.5 py-3 space-y-3",
-                  manutAtiva ? "border-accent/40 bg-accent-soft/50" : "border-line",
+                  "rounded-[16px] border px-4 py-3 space-y-3",
+                  manutAtiva ? "border-accent/30 bg-accent-soft/60" : "border-line",
                 )}
               >
                 <button
@@ -610,7 +652,7 @@ export function NewAppointmentSheet({
                 >
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-ink">
-                      💗 Já deixar a manutenção agendada
+                      Já deixar a manutenção agendada
                     </span>
                     <span className="block text-xs text-ink-soft mt-0.5">
                       {manutServico.nome} · {formatBRL(manutServico.precoCents)} — sugestão:
@@ -658,24 +700,21 @@ export function NewAppointmentSheet({
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {slotsManut.map((s) => (
-                          <button
+                          <Chip
                             key={s}
+                            size="sm"
+                            selected={horaManut === s}
                             onClick={() => setHoraManut(s)}
-                            className={cn(
-                              "h-9 px-3.5 rounded-full border text-sm font-medium tabular-nums transition-colors",
-                              horaManut === s
-                                ? "bg-accent text-accent-ink border-accent"
-                                : "border-line text-ink-soft hover:bg-surface-sunken",
-                            )}
+                            className="h-9 px-3.5 text-[13.5px] tabular-nums"
                           >
                             {s}
-                          </button>
+                          </Chip>
                         ))}
                       </div>
                     )}
                     {horaManut ? (
-                      <p className="text-xs font-medium text-accent-strong">
-                        ✓ Manutenção: {diaManut.split("-").reverse().join("/")} às{" "}
+                      <p className="text-[12.5px] font-semibold text-ink">
+                        Manutenção: {diaManut.split("-").reverse().join("/")} às{" "}
                         {horaManut}
                       </p>
                     ) : (
@@ -689,24 +728,11 @@ export function NewAppointmentSheet({
             ) : null}
 
             {erro ? (
-              <p className="text-sm text-danger bg-danger-soft rounded-xl px-3.5 py-2.5">
+              <p className="text-[13.5px] text-danger bg-danger-soft rounded-[16px] px-4 py-2.5">
                 {erro}
               </p>
             ) : null}
 
-            <Button
-              size="lg"
-              onClick={agendar}
-              disabled={!hora || enviando || (manutAtiva && !horaManut)}
-            >
-              {enviando
-                ? "Agendando..."
-                : !hora
-                  ? "Escolha um horário"
-                  : manutAtiva && !horaManut
-                    ? "Escolha o horário da manutenção"
-                    : `Agendar ${hora} · ${formatBRL(servico.precoCents)}${manutAtiva && horaManut ? " + manutenção" : ""}`}
-            </Button>
           </div>
         ) : null}
       </div>
@@ -726,12 +752,10 @@ function ResumoEscolha({
   onTrocar: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-surface-sunken/60 rounded-xl px-3.5 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-[16px] border border-line px-4 py-2.5">
       <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-          {rotulo}
-        </p>
-        <p className="font-medium text-[15px] text-ink truncate">
+        <p className="text-[12px] font-semibold text-ink-soft">{rotulo}</p>
+        <p className="font-semibold text-[15px] text-ink truncate">
           {valor}
           {detalhe ? (
             <span className="text-ink-soft font-normal text-sm"> · {detalhe}</span>
@@ -739,8 +763,9 @@ function ResumoEscolha({
         </p>
       </div>
       <button
+        type="button"
         onClick={onTrocar}
-        className="text-sm font-medium text-accent-strong shrink-0 hover:underline"
+        className="shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-soft hover:bg-surface-sunken hover:text-ink"
       >
         Trocar
       </button>

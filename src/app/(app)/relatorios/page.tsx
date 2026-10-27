@@ -34,7 +34,7 @@ export default async function RelatoriosPage(props: PageProps<"/relatorios">) {
 
   return (
     <>
-      <PageHeader title="Relatórios" subtitle="Os números do seu estúdio" />
+      <PageHeader title="Relatórios" subtitle="Quem está voltando, o que mais vende e de onde vêm suas clientes." />
 
       <Link
         href="/relatorios/mensal"

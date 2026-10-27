@@ -15,7 +15,7 @@ export default function AgendarNotFound() {
           <path d="M6 11.2 4.8 13M9.2 12.4l-.7 2M12 12.8v2.1M14.8 12.4l.7 2M18 11.2l1.2 1.8" />
         </svg>
       </div>
-      <h1 className="mt-5 font-display text-2xl font-semibold text-ink">
+      <h1 className="mt-5 font-display text-2xl font-bold tracking-[-0.03em] text-ink">
         Estúdio não encontrado
       </h1>
       <p className="mx-auto mt-2 max-w-xs text-sm text-ink-soft">

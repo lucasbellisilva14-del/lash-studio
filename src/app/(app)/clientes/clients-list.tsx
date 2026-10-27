@@ -71,7 +71,7 @@ export function ClientsList({
           <IconSearch
             width={17}
             height={17}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
           />
           <Input
             type="search"
@@ -79,7 +79,7 @@ export function ClientsList({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por nome ou telefone..."
             aria-label="Buscar cliente"
-            className="pl-10"
+            className="h-12 rounded-full border-transparent pl-11 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]"
           />
         </div>
       ) : null}
@@ -102,7 +102,7 @@ export function ClientsList({
           />
         </Card>
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <ul className="divide-y divide-line">
             {filtered.map((client) => (
               <li key={client.id}>
@@ -124,12 +124,12 @@ export function ClientsList({
                 >
                 <Link
                   href={`/clientes/${client.id}`}
-                  className="flex items-center gap-3 px-4 py-3 active:bg-surface-sunken transition-colors"
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-muted active:bg-surface-sunken transition-colors"
                 >
                   <ClientAvatar name={client.name} />
                   <div className="min-w-0 grow">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="font-medium text-ink truncate">{client.name}</p>
+                      <p className="font-semibold text-[15px] text-ink truncate">{client.name}</p>
                       {client.hasContraindication ? (
                         <span
                           className="w-2 h-2 rounded-full bg-danger shrink-0"

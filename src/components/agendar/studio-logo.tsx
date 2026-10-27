@@ -13,7 +13,7 @@ export function StudioLogo({ src, nome }: { src: string | null; nome: string }) 
         className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-accent shadow-sm"
         aria-hidden
       >
-        <span className="font-display text-3xl font-semibold text-accent-ink">
+        <span className="font-display text-3xl font-bold tracking-[-0.03em] text-accent-ink">
           {inicial}
         </span>
       </div>

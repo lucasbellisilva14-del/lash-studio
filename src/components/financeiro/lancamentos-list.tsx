@@ -21,13 +21,13 @@ import type { ExpenseDraft, LancamentoItem } from "./types";
 function kindBadge(item: LancamentoItem) {
   if (item.type === "DESPESA") {
     return (
-      <Badge tone="danger">
+      <Badge tone="neutral">
         {item.category ? EXPENSE_CATEGORIES[item.category] : "Despesa"}
       </Badge>
     );
   }
   if (item.kind === "SINAL") return <Badge tone="accent">Sinal</Badge>;
-  if (item.kind === "ATENDIMENTO") return <Badge tone="success">Atendimento</Badge>;
+  if (item.kind === "ATENDIMENTO") return <Badge tone="neutral">Atendimento</Badge>;
   return <Badge tone="neutral">Receita</Badge>;
 }
 

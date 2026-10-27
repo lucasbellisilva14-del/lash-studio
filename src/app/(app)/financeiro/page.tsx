@@ -1,9 +1,12 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireProfessional } from "@/lib/session";
 import { formatWithPattern, localDayKey } from "@/lib/dates";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { PageHeader } from "@/components/ui/page-header";
+import { buttonClasses } from "@/components/ui/button";
+import { IconCalculator } from "@/components/ui/icons";
 import { MonthNav } from "@/components/financeiro/month-nav";
 import { SummaryCards, type ResumoMes } from "@/components/financeiro/summary-cards";
 import { GoalCard } from "@/components/financeiro/goal-card";
@@ -174,7 +177,16 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
 
   return (
     <>
-      <PageHeader title="Financeiro" subtitle="Seu mês em números" />
+      <PageHeader
+        title="Financeiro"
+        subtitle="Entradas, despesas e o resultado do mês, já com as taxas descontadas."
+        action={
+          <Link href="/ferramentas" className={buttonClasses("secondary", "sm")}>
+            <IconCalculator width={16} height={16} />
+            <span className="hidden sm:inline">Calculadora</span>
+          </Link>
+        }
+      />
       <MonthNav
         monthLabel={monthLabel}
         prevHref={`/financeiro?mes=${shiftMonthKey(mes, -1)}`}
@@ -193,7 +205,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
 
         <section>
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-ink">Lançamentos</h2>
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Lançamentos</h2>
             {items.length > 0 ? (
               <p className="text-[13px] text-ink-soft">
                 {items.length === 1 ? "1 lançamento" : `${items.length} lançamentos`}

@@ -138,7 +138,7 @@ export function PaymentForm({
             </div>
             <div className="border-t border-line pt-1.5 flex justify-between items-baseline">
               <span className="font-medium text-ink">Você recebe</span>
-              <span className="font-display text-lg font-semibold text-accent-strong">
+              <span className="text-[16px] font-bold tracking-[-0.015em] text-accent-strong">
                 {formatBRL(netCents)}
               </span>
             </div>

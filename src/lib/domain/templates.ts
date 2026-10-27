@@ -15,6 +15,8 @@ export type TemplateContext = {
   pixCopiaECola?: string | null;
   studioName?: string;
   timezone?: string;
+  /** URL pública e absoluta do link de agendamento (/agendar/[slug]). */
+  bookingUrl?: string | null;
 };
 
 /** Primeiro nome, capitalizado. */
@@ -48,6 +50,7 @@ export function renderTemplate(
     pix: ctx.pixKey ?? "",
     pix_copia_cola: ctx.pixCopiaECola ?? "",
     nome_estudio: ctx.studioName ?? "",
+    link_agendamento: ctx.bookingUrl ?? "",
   };
 
   let source = body;
@@ -81,4 +84,8 @@ export const TEMPLATE_VARIABLES = [
   { variable: "{{pix}}", description: "Chave Pix" },
   { variable: "{{pix_copia_cola}}", description: "Código Pix copia-e-cola com o valor do sinal" },
   { variable: "{{nome_estudio}}", description: "Nome do estúdio" },
+  {
+    variable: "{{link_agendamento}}",
+    description: "Seu link de agendamento, para a cliente escolher o horário sozinha",
+  },
 ] as const;

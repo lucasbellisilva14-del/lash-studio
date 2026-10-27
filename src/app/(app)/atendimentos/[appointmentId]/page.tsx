@@ -157,7 +157,7 @@ export default async function AtendimentoPage(
               href={`/clientes/${appointment.clientId}`}
               className="group flex items-center gap-1 min-w-0"
             >
-              <p className="font-display text-lg font-semibold text-ink truncate group-active:text-accent-strong">
+              <p className="text-[16px] font-bold tracking-[-0.015em] text-ink truncate group-active:text-accent-strong">
                 {appointment.client.name}
               </p>
               <IconChevronRight width={16} height={16} className="text-ink-faint shrink-0" />
@@ -282,7 +282,7 @@ function PaymentSummary({
           </div>
           <div className="flex justify-between items-baseline border-t border-line pt-2">
             <dt className="font-medium text-ink">Líquido</dt>
-            <dd className="font-display text-lg font-semibold text-accent-strong">
+            <dd className="text-[16px] font-bold tracking-[-0.015em] text-accent-strong">
               {formatBRL(netCents)}
             </dd>
           </div>

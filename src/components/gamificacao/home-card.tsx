@@ -7,28 +7,37 @@ export function GamificationHomeCard({ game }: { game: Gamification }) {
   return (
     <Link
       href="/conquistas"
-      className="block bg-accent-gradient text-white rounded-2xl px-4 py-3.5 shadow-md shadow-accent/20 active:scale-[0.99] transition-transform"
+      className="block rounded-[22px] bg-surface px-5 py-4 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] hover:bg-surface-muted active:scale-[0.99] transition-[transform,background-color]"
     >
-      <div className="flex items-center gap-3">
-        <span className="text-2xl" aria-hidden>
+      <div className="flex items-center gap-3.5">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[20px]"
+          aria-hidden
+        >
           {game.level.emoji}
         </span>
         <div className="min-w-0 grow">
-          <p className="text-sm font-semibold leading-4">
-            Nível {game.level.level} · {game.level.name}
-          </p>
-          <div className="mt-1.5 h-1.5 rounded-full bg-white/25 overflow-hidden">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="truncate text-[14px] font-semibold text-ink">
+              Nível {game.level.level} · {game.level.name}
+            </p>
+            <p className="shrink-0 text-[12px] tabular-nums text-ink-soft">
+              {game.unlockedCount}/{game.totalCount} medalhas
+            </p>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
             <div
-              className="h-full rounded-full bg-white/90"
+              className="h-full rounded-full bg-accent"
               style={{ width: `${Math.round(game.level.progress * 100)}%` }}
             />
           </div>
-          <p className="mt-1 text-[11px] opacity-85">
-            {game.unlockedCount}/{game.totalCount} medalhas
-            {game.highlight ? ` · última: ${game.highlight.emoji} ${game.highlight.title}` : ""}
-          </p>
+          {game.highlight ? (
+            <p className="mt-1.5 truncate text-[12px] text-ink-soft">
+              Última: {game.highlight.emoji} {game.highlight.title}
+            </p>
+          ) : null}
         </div>
-        <IconChevronRight className="shrink-0 opacity-80" width={18} height={18} />
+        <IconChevronRight className="shrink-0 text-ink-faint" width={18} height={18} />
       </div>
     </Link>
   );

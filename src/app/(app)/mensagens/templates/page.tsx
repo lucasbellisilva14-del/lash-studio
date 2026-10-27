@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireProfessional } from "@/lib/session";
 import { localDayKey, localToUtc } from "@/lib/dates";
 import { TEMPLATE_KINDS, type TemplateKind } from "@/lib/constants";
+import { getBookingUrl } from "@/lib/domain/queue";
 
 export const metadata = { title: "Modelos de mensagem" };
 
@@ -15,9 +16,12 @@ export default async function TemplatesPage() {
   const professional = await requireProfessional();
   const tz = professional.timezone;
 
-  const templates = await prisma.messageTemplate.findMany({
-    where: { professionalId: professional.id },
-  });
+  const [templates, bookingUrl] = await Promise.all([
+    prisma.messageTemplate.findMany({
+      where: { professionalId: professional.id },
+    }),
+    getBookingUrl(professional.slug),
+  ]);
   const byKind = new Map(templates.map((t) => [t.kind as TemplateKind, t]));
 
   const rows: TemplateRow[] = (Object.keys(TEMPLATE_KINDS) as TemplateKind[]).map(
@@ -40,8 +44,8 @@ export default async function TemplatesPage() {
   return (
     <>
       <PageHeader
-        title="Modelos"
-        subtitle="As mensagens automáticas da sua fila"
+        title="Modelos de mensagem"
+        subtitle="O texto de cada mensagem da Fila. As variáveis entram com os dados de cada cliente."
         backHref="/mensagens"
       />
       <TemplatesManager
@@ -53,6 +57,7 @@ export default async function TemplatesPage() {
           pixKey: professional.pixKey,
           timezone: tz,
           sampleStartAtIso: sampleStartAt.toISOString(),
+          bookingUrl,
         }}
       />
     </>

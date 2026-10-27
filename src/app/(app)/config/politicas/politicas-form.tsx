@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { FieldError, FormError, SavedToast } from "@/components/config/feedback";
+import { AutoSaveStatus, useAutoSave } from "@/components/config/autosave";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { salvarPoliticasAction } from "./actions";
 
@@ -49,6 +49,8 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
     salvarPoliticasAction,
     initialConfigFormState,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const { agendar, aoEnviar } = useAutoSave(formRef, formAction);
   const [depositType, setDepositType] = useState<DepositType>(defaults.depositType);
 
   const errors = state.fieldErrors ?? {};
@@ -61,12 +63,16 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
       : "";
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} onSubmit={aoEnviar} className="space-y-5">
+      <div className="flex justify-end">
+        <AutoSaveStatus pending={pending} state={state} />
+      </div>
+
       {/* Sinal */}
       <Card>
         <CardBody className="space-y-4">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
               Sinal (pré-pagamento)
             </h2>
             <p className="text-[13px] text-ink-soft mt-0.5">
@@ -80,7 +86,10 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setDepositType(option.value)}
+                onClick={() => {
+                  setDepositType(option.value);
+                  agendar();
+                }}
                 aria-pressed={depositType === option.value}
                 className={cn(
                   "h-9 rounded-lg text-[13px] font-medium transition-colors",
@@ -96,7 +105,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           <FieldError message={errors.depositType} />
 
           {depositType === "PERCENT" ? (
-            <Field label="Porcentagem do valor do serviço" htmlFor="depositPercent">
+            <Field label="Porcentagem do valor do serviço" htmlFor="depositPercent" hint="Ex.: 30% de um serviço de R$ 200 = sinal de R$ 60. Vai no Pix que a cliente recebe.">
               <SuffixInput
                 id="depositPercent"
                 name="depositPercent"
@@ -113,7 +122,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           ) : null}
 
           {depositType === "FIXED" ? (
-            <Field label="Valor fixo do sinal" htmlFor="depositFixed">
+            <Field label="Valor fixo do sinal" htmlFor="depositFixed" hint="O mesmo valor para qualquer serviço que exige sinal.">
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-ink-faint">
                   R$
@@ -133,7 +142,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           ) : null}
 
           {depositType === "NONE" ? (
-            <p className="text-[13px] text-ink-soft bg-surface-sunken rounded-xl px-3.5 py-2.5">
+            <p className="text-[13px] text-ink-soft bg-surface-sunken rounded-[14px] px-4 py-2.5">
               Nenhum sinal será cobrado — mesmo de clientes com faltas.
             </p>
           ) : null}
@@ -143,14 +152,14 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
       {/* Cancelamento e faltas */}
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
             Cancelamento e faltas
           </h2>
 
           <Field
             label="Cancelamento sem multa até"
             htmlFor="cancellationWindowHours"
-            hint="Cancelamentos depois desse prazo contam como cancelamento tardio."
+            hint="Depois desse prazo, o cancelamento conta como tardio e fica no histórico da cliente."
           >
             <SuffixInput
               id="cancellationWindowHours"
@@ -169,7 +178,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           <Field
             label="Exigir sinal a partir de"
             htmlFor="noShowThreshold"
-            hint="Clientes com esse número de faltas passam a pagar sinal sempre."
+            hint="Quem faltou essa quantidade de vezes passa a pagar sinal em qualquer serviço."
           >
             <SuffixInput
               id="noShowThreshold"
@@ -190,12 +199,12 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
       {/* Manutenção */}
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">Manutenção</h2>
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Manutenção</h2>
 
           <Field
             label="Prazo máximo para manutenção"
             htmlFor="maintenanceLimitDays"
-            hint="Depois desse prazo, o atendimento vira aplicação nova."
+            hint="Passou desse prazo, o app sugere trocar a manutenção por aplicação ao agendar."
           >
             <SuffixInput
               id="maintenanceLimitDays"
@@ -214,7 +223,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           <Field
             label="Avisar a cliente no dia"
             htmlFor="maintenanceNoticeDay"
-            hint="Dia do ciclo em que a mensagem de manutenção é sugerida."
+            hint="Nesse dia do ciclo, a mensagem de manutenção aparece na sua Fila."
           >
             <SuffixInput
               id="maintenanceNoticeDay"
@@ -236,7 +245,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
       <Card>
         <CardBody className="space-y-4">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
               Status das clientes
             </h2>
             <p className="text-[13px] text-ink-soft mt-0.5">
@@ -247,7 +256,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           <Field
             label="Janela de “em risco”"
             htmlFor="riskWindowDays"
-            hint="Cliente que passou do prazo de manutenção há menos de N dias."
+            hint="Por quantos dias depois do prazo da manutenção a cliente aparece como em risco."
           >
             <SuffixInput
               id="riskWindowDays"
@@ -266,7 +275,7 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
           <Field
             label="Considerar inativa após"
             htmlFor="inactiveDays"
-            hint="Mais de N dias sem nenhum atendimento."
+            hint="Sem nenhum atendimento por esse tempo, a cliente aparece como inativa."
           >
             <SuffixInput
               id="inactiveDays"
@@ -287,11 +296,11 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
       {/* Resumo diário */}
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">Resumo diário</h2>
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Resumo diário</h2>
           <Field
             label="Horário do resumo do dia"
             htmlFor="dailySummaryTime"
-            hint="Hora em que o resumo da agenda fica pronto para você."
+            hint="Nessa hora chega no celular o resumo do seu dia (com as notificações ligadas)."
           >
             <Input
               id="dailySummaryTime"
@@ -308,11 +317,11 @@ export function PoliticasForm({ defaults }: { defaults: PoliticasDefaults }) {
 
       <FormError error={state.error} />
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Salvando..." : "Salvar políticas"}
-      </Button>
+      <button type="submit" className="sr-only">
+        Salvar
+      </button>
 
-      <SavedToast savedAt={state.savedAt} message="Políticas salvas!" />
+      <SavedToast savedAt={state.savedAt} message="Políticas salvas" />
     </form>
   );
 }

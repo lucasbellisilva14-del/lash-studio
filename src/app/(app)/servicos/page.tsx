@@ -25,18 +25,15 @@ export default async function ServicosPage() {
     requiresDeposit: s.requiresDeposit,
     maintenanceOfId: s.maintenanceOfId,
     maintenanceOfName: s.maintenanceOf?.name ?? null,
+    returnDays: s.returnDays,
     active: s.active,
   }));
-
-  const activeCount = items.filter((i) => i.active).length;
 
   return (
     <>
       <PageHeader
         title="Serviços"
-        subtitle={
-          activeCount === 1 ? "1 serviço ativo" : `${activeCount} serviços ativos`
-        }
+        subtitle="Preço, duração, sinal e retorno ideal de cada serviço."
       />
       <ServicosView services={items} />
     </>

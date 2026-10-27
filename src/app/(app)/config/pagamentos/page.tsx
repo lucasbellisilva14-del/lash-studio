@@ -21,7 +21,7 @@ export default async function PagamentosPage(props: PageProps<"/config/pagamento
     <div>
       <PageHeader
         title="Pagamentos"
-        subtitle="Sinal com confirmação automática via Pix"
+        subtitle="Conecte o Mercado Pago e o sinal cai na sua conta e confirma o horário sozinho."
         backHref="/config"
       />
 

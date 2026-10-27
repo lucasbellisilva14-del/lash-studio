@@ -27,7 +27,7 @@ export default async function HorariosPage() {
     <div>
       <PageHeader
         title="Horários"
-        subtitle="Dias e janelas em que você atende"
+        subtitle="Os dias e horários em que você atende. É daqui que saem os horários livres do seu link."
         backHref="/config"
       />
       <HorariosForm

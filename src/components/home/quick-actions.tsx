@@ -1,32 +1,30 @@
 import Link from "next/link";
 import {
-  IconCalendar,
+  IconCalendarAdd,
   IconCalendarX,
   IconChat,
-  IconUsers,
+  IconUserAdd,
 } from "@/components/ui/icons";
 
-/** Atalhos de 1 toque pros fluxos mais comuns — logo abaixo da saudação. */
+/** Atalhos de 1 toque pros fluxos mais comuns — logo abaixo do topo. */
 const ACOES = [
-  { href: "/agenda?novo=1", label: "Agendar", icon: IconCalendar },
-  { href: "/clientes?nova=1", label: "Nova cliente", icon: IconUsers },
-  { href: "/mensagens", label: "Mensagens", icon: IconChat },
-  { href: "/agenda/bloqueios", label: "Bloqueio", icon: IconCalendarX },
+  { href: "/agenda?novo=1", label: "Agendar", icon: IconCalendarAdd },
+  { href: "/clientes?nova=1", label: "Nova cliente", icon: IconUserAdd },
+  { href: "/mensagens", label: "Fila", icon: IconChat },
+  { href: "/agenda/bloqueios", label: "Bloquear", icon: IconCalendarX },
 ] as const;
 
 export function QuickActions() {
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-2 lg:max-w-xl">
       {ACOES.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
-          className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface border border-line shadow-[var(--shadow-card)] px-1 py-3 active:scale-95 transition-transform"
+          className="flex flex-col items-center gap-2 rounded-[18px] bg-surface px-1 py-3.5 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] transition-[transform,background-color] hover:bg-surface-muted active:scale-[0.97]"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
-            <Icon width={18} height={18} />
-          </span>
-          <span className="text-[11px] font-medium text-ink-soft leading-none text-center">
+          <Icon width={21} height={21} className="text-ink" />
+          <span className="text-center text-[11.5px] font-semibold leading-none text-ink-soft">
             {label}
           </span>
         </Link>

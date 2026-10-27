@@ -25,23 +25,23 @@ export function HomeFab() {
       {aberto ? (
         <button
           aria-label="Fechar menu"
-          className="fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
+          className="fixed inset-0 z-40 bg-[rgb(23_21_30/0.22)] fade-in lg:bg-transparent"
           onClick={() => setAberto(false)}
         />
       ) : null}
 
-      <div className="fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 lg:bottom-8 lg:right-8 flex flex-col items-end gap-2.5">
+      <div className="fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2.5 lg:hidden">
         {aberto
           ? OPCOES.map(({ href, label, icon: Icon }, i) => (
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-2.5 rounded-full bg-surface border border-line shadow-[var(--shadow-pop)] pl-4 pr-2 py-2 text-sm font-medium text-ink sheet-in"
+                className="flex items-center gap-2.5 rounded-full bg-surface pl-4 pr-1.5 py-1.5 text-[14px] font-semibold text-ink shadow-[var(--shadow-pop)] ring-1 ring-[rgb(23_21_30/0.05)] pop-in"
                 style={{ animationDelay: `${(OPCOES.length - 1 - i) * 40}ms` }}
                 onClick={() => setAberto(false)}
               >
                 {label}
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-sunken text-ink">
                   <Icon width={16} height={16} />
                 </span>
               </Link>
@@ -53,8 +53,8 @@ export function HomeFab() {
           aria-expanded={aberto}
           onClick={() => setAberto((v) => !v)}
           className={cn(
-            "h-14 w-14 rounded-full bg-accent-gradient text-accent-ink shadow-[var(--shadow-pop)]",
-            "flex items-center justify-center transition-transform active:scale-95",
+            "h-14 w-14 rounded-full bg-accent text-accent-ink shadow-[var(--shadow-pop)] hover:bg-accent-hover",
+            "flex items-center justify-center transition-[transform,background-color] duration-200 active:scale-95",
             aberto && "rotate-45",
           )}
         >

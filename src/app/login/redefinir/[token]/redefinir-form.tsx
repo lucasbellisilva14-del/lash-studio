@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { redefinirSenha, type RedefinirState } from "./actions";
 
 const initialState: RedefinirState = {};
@@ -32,20 +33,18 @@ export function RedefinirForm({ token }: { token: string }) {
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="token" value={token} />
       <Field label="Nova senha" htmlFor="senha" hint="Pelo menos 8 caracteres">
-        <Input
+        <PasswordInput
           id="senha"
           name="senha"
-          type="password"
           autoComplete="new-password"
           minLength={8}
           required
         />
       </Field>
       <Field label="Confirmar nova senha" htmlFor="confirmar">
-        <Input
+        <PasswordInput
           id="confirmar"
           name="confirmar"
-          type="password"
           autoComplete="new-password"
           minLength={8}
           required

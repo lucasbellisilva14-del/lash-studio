@@ -24,7 +24,10 @@ export async function criarAssinatura(params: {
   studioName: string;
   amountCents: number;
   backUrl: string;
+  /** Primeira cobrança (fim do teste grátis). Sem ela, cobra ao confirmar. */
+  startDate?: Date | null;
 }): Promise<{ preapprovalId: string; initPoint: string }> {
+  const comecaDepois = params.startDate && params.startDate.getTime() > Date.now() + 60_000;
   const res = await fetch("https://api.mercadopago.com/preapproval", {
     method: "POST",
     headers: {
@@ -41,6 +44,7 @@ export async function criarAssinatura(params: {
         frequency_type: "months",
         transaction_amount: Number((params.amountCents / 100).toFixed(2)),
         currency_id: "BRL",
+        ...(comecaDepois ? { start_date: params.startDate!.toISOString() } : {}),
       },
       status: "pending",
     }),

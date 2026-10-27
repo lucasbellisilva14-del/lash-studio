@@ -1,39 +1,74 @@
 "use client";
 
-/** Navegação lateral do desktop (lg+). No celular vale a pílula inferior. */
+/** Menu lateral do PC (lg+): ícone e nome, painel branco flutuante. */
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconBox,
+  IconCalculator,
   IconCalendar,
   IconChart,
   IconChat,
   IconCheck,
   IconHome,
+  IconLink,
   IconLogout,
   IconMoney,
   IconScissors,
   IconSettings,
   IconTrophy,
   IconUsers,
-  IconWhatsApp,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { sairDaConta } from "./sign-out-action";
+import { SupportButton } from "./support";
 
-const NAV = [
+const PRINCIPAL = [
   { href: "/", label: "Hoje", icon: IconHome },
   { href: "/agenda", label: "Agenda", icon: IconCalendar },
   { href: "/clientes", label: "Clientes", icon: IconUsers },
-  { href: "/mensagens", label: "Mensagens", icon: IconChat },
+  { href: "/mensagens", label: "Fila", icon: IconChat },
   { href: "/financeiro", label: "Financeiro", icon: IconMoney },
-  { href: "/conquistas", label: "Conquistas", icon: IconTrophy },
+] as const;
+
+const GESTAO = [
   { href: "/servicos", label: "Serviços", icon: IconScissors },
   { href: "/estoque", label: "Estoque", icon: IconBox },
   { href: "/relatorios", label: "Relatórios", icon: IconChart },
-  { href: "/config", label: "Configurações", icon: IconSettings },
+  { href: "/ferramentas", label: "Ferramentas", icon: IconCalculator },
+  { href: "/conquistas", label: "Conquistas", icon: IconTrophy },
 ] as const;
+
+function ativo(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: typeof IconHome;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-10 items-center gap-3 rounded-full px-3.5 text-[14px] font-semibold transition-colors",
+        active ? "bg-accent text-accent-ink" : "text-ink-soft hover:bg-surface-sunken hover:text-ink",
+      )}
+    >
+      <Icon width={19} height={19} strokeWidth={active ? 1.8 : 1.5} />
+      {label}
+    </Link>
+  );
+}
 
 export function Sidebar({
   studioName,
@@ -60,84 +95,76 @@ export function Sidebar({
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-0 h-dvh border-r border-white/60 bg-surface/70 backdrop-blur-xl">
-      {/* Identidade do estúdio */}
-      <div className="flex items-center gap-3 px-5 pt-6 pb-5">
-        {logoUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={logoUrl}
-            alt=""
-            className="h-11 w-11 rounded-2xl object-cover border border-line bg-surface"
-          />
-        ) : (
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-gradient text-white font-display font-semibold text-lg shadow-[var(--shadow-pop)]">
-            {studioName.trim().charAt(0).toUpperCase() || "L"}
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="font-display font-semibold text-[17px] leading-5 text-accent-gradient truncate">
-            {studioName}
-          </p>
-          <p className="text-xs text-ink-soft truncate">{professionalName}</p>
-        </div>
-      </div>
+    <aside className="hidden lg:block w-[256px] shrink-0">
+      <div className="sticky top-0 h-dvh p-3">
+        <div className="flex h-full flex-col rounded-[24px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
+          {/* Identidade do estúdio */}
+          <div className="flex items-center gap-3 px-4 pt-5 pb-4">
+            {logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-10 w-10 rounded-[12px] object-cover ring-1 ring-line bg-surface"
+              />
+            ) : (
+              <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-accent text-accent-ink font-bold text-[16px]">
+                {studioName.trim().charAt(0).toUpperCase() || "L"}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-[14.5px] font-bold leading-5 tracking-[-0.015em] text-ink">
+                {studioName}
+              </p>
+              <p className="truncate text-[12px] text-ink-soft">{professionalName}</p>
+            </div>
+          </div>
 
-      {/* Navegação */}
-      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5" aria-label="Navegação principal">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[14px] font-medium transition-colors",
-                active
-                  ? "bg-accent-soft text-accent-strong"
-                  : "text-ink-soft hover:bg-surface-sunken/70 hover:text-ink",
-              )}
+          <nav className="flex-1 overflow-y-auto px-3" aria-label="Navegação principal">
+            <div className="space-y-0.5">
+              {PRINCIPAL.map((item) => (
+                <NavItem key={item.href} {...item} active={ativo(pathname, item.href)} />
+              ))}
+            </div>
+            <div className="mx-3.5 my-3 h-px bg-line" />
+            <div className="space-y-0.5">
+              {GESTAO.map((item) => (
+                <NavItem key={item.href} {...item} active={ativo(pathname, item.href)} />
+              ))}
+            </div>
+          </nav>
+
+          <div className="space-y-0.5 px-3 pt-3 pb-3">
+            <NavItem
+              href="/config"
+              label="Configurações"
+              icon={IconSettings}
+              active={ativo(pathname, "/config")}
+            />
+            <SupportButton variant="nav" />
+            <button
+              type="button"
+              onClick={copiarLink}
+              className="flex h-10 w-full items-center gap-3 rounded-full px-3.5 text-left text-[14px] font-semibold text-ink-soft hover:bg-surface-sunken hover:text-ink transition-colors"
             >
-              <Icon width={19} height={19} strokeWidth={active ? 2.1 : 1.75} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Link público de agendamento */}
-      <div className="px-4 pb-5 pt-3">
-        <button
-          onClick={copiarLink}
-          className="w-full flex items-center gap-2.5 rounded-2xl border border-line bg-surface px-3.5 py-3 text-left hover:bg-surface-sunken/60 transition-colors"
-        >
-          {copiado ? (
-            <IconCheck width={17} height={17} className="text-success shrink-0" />
-          ) : (
-            <IconWhatsApp width={17} height={17} className="text-accent-strong shrink-0" />
-          )}
-          <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-ink">
-              {copiado ? "Link copiado ✓" : "Link de agendamento"}
-            </span>
-            <span className="block text-[11px] text-ink-faint truncate">
-              /agendar/{slug}
-            </span>
-          </span>
-        </button>
-        <form action={sairDaConta} className="mt-2">
-          <button
-            type="submit"
-            className="w-full flex items-center justify-center gap-2 rounded-2xl px-3.5 py-2.5 text-[13px] font-medium text-ink-faint hover:text-danger hover:bg-surface-sunken/60 transition-colors"
-          >
-            <IconLogout width={16} height={16} />
-            Sair da conta
-          </button>
-        </form>
-        <p className="mt-1 text-center text-[10px] font-medium tracking-wide text-ink-faint">
-          LashOS 💗
-        </p>
+              {copiado ? (
+                <IconCheck width={19} height={19} className="text-success" />
+              ) : (
+                <IconLink width={19} height={19} />
+              )}
+              {copiado ? "Link copiado" : "Copiar meu link"}
+            </button>
+            <form action={sairDaConta}>
+              <button
+                type="submit"
+                className="flex h-10 w-full items-center gap-3 rounded-full px-3.5 text-[14px] font-semibold text-ink-soft hover:bg-danger-soft hover:text-danger transition-colors"
+              >
+                <IconLogout width={19} height={19} />
+                Sair da conta
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </aside>
   );

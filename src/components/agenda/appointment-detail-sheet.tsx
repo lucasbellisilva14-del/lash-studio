@@ -283,7 +283,7 @@ export function AppointmentDetailSheet({
           {/* Cabeçalho do agendamento */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-display text-xl font-semibold text-ink truncate">
+              <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink truncate">
                 {c.cliente.nome}
               </p>
               <p className="text-sm text-ink-soft capitalize">

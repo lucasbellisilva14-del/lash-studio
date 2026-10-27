@@ -99,7 +99,7 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
     <div className="print-report">
       <div className="no-print mb-5 flex items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">
+          <h1 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
             Fechamento do mês
           </h1>
           <p className="text-sm text-ink-soft">{rotuloMes}</p>
@@ -118,12 +118,12 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
               className="h-14 w-14 rounded-2xl object-cover border border-line"
             />
           ) : (
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white font-display text-xl font-semibold">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white font-display text-xl font-bold tracking-[-0.03em]">
               {professional.studioName.trim().charAt(0).toUpperCase()}
             </span>
           )}
           <div className="min-w-0 grow">
-            <p className="font-display text-xl font-semibold text-ink">
+            <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
               {professional.studioName}
             </p>
             <p className="text-sm text-ink-soft">Fechamento · {rotuloMes}</p>
@@ -139,7 +139,7 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
               Lucro do mês
             </p>
-            <p className="font-display text-xl font-semibold text-ink mt-0.5">
+            <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink mt-0.5">
               {formatBRL(lucroCents)}
             </p>
           </div>
@@ -147,7 +147,7 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
               Faturamento líquido
             </p>
-            <p className="font-display text-xl font-semibold text-ink mt-0.5">
+            <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink mt-0.5">
               {formatBRL(liquidoCents)}
             </p>
           </div>
@@ -155,7 +155,7 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
               Atendimentos
             </p>
-            <p className="font-display text-xl font-semibold text-ink mt-0.5">
+            <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink mt-0.5">
               {concluidos.length}
             </p>
           </div>
@@ -163,7 +163,7 @@ export default async function FechamentoPage(props: PageProps<"/relatorios/mensa
             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
               Ticket médio
             </p>
-            <p className="font-display text-xl font-semibold text-ink mt-0.5">
+            <p className="font-display text-xl font-bold tracking-[-0.03em] text-ink mt-0.5">
               {formatBRL(ticketCents)}
             </p>
           </div>

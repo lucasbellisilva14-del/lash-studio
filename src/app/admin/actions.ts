@@ -195,3 +195,13 @@ export async function tornarCortesiaAction(formData: FormData): Promise<void> {
   });
   revalidatePath("/admin");
 }
+
+/** Suporte: marca a mensagem como resolvida (some da caixa de entrada). */
+export async function resolverSuporteAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await prisma.supportMessage.update({
+    where: { id: texto(formData, "id") },
+    data: { status: "RESOLVIDA", resolvedAt: new Date() },
+  });
+  revalidatePath("/admin");
+}

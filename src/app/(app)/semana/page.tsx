@@ -26,7 +26,7 @@ export default async function SemanaPage() {
   return (
     <div>
       <PageHeader
-        title="Sua semana ✨"
+        title="Sua semana"
         subtitle={`De ${resumo.periodo.de} a ${resumo.periodo.ate}`}
         backHref="/"
       />
@@ -48,7 +48,7 @@ export default async function SemanaPage() {
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">
               {professional.studioName}
             </p>
-            <p className="font-display text-[44px] font-semibold leading-tight mt-1">
+            <p className="font-display text-[44px] font-bold tracking-[-0.03em] leading-tight mt-1">
               {formatBRL(resumo.faturamentoCents)}
             </p>
             <p className="text-sm text-white/85">de faturamento na semana 💗</p>
@@ -57,7 +57,7 @@ export default async function SemanaPage() {
           <div className="grid grid-cols-2 gap-3 mt-4">
             <Card>
               <CardBody className="text-center py-5">
-                <p className="font-display text-3xl font-semibold text-ink">
+                <p className="font-display text-3xl font-bold tracking-[-0.03em] text-ink">
                   {resumo.atendimentos}
                 </p>
                 <p className="text-[13px] text-ink-soft mt-0.5">
@@ -68,7 +68,7 @@ export default async function SemanaPage() {
             </Card>
             <Card>
               <CardBody className="text-center py-5">
-                <p className="font-display text-3xl font-semibold text-ink">
+                <p className="font-display text-3xl font-bold tracking-[-0.03em] text-ink">
                   {resumo.novasClientes}
                 </p>
                 <p className="text-[13px] text-ink-soft mt-0.5">
@@ -78,7 +78,7 @@ export default async function SemanaPage() {
             </Card>
             <Card>
               <CardBody className="text-center py-5">
-                <p className="font-display text-3xl font-semibold text-ink">{resumo.fotos}</p>
+                <p className="font-display text-3xl font-bold tracking-[-0.03em] text-ink">{resumo.fotos}</p>
                 <p className="text-[13px] text-ink-soft mt-0.5">
                   foto{resumo.fotos === 1 ? "" : "s"} de antes & depois
                 </p>
@@ -86,7 +86,7 @@ export default async function SemanaPage() {
             </Card>
             <Card>
               <CardBody className="text-center py-5">
-                <p className="font-display text-2xl font-semibold text-ink capitalize leading-9">
+                <p className="font-display text-2xl font-bold tracking-[-0.03em] text-ink capitalize leading-9">
                   {resumo.melhorDia ?? "—"}
                 </p>
                 <p className="text-[13px] text-ink-soft mt-0.5">seu melhor dia</p>

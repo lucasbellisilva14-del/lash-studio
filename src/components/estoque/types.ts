@@ -4,6 +4,14 @@ export type ProductCategory = keyof typeof PRODUCT_CATEGORIES;
 
 /** Unidades de medida dos insumos. */
 export const PRODUCT_UNITS = ["un", "caixa", "par", "ml"] as const;
+
+/** Unidade concordando com a quantidade: "1 par", "12 pares", "2 caixas". */
+export function unidadeComPlural(unit: string, quantity: number): string {
+  if (Math.abs(quantity) === 1) return unit;
+  if (unit === "par") return "pares";
+  if (unit === "caixa") return "caixas";
+  return unit;
+}
 export type ProductUnit = (typeof PRODUCT_UNITS)[number];
 
 export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {

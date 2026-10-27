@@ -15,7 +15,7 @@ export default async function ConquistasPage() {
     <div>
       <PageHeader
         title="Conquistas"
-        subtitle="Cada atendimento te leva mais longe 💗"
+        subtitle="Seu nível, suas medalhas e os desafios da semana, calculados dos seus atendimentos."
         backHref="/mais"
       />
 
@@ -23,14 +23,14 @@ export default async function ConquistasPage() {
 
       <section className="mt-6">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="font-display text-lg font-semibold text-ink">Desafios da semana</h2>
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Desafios da semana</h2>
         </div>
         <WeeklyChallenges weekly={game.weekly} />
       </section>
 
       <section className="mt-6">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="font-display text-lg font-semibold text-ink">Medalhas</h2>
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Medalhas</h2>
           <span className="text-sm font-medium text-ink-soft">
             {game.unlockedCount}/{game.totalCount}
           </span>

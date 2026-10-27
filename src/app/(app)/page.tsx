@@ -16,10 +16,13 @@ import { formatBRL } from "@/lib/money";
 import { LASH_CYCLE_CATEGORIES, type AppointmentStatus } from "@/lib/constants";
 import { Greeting } from "@/components/home/greeting";
 import { QuickActions } from "@/components/home/quick-actions";
+import { InstallPrompt } from "@/components/shell/install-prompt";
 import { HomeFab } from "@/components/home/home-fab";
 import { WeeklyRecapBanner } from "@/components/home/weekly-recap-banner";
 import { localWeekday } from "@/lib/dates";
 import { OnboardingCard } from "@/components/home/onboarding-card";
+import { unidadeComPlural } from "@/components/estoque/types";
+import { NextAppointmentCard } from "@/components/home/next-appointment";
 import { HomeSection } from "@/components/home/section";
 import { TodayAgenda, type TodayAgendaItem } from "@/components/home/today-agenda";
 import { MessageQueueCard } from "@/components/home/message-queue-card";
@@ -80,6 +83,7 @@ export default async function HomePage() {
         client: {
           select: {
             name: true,
+            phone: true,
             anamnesisForm: { select: { hasContraindication: true } },
           },
         },
@@ -272,7 +276,7 @@ export default async function HomePage() {
       icon: "stock",
       tone: "warning",
       title: `${p.name} abaixo do mínimo`,
-      description: `${formatQty(p.quantity)} ${p.unit} em estoque — mínimo ${formatQty(p.minQuantity)}`,
+      description: `${formatQty(p.quantity)} ${unidadeComPlural(p.unit, p.quantity)} em estoque — mínimo ${formatQty(p.minQuantity)}`,
       href: "/estoque",
     });
   } else if (lowStock.length > 1) {
@@ -292,7 +296,7 @@ export default async function HomePage() {
   const monthLabel = formatWithPattern(now, "MMMM", tz);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6 lg:space-y-7">
       <Greeting
         greeting={greeting}
         firstName={firstName}
@@ -301,56 +305,66 @@ export default async function HomePage() {
         logoUrl={professional.logoUrl}
       />
 
+      {next ? (
+        <NextAppointmentCard
+          startAt={next.startAt}
+          endAt={next.endAt}
+          clientName={next.client.name}
+          clientPhone={next.client.phone}
+          serviceName={next.service.name}
+          hasContraindication={next.client.anamnesisForm?.hasContraindication ?? false}
+          label={nextLabel}
+          tz={tz}
+          agendaHref={agendaHref}
+        />
+      ) : null}
+
       <QuickActions />
+
+      <InstallPrompt />
+
+      {!professional.onboardingDone ? <OnboardingCard /> : null}
+
+      {/* O trabalho do dia primeiro; resumo, recap e nível depois. */}
+      <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
+        <TodayAgenda
+          items={agendaItems}
+          nextId={next?.id ?? null}
+          nextLabel={nextLabel}
+          tz={tz}
+          agendaHref={agendaHref}
+        />
+      </HomeSection>
+
+      <HomeSection title="Fila de mensagens" actionHref="/mensagens" actionLabel="Abrir a fila">
+        <MessageQueueCard
+          total={queue.length}
+          items={queue.slice(0, 3).map((item) => ({
+            key: item.key,
+            clientName: item.client.name,
+            kindLabel: item.kindLabel,
+          }))}
+        />
+      </HomeSection>
+
+      {alerts.length > 0 ? (
+        <HomeSection title="Precisa de atenção">
+          <AlertsCard alerts={alerts} />
+        </HomeSection>
+      ) : null}
+
+      <HomeSection title={`Resumo de ${monthLabel}`}>
+        <MonthSummary
+          netCents={netCents}
+          doneCount={monthDoneCount}
+          goal={goal ? { targetCents: goal.revenueTargetCents } : null}
+        />
+      </HomeSection>
 
       {/* Dom/seg: convite pro resumo comemorativo da semana */}
       {[0, 1].includes(localWeekday(now, tz)) ? <WeeklyRecapBanner /> : null}
 
-      {!professional.onboardingDone ? <OnboardingCard /> : null}
-
       <GamificationHomeCard game={game} />
-
-      {/* Desktop: duas colunas p/ preencher bem a tela; celular: fluxo único */}
-      <div className="space-y-7 xl:space-y-0 xl:grid xl:grid-cols-2 xl:items-start xl:gap-7">
-        <div className="space-y-7">
-          <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
-            <TodayAgenda
-              items={agendaItems}
-              nextId={next?.id ?? null}
-              nextLabel={nextLabel}
-              tz={tz}
-              agendaHref={agendaHref}
-            />
-          </HomeSection>
-
-          <HomeSection title={`Resumo de ${monthLabel}`}>
-            <MonthSummary
-              netCents={netCents}
-              doneCount={monthDoneCount}
-              goal={goal ? { targetCents: goal.revenueTargetCents } : null}
-            />
-          </HomeSection>
-        </div>
-
-        <div className="space-y-7">
-          <HomeSection title="Fila de mensagens">
-            <MessageQueueCard
-              total={queue.length}
-              items={queue.slice(0, 3).map((item) => ({
-                key: item.key,
-                clientName: item.client.name,
-                kindLabel: item.kindLabel,
-              }))}
-            />
-          </HomeSection>
-
-          {alerts.length > 0 ? (
-            <HomeSection title="Precisa de atenção">
-              <AlertsCard alerts={alerts} />
-            </HomeSection>
-          ) : null}
-        </div>
-      </div>
 
       <HomeFab />
     </div>

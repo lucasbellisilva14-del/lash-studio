@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { WEEKDAYS_PT } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { FieldError, FormError, SavedToast } from "@/components/config/feedback";
+import { AutoSaveStatus, useAutoSave } from "@/components/config/autosave";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { salvarHorariosAction } from "./actions";
 
@@ -68,6 +68,8 @@ export function HorariosForm({
     salvarHorariosAction,
     initialConfigFormState,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const { aoEnviar } = useAutoSave(formRef, formAction);
   const [days, setDays] = useState(initialDays);
 
   function patchDay(weekday: number, patch: Partial<DayDefaults>) {
@@ -79,7 +81,11 @@ export function HorariosForm({
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} onSubmit={aoEnviar} className="space-y-5">
+      <div className="flex justify-end">
+        <AutoSaveStatus pending={pending} state={state} />
+      </div>
+
       <Card className="divide-y divide-line overflow-hidden">
         {DISPLAY_ORDER.map((weekday) => {
           const day = days.find((d) => d.weekday === weekday);
@@ -134,7 +140,7 @@ export function HorariosForm({
 
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
             Ritmo da agenda
           </h2>
 
@@ -191,11 +197,11 @@ export function HorariosForm({
 
       <FormError error={state.error} />
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Salvando..." : "Salvar horários"}
-      </Button>
+      <button type="submit" className="sr-only">
+        Salvar
+      </button>
 
-      <SavedToast savedAt={state.savedAt} message="Horários salvos!" />
+      <SavedToast savedAt={state.savedAt} message="Horários salvos" />
     </form>
   );
 }

@@ -26,6 +26,9 @@ export async function assinarAction(): Promise<AssinarState> {
       studioName: professional.studioName,
       amountCents: professional.planPriceCents,
       backUrl: `${proto}://${host}/assinatura?volta=1`,
+      // Em teste grátis, a 1ª cobrança só acontece quando o teste termina.
+      startDate:
+        professional.subscriptionStatus === "TRIAL" ? professional.trialEndsAt : null,
     });
     initPoint = r.initPoint;
   } catch (e) {

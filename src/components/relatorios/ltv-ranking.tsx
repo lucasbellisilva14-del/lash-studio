@@ -33,7 +33,7 @@ export function LtvRanking({ items }: { items: LtvItem[] }) {
           <div className="flex items-center gap-3">
             <span
               className={cn(
-                "w-6 shrink-0 text-center font-display text-lg font-semibold",
+                "w-6 shrink-0 text-center text-[16px] font-bold tracking-[-0.015em]",
                 i === 0 ? "text-accent-strong" : "text-ink-faint",
               )}
             >

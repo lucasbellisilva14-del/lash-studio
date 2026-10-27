@@ -4,9 +4,11 @@
  * Dedup: MessageLog (kind + appointmentId/refDate) marca o que já saiu.
  */
 import { cache } from "react";
-import { prisma } from "@/lib/prisma";
-import { LASH_CYCLE_CATEGORIES, type TemplateKind } from "@/lib/constants";
+import { headers } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 import { addDays } from "date-fns";
+import { prisma } from "@/lib/prisma";
+import { LASH_CYCLE_CATEGORIES, type ServiceCategory, type TemplateKind } from "@/lib/constants";
 import { dayKeyToUtcStart, diffLocalDays, localDayKey } from "@/lib/dates";
 import { renderTemplate } from "@/lib/domain/templates";
 import { waLink } from "@/lib/phone";
@@ -25,9 +27,16 @@ export type QueueItem = {
   waUrl: string | null;
   /** Âncora de dedup (gravada no MessageLog.refDate ao enviar). */
   refDate: Date;
+  /** Serviço do atendimento-âncora (linha de contexto da tela). */
+  serviceName: string | null;
+  /** Status do atendimento-âncora — no REMARCAR diz se ela faltou ou cancelou. */
+  anchorStatus: string | null;
+  /** Dias desde o atendimento-âncora (manutenção, retorno, resgate, remarcar). */
+  daysSince: number | null;
 };
 
-const KIND_LABELS: Record<TemplateKind, string> = {
+/** Rótulos curtos dos tipos na fila (cartões, abas, "Feitas hoje"). */
+export const QUEUE_KIND_LABELS: Record<TemplateKind, string> = {
   CONFIRMACAO: "Confirmação",
   LEMBRETE_24H: "Lembrete 24h",
   POS_APLICACAO: "Pós-aplicação",
@@ -36,7 +45,74 @@ const KIND_LABELS: Record<TemplateKind, string> = {
   RESGATE_45: "Resgate 45d",
   RESGATE_60: "Resgate 60d",
   RESGATE_90: "Resgate 90d",
+  REMARCAR: "Remarcar horário",
+  RETORNO: "Hora do retorno",
 };
+
+/** REMARCAR: falta ou cancelamento dos últimos N dias (em dias locais). */
+export const REMARCAR_JANELA_DIAS = 30;
+/** RETORNO: a cliente fica na fila de `returnDays` até `returnDays + N` dias. */
+export const RETORNO_TOLERANCIA_DIAS = 45;
+
+/** Horário marcado e ainda em aberto (bloqueia os avisos de "volta"). */
+const HORARIO_EM_ABERTO = ["PRE_AGENDADO", "CONFIRMADO"];
+const FALTA_OU_CANCELAMENTO = ["FALTOU", "CANCELADO", "CANCELADO_TARDE"];
+/** Tipos deduplicados por cliente (âncora = refDate/appointmentId do log). */
+const KINDS_POR_CLIENTE: TemplateKind[] = [
+  "MANUTENCAO",
+  "ANIVERSARIO",
+  "RESGATE_45",
+  "RESGATE_60",
+  "RESGATE_90",
+  "REMARCAR",
+  "RETORNO",
+];
+
+function isLashCycle(category: string): boolean {
+  return LASH_CYCLE_CATEGORIES.includes(category as ServiceCategory);
+}
+
+/** Primeiro valor de um header que pode vir em lista ("a, b"). */
+function firstHeaderValue(value: string | null): string | null {
+  const first = value?.split(",")[0]?.trim();
+  return first ? first : null;
+}
+
+/**
+ * Origem pública do app (ex.: https://lash-studio-chi.vercel.app).
+ * Mesma regra das outras URLs absolutas do app (feed .ics, e-mail de nova
+ * senha, volta da assinatura): host da requisição (x-forwarded-host ou host)
+ * + x-forwarded-proto. NEXT_PUBLIC_APP_URL ou AUTH_URL, quando configuradas,
+ * fixam um domínio canônico. Fora de requisição (script), usa as envs da Vercel.
+ */
+export async function getAppOrigin(): Promise<string> {
+  for (const configured of [process.env.NEXT_PUBLIC_APP_URL, process.env.AUTH_URL]) {
+    if (!configured) continue;
+    try {
+      return new URL(configured).origin;
+    } catch {
+      // Valor inválido: tenta a próxima fonte.
+    }
+  }
+  try {
+    const h = await headers();
+    const host = firstHeaderValue(h.get("x-forwarded-host")) ?? firstHeaderValue(h.get("host"));
+    if (host) {
+      const proto = firstHeaderValue(h.get("x-forwarded-proto")) ?? "https";
+      return `${proto}://${host}`;
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+    // Fora de uma requisição (script): segue para as envs.
+  }
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  return vercelHost ? `https://${vercelHost}` : "http://localhost:3000";
+}
+
+/** Link público de agendamento da profissional — vira {{link_agendamento}}. */
+export async function getBookingUrl(slug: string): Promise<string> {
+  return `${await getAppOrigin()}/agendar/${encodeURIComponent(slug)}`;
+}
 
 /**
  * Versão memoizada por request (React cache): home, gamificação e a coluna
@@ -60,9 +136,10 @@ export async function buildMessageQueue(
   const tomorrowStart = addDays(todayStart, 1);
   const dayAfterTomorrowStart = addDays(todayStart, 2);
 
-  const templates = await prisma.messageTemplate.findMany({
-    where: { professionalId, active: true },
-  });
+  const [templates, bookingUrl] = await Promise.all([
+    prisma.messageTemplate.findMany({ where: { professionalId, active: true } }),
+    getBookingUrl(professional.slug),
+  ]);
   const templateByKind = new Map(templates.map((t) => [t.kind as TemplateKind, t]));
 
   const items: QueueItem[] = [];
@@ -73,14 +150,16 @@ export async function buildMessageQueue(
     pixKey: professional.pixKey,
     studioName: professional.studioName,
     timezone: tz,
+    bookingUrl,
   };
 
-  async function push(params: {
+  function push(params: {
     kind: TemplateKind;
     client: { id: string; name: string; phone: string };
     appointmentId?: string | null;
     refDate: Date;
     ctx: Parameters<typeof renderTemplate>[1];
+    info?: { serviceName?: string | null; anchorStatus?: string | null; daysSince?: number | null };
   }) {
     const template = templateByKind.get(params.kind);
     if (!template) return;
@@ -94,18 +173,22 @@ export async function buildMessageQueue(
       });
     }
     const body = renderTemplate(template.body, ctx, { dropEmptyLines: true });
+    const client = { id: params.client.id, name: params.client.name, phone: params.client.phone };
     // Montar a fila NUNCA envia nada — só prepara o link manual (wa.me).
     // Envio real por API é ato explícito (cron de envio automático).
     items.push({
-      key: `${params.kind}:${params.client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,
+      key: `${params.kind}:${client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,
       kind: params.kind,
-      kindLabel: KIND_LABELS[params.kind],
-      client: params.client,
+      kindLabel: QUEUE_KIND_LABELS[params.kind],
+      client,
       appointmentId: params.appointmentId ?? null,
       templateId: template.id,
       body,
-      waUrl: waLink(params.client.phone, body),
+      waUrl: waLink(client.phone, body),
       refDate: params.refDate,
+      serviceName: params.info?.serviceName ?? null,
+      anchorStatus: params.info?.anchorStatus ?? null,
+      daysSince: params.info?.daysSince ?? null,
     });
   }
 
@@ -113,7 +196,7 @@ export async function buildMessageQueue(
   const upcoming = await prisma.appointment.findMany({
     where: {
       professionalId,
-      status: { in: ["PRE_AGENDADO", "CONFIRMADO"] },
+      status: { in: HORARIO_EM_ABERTO },
       startAt: { gte: now, lte: addDays(now, 30) },
       messageLogs: { none: { kind: "CONFIRMACAO", status: "ENVIADA" } },
     },
@@ -121,7 +204,7 @@ export async function buildMessageQueue(
     orderBy: { startAt: "asc" },
   });
   for (const appt of upcoming) {
-    await push({
+    push({
       kind: "CONFIRMACAO",
       client: appt.client,
       appointmentId: appt.id,
@@ -135,6 +218,7 @@ export async function buildMessageQueue(
         // Mercado Pago integrado: usa o Pix da cobrança (confirma sozinho)
         pixCopiaECola: appt.pixCopiaCola,
       },
+      info: { serviceName: appt.service.name },
     });
   }
 
@@ -142,7 +226,7 @@ export async function buildMessageQueue(
   const tomorrow = await prisma.appointment.findMany({
     where: {
       professionalId,
-      status: { in: ["PRE_AGENDADO", "CONFIRMADO"] },
+      status: { in: HORARIO_EM_ABERTO },
       startAt: { gte: tomorrowStart, lt: dayAfterTomorrowStart },
       messageLogs: { none: { kind: "LEMBRETE_24H", status: "ENVIADA" } },
     },
@@ -150,7 +234,7 @@ export async function buildMessageQueue(
     orderBy: { startAt: "asc" },
   });
   for (const appt of tomorrow) {
-    await push({
+    push({
       kind: "LEMBRETE_24H",
       client: appt.client,
       appointmentId: appt.id,
@@ -161,6 +245,7 @@ export async function buildMessageQueue(
         serviceName: appt.service.name,
         priceCents: appt.priceCents,
       },
+      info: { serviceName: appt.service.name },
     });
   }
 
@@ -174,59 +259,85 @@ export async function buildMessageQueue(
       messageLogs: { none: { kind: "POS_APLICACAO", status: "ENVIADA" } },
     },
     include: { client: true, service: true },
+    orderBy: { startAt: "asc" },
   });
   for (const appt of recentDone) {
-    await push({
+    push({
       kind: "POS_APLICACAO",
       client: appt.client,
       appointmentId: appt.id,
       refDate: appt.startAt,
       ctx: { clientName: appt.client.name, serviceName: appt.service.name },
+      info: { serviceName: appt.service.name },
     });
   }
 
-  // ── 4-6. Por cliente: manutenção, aniversário, resgate ──
+  // ── 4-8. Por cliente: aniversário, remarcar, manutenção, retorno, resgate ──
+  // Folga de 1 dia na consulta; o corte exato dos 30 dias é feito em dia local.
+  const remarcarDesde = addDays(todayStart, -(REMARCAR_JANELA_DIAS + 1));
   const clients = await prisma.client.findMany({
     where: { professionalId },
-    include: {
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      birthDate: true,
       appointments: {
         where: {
+          professionalId,
           OR: [
-            { status: "CONCLUIDO", service: { category: { in: [...LASH_CYCLE_CATEGORIES] } } },
-            { status: { in: ["PRE_AGENDADO", "CONFIRMADO"] }, startAt: { gte: now } },
+            // Concluídos: âncora do ciclo dos cílios e do retorno por serviço
+            { status: "CONCLUIDO" },
+            // Horário em aberto no futuro: ela não recebe aviso de "volta"
+            { status: { in: HORARIO_EM_ABERTO }, startAt: { gte: now } },
+            // Últimos 30 dias, qualquer status: falta/cancelamento → remarcar
+            { startAt: { gte: remarcarDesde, lte: now } },
           ],
         },
-        include: { service: true },
+        select: {
+          id: true,
+          status: true,
+          startAt: true,
+          service: { select: { name: true, category: true, returnDays: true } },
+        },
         orderBy: { startAt: "desc" },
       },
       messageLogs: {
-        where: {
-          status: "ENVIADA",
-          kind: { in: ["MANUTENCAO", "ANIVERSARIO", "RESGATE_45", "RESGATE_60", "RESGATE_90"] },
-        },
+        where: { professionalId, status: "ENVIADA", kind: { in: KINDS_POR_CLIENTE } },
+        select: { kind: true, refDate: true, appointmentId: true },
       },
     },
   });
 
+  // Modelo de remarcar desligado = a cliente segue nos avisos normais.
+  const remarcarAtivo = templateByKind.has("REMARCAR");
+
   for (const client of clients) {
-    const lastLash = client.appointments.find((a) => a.status === "CONCLUIDO") ?? null;
-    const hasFuture = client.appointments.some(
-      (a) => a.status !== "CONCLUIDO" && a.startAt >= now,
+    const appts = client.appointments; // mais recente primeiro
+    const hasFuture = appts.some(
+      (a) => HORARIO_EM_ABERTO.includes(a.status) && a.startAt >= now,
     );
-    const daysSince = lastLash ? diffLocalDays(lastLash.startAt, now, tz) : null;
+    /** Já saiu mensagem deste tipo ancorada neste atendimento? */
+    const alreadySent = (kind: TemplateKind, anchor: { id: string; startAt: Date }) =>
+      client.messageLogs.some(
+        (log) =>
+          log.kind === kind &&
+          (log.refDate?.getTime() === anchor.startAt.getTime() || log.appointmentId === anchor.id),
+      );
 
     // Aniversário (independe do ciclo)
     if (client.birthDate) {
       const birthKey = localDayKey(client.birthDate, "UTC").slice(5); // "MM-dd"
       if (todayKey.slice(5) === birthKey) {
-        const alreadySent = client.messageLogs.some(
+        const sentThisYear = client.messageLogs.some(
           (log) =>
             log.kind === "ANIVERSARIO" &&
             log.refDate &&
             localDayKey(log.refDate, tz).slice(0, 4) === todayKey.slice(0, 4),
         );
-        if (!alreadySent) {
-          await push({
+        if (!sentThisYear) {
+          push({
             kind: "ANIVERSARIO",
             client,
             refDate: todayStart,
@@ -236,42 +347,139 @@ export async function buildMessageQueue(
       }
     }
 
-    if (!lastLash || daysSince == null) continue;
-    const cycleAnchor = lastLash.startAt;
-    const sentInCycle = (kind: string) =>
-      client.messageLogs.some(
-        (log) => log.kind === kind && log.refDate?.getTime() === cycleAnchor.getTime(),
-      );
-
-    // Aviso de manutenção: do dia configurado do ciclo até o prazo-limite
-    if (
-      !hasFuture &&
-      daysSince >= professional.maintenanceNoticeDay &&
-      daysSince <= professional.maintenanceLimitDays &&
-      !sentInCycle("MANUTENCAO")
-    ) {
-      await push({
-        kind: "MANUTENCAO",
+    // Remarcar: o atendimento mais recente dos últimos 30 dias foi falta ou
+    // cancelamento, e ela não tem horário marcado.
+    const lastPast = appts.find((a) => a.startAt <= now) ?? null;
+    const missed =
+      lastPast &&
+      FALTA_OU_CANCELAMENTO.includes(lastPast.status) &&
+      diffLocalDays(lastPast.startAt, now, tz) <= REMARCAR_JANELA_DIAS
+        ? lastPast
+        : null;
+    // Enquanto a falta/cancelamento for o passo mais recente dela, o REMARCAR é
+    // a única mensagem de "volta": manutenção, retorno e resgate ficam em pausa
+    // (evita dois recados com o mesmo pedido para a mesma cliente).
+    const emRemarcar = remarcarAtivo && !hasFuture && missed !== null;
+    if (emRemarcar && missed && !alreadySent("REMARCAR", missed)) {
+      push({
+        kind: "REMARCAR",
         client,
-        refDate: cycleAnchor,
-        ctx: { clientName: client.name, serviceName: lastLash.service.name },
+        appointmentId: missed.id,
+        refDate: missed.startAt,
+        ctx: {
+          clientName: client.name,
+          serviceName: missed.service.name,
+          startAt: missed.startAt,
+        },
+        info: {
+          serviceName: missed.service.name,
+          anchorStatus: missed.status,
+          daysSince: diffLocalDays(missed.startAt, now, tz),
+        },
       });
     }
 
-    // Resgate: 45 / 60 / 90 dias sem retorno (o maior nível aplicável)
-    if (!hasFuture) {
+    if (hasFuture || emRemarcar) continue;
+
+    // Ciclo dos cílios (aplicação/manutenção): aviso de manutenção e resgate
+    const lastLash =
+      appts.find((a) => a.status === "CONCLUIDO" && isLashCycle(a.service.category)) ?? null;
+    const lashDays = lastLash ? diffLocalDays(lastLash.startAt, now, tz) : null;
+
+    // Aviso de manutenção: do dia configurado do ciclo até o prazo-limite
+    if (
+      lastLash &&
+      lashDays != null &&
+      lashDays >= professional.maintenanceNoticeDay &&
+      lashDays <= professional.maintenanceLimitDays &&
+      !alreadySent("MANUTENCAO", lastLash)
+    ) {
+      push({
+        kind: "MANUTENCAO",
+        client,
+        refDate: lastLash.startAt,
+        ctx: { clientName: client.name, serviceName: lastLash.service.name },
+        info: { serviceName: lastLash.service.name, daysSince: lashDays },
+      });
+    }
+
+    // Retorno: para cada categoria fora do ciclo dos cílios (lifting, brow,
+    // design...), vale o último concluído daquela categoria — quem faz cílios e
+    // sobrancelha também recebe o retorno da sobrancelha. Fica na fila de
+    // returnDays até returnDays + 45 dias, uma vez por atendimento; se mais de
+    // um serviço vencer junto, sai um recado só, o mais atrasado.
+    const ultimoPorCategoria = new Map<string, (typeof appts)[number]>();
+    for (const a of appts) {
+      if (a.status !== "CONCLUIDO" || isLashCycle(a.service.category)) continue;
+      if (!ultimoPorCategoria.has(a.service.category)) ultimoPorCategoria.set(a.service.category, a);
+    }
+    let retorno: { appt: (typeof appts)[number]; dias: number; atraso: number } | null = null;
+    for (const a of ultimoPorCategoria.values()) {
+      const returnDays = a.service.returnDays;
+      if (returnDays == null || returnDays <= 0) continue;
+      const dias = diffLocalDays(a.startAt, now, tz);
+      if (dias < returnDays || dias > returnDays + RETORNO_TOLERANCIA_DIAS) continue;
+      if (alreadySent("RETORNO", a)) continue;
+      if (!retorno || dias - returnDays > retorno.atraso) {
+        retorno = { appt: a, dias, atraso: dias - returnDays };
+      }
+    }
+    if (retorno) {
+      push({
+        kind: "RETORNO",
+        client,
+        refDate: retorno.appt.startAt,
+        ctx: { clientName: client.name, serviceName: retorno.appt.service.name },
+        info: { serviceName: retorno.appt.service.name, daysSince: retorno.dias },
+      });
+    }
+
+    // Resgate: 45 / 60 / 90 dias sem retorno no ciclo dos cílios (o maior nível aplicável)
+    if (lastLash && lashDays != null) {
       const tier: TemplateKind | null =
-        daysSince >= 90 ? "RESGATE_90" : daysSince >= 60 ? "RESGATE_60" : daysSince >= 45 ? "RESGATE_45" : null;
-      if (tier && !sentInCycle(tier)) {
-        await push({
+        lashDays >= 90
+          ? "RESGATE_90"
+          : lashDays >= 60
+            ? "RESGATE_60"
+            : lashDays >= 45
+              ? "RESGATE_45"
+              : null;
+      if (tier && !alreadySent(tier, lastLash)) {
+        push({
           kind: tier,
           client,
-          refDate: cycleAnchor,
+          refDate: lastLash.startAt,
           ctx: { clientName: client.name },
+          info: { serviceName: lastLash.service.name, daysSince: lashDays },
         });
       }
     }
   }
 
-  return items;
+  // Descartada pela profissional sai da fila em todo lugar (home, PC, push,
+  // gamificação e envio automático), não só na tela da Fila.
+  // Mesma regra da tela: kind + appointmentId, ou kind + cliente + refDate.
+  if (items.length === 0) return items;
+  const descartadas = await prisma.messageLog.findMany({
+    where: {
+      professionalId,
+      status: "DESCARTADA",
+      clientId: { in: [...new Set(items.map((i) => i.client.id))] },
+    },
+    select: { kind: true, appointmentId: true, clientId: true, refDate: true },
+  });
+  if (descartadas.length === 0) return items;
+  const porAtendimento = new Set(
+    descartadas.flatMap((log) => (log.appointmentId ? [`${log.kind}|${log.appointmentId}`] : [])),
+  );
+  const porAncora = new Set(
+    descartadas.flatMap((log) =>
+      log.refDate ? [`${log.kind}|${log.clientId}|${log.refDate.getTime()}`] : [],
+    ),
+  );
+  return items.filter((item) =>
+    item.appointmentId
+      ? !porAtendimento.has(`${item.kind}|${item.appointmentId}`)
+      : !porAncora.has(`${item.kind}|${item.client.id}|${item.refDate.getTime()}`),
+  );
 }

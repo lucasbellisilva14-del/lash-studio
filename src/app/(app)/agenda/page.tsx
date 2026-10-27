@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { addDays } from "date-fns";
 import { requireProfessional } from "@/lib/session";
-import { dayKeyToUtcStart, localDayKey, localWeekday } from "@/lib/dates";
+import { dayKeyToUtcStart, formatWithPattern, localDayKey, localWeekday } from "@/lib/dates";
+import { prisma } from "@/lib/prisma";
 import { AgendaScreen } from "@/components/agenda/agenda-screen";
 import type {
   AgendaCompromisso,
@@ -22,6 +23,10 @@ export const metadata: Metadata = { title: "Agenda" };
 
 function primeiro(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function shiftDia(key: string, dias: number, tz: string): string {
@@ -58,66 +63,77 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
     getServicosAtivos(professional.id),
   ]);
 
+  // Grade do mês do dia aberto (semana começa na segunda): alimenta o mini
+  // calendário do PC, a faixa da semana do celular e a visão Mês.
+  const primeiroDoMesKey = `${diaKey.slice(0, 7)}-01`;
+  const [ano, mesNum] = primeiroDoMesKey.split("-").map(Number);
+  const diasNoMes = new Date(Date.UTC(ano, mesNum, 0)).getUTCDate();
+  const offsetMes = (localWeekday(dayKeyToUtcStart(primeiroDoMesKey, tz), tz) + 6) % 7;
+  const totalCelulas = Math.ceil((offsetMes + diasNoMes) / 7) * 7;
+  const chaves: string[] = [];
+  let cursor = addDays(dayKeyToUtcStart(primeiroDoMesKey, tz), -offsetMes);
+  for (let i = 0; i < totalCelulas; i++) {
+    chaves.push(localDayKey(cursor, tz));
+    cursor = addDays(cursor, 1);
+  }
+  const gridStart = dayKeyToUtcStart(chaves[0], tz);
+  const gridEnd = addDays(dayKeyToUtcStart(chaves[chaves.length - 1], tz), 1);
+
+  // Semana do dia aberto (seg → dom)
+  const offsetSemana = (localWeekday(dayKeyToUtcStart(diaKey, tz), tz) + 6) % 7;
+  const inicioSemanaKey = shiftDia(diaKey, -offsetSemana, tz);
+  const semana = Array.from({ length: 7 }, (_, i) => shiftDia(inicioSemanaKey, i, tz));
+
   // Navegação e dados por visão
   let anteriorKey: string;
   let proximoKey: string;
   let compromissos: AgendaCompromisso[] = [];
-  let mes: { chaves: string[]; contagem: Record<string, number> } | null = null;
 
   if (visao === "dia") {
     anteriorKey = shiftDia(diaKey, -1, tz);
     proximoKey = shiftDia(diaKey, 1, tz);
     const start = dayKeyToUtcStart(diaKey, tz);
-    compromissos = await getCompromissosNoIntervalo(
-      professional.id,
-      start,
-      addDays(start, 1),
-    );
+    compromissos = await getCompromissosNoIntervalo(professional.id, start, addDays(start, 1));
   } else if (visao === "semana") {
-    const weekday = localWeekday(dayKeyToUtcStart(diaKey, tz), tz);
-    const inicioSemanaKey = shiftDia(diaKey, -weekday, tz);
     anteriorKey = shiftDia(diaKey, -7, tz);
     proximoKey = shiftDia(diaKey, 7, tz);
     const start = dayKeyToUtcStart(inicioSemanaKey, tz);
-    compromissos = await getCompromissosNoIntervalo(
-      professional.id,
-      start,
-      addDays(start, 7),
-    );
+    compromissos = await getCompromissosNoIntervalo(professional.id, start, addDays(start, 7));
   } else {
-    const primeiroDoMesKey = `${diaKey.slice(0, 7)}-01`;
     anteriorKey = shiftMes(diaKey, -1);
     proximoKey = shiftMes(diaKey, 1);
-
-    const [ano, mesNum] = primeiroDoMesKey.split("-").map(Number);
-    const diasNoMes = new Date(Date.UTC(ano, mesNum, 0)).getUTCDate();
-    const offset = localWeekday(dayKeyToUtcStart(primeiroDoMesKey, tz), tz);
-    const totalCelulas = Math.ceil((offset + diasNoMes) / 7) * 7;
-
-    const chaves: string[] = [];
-    let cursor = addDays(dayKeyToUtcStart(primeiroDoMesKey, tz), -offset);
-    for (let i = 0; i < totalCelulas; i++) {
-      chaves.push(localDayKey(cursor, tz));
-      cursor = addDays(cursor, 1);
-    }
-
-    // Carrega os compromissos da grade inteira: alimenta as bolinhas da
-    // grade E a lista do dia selecionado (toque num dia mostra os cards).
-    const gridStart = dayKeyToUtcStart(chaves[0], tz);
-    const gridEnd = addDays(dayKeyToUtcStart(chaves[chaves.length - 1], tz), 1);
-    compromissos = await getCompromissosNoIntervalo(
-      professional.id,
-      gridStart,
-      gridEnd,
-    );
-    const contagem: Record<string, number> = {};
-    for (const c of compromissos) {
-      if (!(BLOCKING_STATUSES as readonly string[]).includes(c.status)) continue;
-      const k = localDayKey(new Date(c.inicio), tz);
-      contagem[k] = (contagem[k] ?? 0) + 1;
-    }
-    mes = { chaves, contagem };
+    // A grade inteira: alimenta os pontos E a lista do dia selecionado.
+    compromissos = await getCompromissosNoIntervalo(professional.id, gridStart, gridEnd);
   }
+
+  // Contagem por dia na grade (pontos do calendário e da faixa da semana)
+  const inicios =
+    visao === "mes"
+      ? compromissos
+          .filter((c) => (BLOCKING_STATUSES as readonly string[]).includes(c.status))
+          .map((c) => new Date(c.inicio))
+      : (
+          await prisma.appointment.findMany({
+            where: {
+              professionalId: professional.id,
+              startAt: { gte: gridStart, lt: gridEnd },
+              status: { in: [...BLOCKING_STATUSES] },
+            },
+            select: { startAt: true },
+          })
+        ).map((a) => a.startAt);
+  const contagem: Record<string, number> = {};
+  for (const inicio of inicios) {
+    const k = localDayKey(inicio, tz);
+    contagem[k] = (contagem[k] ?? 0) + 1;
+  }
+  const mes = {
+    chaves,
+    contagem,
+    rotulo: capitalizar(formatWithPattern(dayKeyToUtcStart(primeiroDoMesKey, tz), "MMMM 'de' yyyy", tz)),
+    anteriorKey: shiftMes(diaKey, -1),
+    seguinteKey: shiftMes(diaKey, 1),
+  };
 
   const config: AgendaConfig = {
     timezone: tz,
@@ -140,6 +156,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
       proximoKey={proximoKey}
       compromissos={compromissos}
       mes={mes}
+      semana={semana}
       clientes={clientes}
       servicos={servicos}
       horarios={workingHours.map(toHorarioFuncionamento)}

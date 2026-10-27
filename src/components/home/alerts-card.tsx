@@ -30,12 +30,12 @@ const icons: Record<HomeAlertIcon, (p: SVGProps<SVGSVGElement>) => React.JSX.Ele
 };
 
 const toneChip: Record<HomeAlertTone, string> = {
-  accent: "bg-accent-soft text-accent-strong",
+  accent: "bg-surface-sunken text-ink",
   warning: "bg-warning-soft text-warning",
   danger: "bg-danger-soft text-danger",
 };
 
-/** Alertas compactos do dia: sinal pendente, aniversários, manutenção, estoque. */
+/** Alertas do dia: sinal pendente, aniversários, manutenção, estoque. */
 export function AlertsCard({ alerts }: { alerts: HomeAlert[] }) {
   if (alerts.length === 0) return null;
 
@@ -47,25 +47,23 @@ export function AlertsCard({ alerts }: { alerts: HomeAlert[] }) {
           <Link
             key={alert.key}
             href={alert.href}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-background transition-colors"
+            className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-surface-muted transition-colors"
           >
             <span
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                 toneChip[alert.tone],
               )}
             >
               <Icon width={18} height={18} />
             </span>
-            <span className="grow min-w-0">
-              <span className="block text-sm font-medium text-ink truncate">{alert.title}</span>
+            <span className="min-w-0 grow">
+              <span className="block truncate text-[14px] font-semibold text-ink">{alert.title}</span>
               {alert.description ? (
-                <span className="block text-[13px] text-ink-soft truncate">
-                  {alert.description}
-                </span>
+                <span className="block line-clamp-2 text-[13px] leading-snug text-ink-soft">{alert.description}</span>
               ) : null}
             </span>
-            <IconChevronRight className="text-ink-faint shrink-0" width={16} height={16} />
+            <IconChevronRight className="shrink-0 text-ink-faint" width={16} height={16} />
           </Link>
         );
       })}

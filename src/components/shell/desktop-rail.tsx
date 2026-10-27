@@ -1,8 +1,8 @@
 import "server-only";
 
 /**
- * Coluna direita do desktop (lg+): visão de gerenciamento sempre à mão —
- * resumo do dia, próximas clientes, meta do mês e ações rápidas.
+ * Coluna direita do PC (lg+): resumo do dia, próximas clientes, meta do mês
+ * e atalhos. Some na agenda, que usa a largura toda.
  */
 import Link from "next/link";
 import type { Professional } from "@prisma/client";
@@ -12,18 +12,18 @@ import {
   dayKeyToUtcStart,
   formatTime,
   formatWithPattern,
-  localDayKey,
   localDayRange,
 } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { addHours, addDays } from "date-fns";
 import { Card } from "@/components/ui/card";
 import {
+  IconCalculator,
   IconCalendar,
   IconChat,
-  IconPlus,
-  IconUsers,
+  IconChevronRight,
 } from "@/components/ui/icons";
+import { HideOnRoutes } from "./content-frame";
 
 export async function DesktopRail({ professional }: { professional: Professional }) {
   const professionalId = professional.id;
@@ -53,7 +53,7 @@ export async function DesktopRail({ professional }: { professional: Professional
         status: { in: ["PRE_AGENDADO", "CONFIRMADO"] },
       },
       orderBy: { startAt: "asc" },
-      take: 3,
+      take: 4,
       include: {
         client: { select: { name: true } },
         service: { select: { name: true } },
@@ -83,115 +83,118 @@ export async function DesktopRail({ professional }: { professional: Professional
     : null;
 
   return (
-    <div className="hidden lg:flex flex-col gap-5 w-72 xl:w-80 shrink-0">
-      {/* Resumo do dia */}
-      <Card className="p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-3">
-          Hoje em resumo
-        </p>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl bg-surface-sunken/70 py-3">
-            <p className="font-display text-xl font-semibold text-ink">{hojeCount}</p>
-            <p className="text-[11px] text-ink-soft">atendim.</p>
-          </div>
-          <div className="rounded-2xl bg-surface-sunken/70 py-3">
-            <p className="font-display text-xl font-semibold text-ink">{queue.length}</p>
-            <p className="text-[11px] text-ink-soft">na fila</p>
-          </div>
-          <div className="rounded-2xl bg-surface-sunken/70 py-3">
-            <p className="font-display text-xl font-semibold text-ink">{sinaisPendentes}</p>
-            <p className="text-[11px] text-ink-soft">sinais</p>
-          </div>
+    <div className="hidden lg:flex flex-col gap-4 w-72 xl:w-80 shrink-0 no-print">
+      <Card className="p-5">
+        <h2 className="text-[15px] font-bold tracking-[-0.015em] text-ink">Hoje</h2>
+        <div className="mt-3.5 grid grid-cols-3 gap-2">
+          <RailNumber value={hojeCount} label="horários" />
+          <RailNumber value={queue.length} label="na fila" href="/mensagens" />
+          <RailNumber value={sinaisPendentes} label="sinais" />
         </div>
       </Card>
 
-      {/* Próximas clientes */}
-      <Card className="p-4">
-        <div className="flex items-baseline justify-between mb-2.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-            Próximas clientes
-          </p>
-          <Link href="/agenda" className="text-xs font-medium text-accent-strong hover:underline">
-            Agenda →
+      {/* Na home o dia já aparece (cartão escuro + agenda de hoje) */}
+      <HideOnRoutes routes={["/"]}>
+      <Card className="p-5">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-[15px] font-bold tracking-[-0.015em] text-ink">Próximas clientes</h2>
+          <Link href="/agenda" className="text-[13px] font-semibold text-ink-soft hover:text-ink">
+            Agenda
           </Link>
         </div>
         {proximos.length === 0 ? (
-          <p className="text-sm text-ink-faint py-2">Nenhum horário nos próximos 7 dias.</p>
+          <p className="mt-3 text-[13.5px] text-ink-soft">Nenhum horário nos próximos 7 dias.</p>
         ) : (
-          <ul className="divide-y divide-line/60">
+          <ul className="mt-2 divide-y divide-line">
             {proximos.map((a) => (
-              <li key={a.id} className="py-2.5 flex items-center gap-3">
-                <span className="shrink-0 rounded-xl bg-accent-soft text-accent-strong text-[11px] font-semibold px-2 py-1.5 text-center leading-tight">
-                  {formatWithPattern(a.startAt, "dd/MM", tz)}
-                  <br />
-                  {formatTime(a.startAt, tz)}
+              <li key={a.id} className="flex items-center gap-3 py-3">
+                <span className="w-12 shrink-0 text-center">
+                  <span className="block text-[14px] font-bold tabular-nums tracking-[-0.02em] text-ink">
+                    {formatTime(a.startAt, tz)}
+                  </span>
+                  <span className="block text-[11.5px] tabular-nums text-ink-faint">
+                    {formatWithPattern(a.startAt, "dd/MM", tz)}
+                  </span>
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium text-ink truncate">
+                  <span className="block truncate text-[14px] font-semibold text-ink">
                     {a.client.name}
                   </span>
-                  <span className="block text-xs text-ink-soft truncate">
-                    {a.service.name}
-                  </span>
+                  <span className="block truncate text-[12.5px] text-ink-soft">{a.service.name}</span>
                 </span>
               </li>
             ))}
           </ul>
         )}
       </Card>
+      </HideOnRoutes>
 
-      {/* Meta do mês */}
-      <Card className="p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">
+      <HideOnRoutes routes={["/financeiro"]}>
+      <Card className="p-5">
+        <h2 className="text-[15px] font-bold tracking-[-0.015em] text-ink">
           Meta de {formatWithPattern(now, "MMMM", tz)}
-        </p>
+        </h2>
         {goal ? (
           <>
-            <div className="flex items-baseline justify-between mb-1.5">
-              <p className="font-display text-lg font-semibold text-ink">
+            <div className="mt-3 flex items-baseline justify-between gap-2">
+              <p className="text-[20px] font-bold tabular-nums tracking-[-0.03em] text-ink">
                 {formatBRL(netCents)}
               </p>
-              <p className="text-xs text-ink-soft">de {formatBRL(goal.revenueTargetCents)}</p>
+              <p className="text-[12.5px] tabular-nums text-ink-soft">
+                de {formatBRL(goal.revenueTargetCents)}
+              </p>
             </div>
-            <div className="h-2 rounded-full bg-surface-sunken overflow-hidden">
+            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
               <div
-                className="h-full rounded-full bg-accent-gradient transition-[width] duration-700"
+                className="h-full rounded-full bg-accent transition-[width] duration-700"
                 style={{ width: `${metaPct}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-ink-soft">{metaPct}% da meta 💗</p>
+            <p className="mt-2 text-[12.5px] text-ink-soft">{metaPct}% da meta</p>
           </>
         ) : (
-          <Link
-            href="/financeiro"
-            className="block text-sm text-accent-strong font-medium hover:underline"
-          >
-            Definir meta do mês →
-          </Link>
+          <p className="mt-2 text-[13.5px] text-ink-soft">
+            Sem meta para este mês.{" "}
+            <Link href="/financeiro" className="font-semibold text-ink underline underline-offset-2">
+              Definir meta
+            </Link>
+          </p>
         )}
       </Card>
+      </HideOnRoutes>
 
-      {/* Ações rápidas */}
-      <Card className="p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2.5">
-          Ações rápidas
-        </p>
-        <div className="space-y-2">
-          <RailAction href="/agenda?novo=1" icon={<IconPlus width={16} height={16} />}>
-            Novo agendamento
+      <Card className="overflow-hidden">
+        <RailAction href="/mensagens" icon={<IconChat width={17} height={17} />}>
+          Abrir a fila
+        </RailAction>
+        {/* Financeiro já tem o atalho no cabeçalho; Ferramentas é a própria tela */}
+        <HideOnRoutes routes={["/financeiro", "/ferramentas"]}>
+          <RailAction href="/ferramentas" icon={<IconCalculator width={17} height={17} />}>
+            Calculadora de cobrança
           </RailAction>
-          <RailAction href="/mensagens" icon={<IconChat width={16} height={16} />}>
-            Abrir fila de mensagens
-          </RailAction>
-          <RailAction href="/clientes" icon={<IconUsers width={16} height={16} />}>
-            Ver clientes
-          </RailAction>
-          <RailAction href="/agenda/espera" icon={<IconCalendar width={16} height={16} />}>
-            Lista de espera
-          </RailAction>
-        </div>
+        </HideOnRoutes>
+        <RailAction href="/agenda/espera" icon={<IconCalendar width={17} height={17} />}>
+          Lista de espera
+        </RailAction>
       </Card>
     </div>
+  );
+}
+
+function RailNumber({ value, label, href }: { value: number; label: string; href?: string }) {
+  const inner = (
+    <>
+      <span className="block text-[20px] font-bold tabular-nums tracking-[-0.03em] text-ink">{value}</span>
+      <span className="block text-[11.5px] font-medium text-ink-soft">{label}</span>
+    </>
+  );
+  const cls = "rounded-[16px] bg-surface-sunken px-2 py-3 text-center";
+  return href ? (
+    <Link href={href} className={`${cls} hover:bg-accent-soft transition-colors`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
 }
 
@@ -207,10 +210,11 @@ function RailAction({
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-medium text-ink hover:bg-accent-soft/60 hover:text-accent-strong transition-colors"
+      className="flex items-center gap-3 border-b border-line px-5 py-3.5 text-[14px] font-semibold text-ink last:border-b-0 hover:bg-surface-muted transition-colors"
     >
-      <span className="text-accent-strong">{icon}</span>
-      {children}
+      <span className="text-ink-soft">{icon}</span>
+      <span className="grow">{children}</span>
+      <IconChevronRight width={16} height={16} className="text-ink-faint" />
     </Link>
   );
 }

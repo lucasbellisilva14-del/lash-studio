@@ -67,7 +67,7 @@ export function SuccessScreen({
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
           <IconCheck width={30} height={30} className="text-success" />
         </div>
-        <h2 className="mt-4 font-display text-2xl font-semibold text-ink">
+        <h2 className="mt-4 font-display text-2xl font-bold tracking-[-0.03em] text-ink">
           Solicitação enviada!
         </h2>
         <p className="mx-auto mt-1.5 max-w-xs text-sm text-ink-soft">
@@ -91,7 +91,7 @@ export function SuccessScreen({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-accent-strong">
                 Sinal para garantir o horário
               </p>
-              <p className="mt-0.5 font-display text-2xl font-semibold text-ink">
+              <p className="mt-0.5 font-display text-2xl font-bold tracking-[-0.03em] text-ink">
                 {formatBRL(sinal.valorCents)}
               </p>
             </div>

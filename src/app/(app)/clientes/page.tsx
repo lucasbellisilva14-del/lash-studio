@@ -50,10 +50,8 @@ export default async function ClientesPage(props: PageProps<"/clientes">) {
 
   const subtitle =
     rows.length === 0
-      ? "Nenhuma cliente cadastrada ainda"
-      : rows.length === 1
-        ? "1 cliente cadastrada"
-        : `${rows.length} clientes cadastradas`;
+      ? "Nenhuma cliente cadastrada ainda."
+      : `${rows.length === 1 ? "1 cliente cadastrada" : `${rows.length} clientes cadastradas`}. Toque numa cliente para abrir a ficha.`;
 
   return (
     <>

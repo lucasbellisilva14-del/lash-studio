@@ -5,6 +5,7 @@ import Link from "next/link";
 import { loginAction, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const initialState: LoginState = {};
 
@@ -25,17 +26,16 @@ export function LoginForm() {
         />
       </Field>
       <Field label="Senha" htmlFor="password">
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           placeholder="••••••••"
           required
         />
       </Field>
       {state.error ? (
-        <p className="text-sm text-danger bg-danger-soft rounded-lg px-3 py-2">{state.error}</p>
+        <p className="rounded-[14px] bg-danger-soft px-4 py-2.5 text-[13.5px] text-danger">{state.error}</p>
       ) : null}
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Entrando..." : "Entrar"}
@@ -43,7 +43,7 @@ export function LoginForm() {
       <p className="text-center">
         <Link
           href="/login/recuperar"
-          className="text-sm font-medium text-ink-soft hover:text-accent-strong transition-colors"
+          className="text-[13.5px] font-semibold text-ink-soft hover:text-ink transition-colors"
         >
           Esqueci minha senha
         </Link>

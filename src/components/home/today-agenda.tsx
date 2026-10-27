@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { AppointmentStatusBadge, Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
-import { IconAlert, IconCalendar } from "@/components/ui/icons";
+import { AppointmentStatusBadge } from "@/components/ui/badge";
+import { buttonClasses } from "@/components/ui/button";
+import { IconAlert } from "@/components/ui/icons";
 import { formatTime } from "@/lib/dates";
 import type { AppointmentStatus } from "@/lib/constants";
 import { cn } from "@/lib/cn";
@@ -17,90 +17,82 @@ export type TodayAgendaItem = {
   hasContraindication: boolean;
 };
 
-/** Agenda de hoje: cards em ordem de horário, com o próximo compromisso destacado. */
+/** Agenda de hoje: uma lista limpa em ordem de horário; o próximo ganha um ponto. */
 export function TodayAgenda({
   items,
   nextId,
-  nextLabel,
   tz,
   agendaHref,
 }: {
   items: TodayAgendaItem[];
   nextId: string | null;
-  nextLabel: string | null;
+  nextLabel?: string | null;
   tz: string;
   agendaHref: string;
 }) {
   if (items.length === 0) {
     return (
-      <Card>
-        <EmptyState
-          icon={<IconCalendar />}
-          title="Dia livre"
-          description="Nenhum atendimento agendado para hoje. Bom para descansar — ou encaixar alguém da fila."
-          action={
-            <Link
-              href={agendaHref}
-              className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-background transition-colors"
-            >
-              Abrir agenda
-            </Link>
-          }
-        />
+      <Card className="px-6 py-8">
+        <p className="text-[20px] font-bold tracking-[-0.03em] text-ink">Sua agenda está livre hoje.</p>
+        <p className="mt-1.5 max-w-sm text-[14px] text-ink-soft">
+          Veja os próximos dias na agenda ou encaixe alguém da lista de espera.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href={agendaHref} className={buttonClasses("primary", "sm")}>
+            Abrir agenda
+          </Link>
+          <Link href="/agenda/espera" className={buttonClasses("secondary", "sm")}>
+            Lista de espera
+          </Link>
+        </div>
       </Card>
     );
   }
 
   return (
-    <ul className="space-y-2.5">
+    <Card className="divide-y divide-line overflow-hidden">
       {items.map((item) => {
         const isNext = item.id === nextId;
+        const encerrado = item.status === "CONCLUIDO" || item.status === "FALTOU";
         return (
-          <li key={item.id}>
-            <Link href={agendaHref} className="block">
-              <Card
+          <Link
+            key={item.id}
+            href={agendaHref}
+            className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-muted transition-colors sm:px-5"
+          >
+            <div className="w-12 shrink-0">
+              <p
                 className={cn(
-                  "px-3.5 py-3 transition-colors hover:bg-background",
-                  isNext && "border-accent ring-1 ring-accent bg-accent-soft hover:bg-accent-soft",
+                  "text-[15px] font-bold leading-5 tabular-nums tracking-[-0.02em]",
+                  encerrado ? "text-ink-faint" : "text-ink",
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 shrink-0 text-center">
-                    <p className="font-display text-[15px] font-semibold text-ink leading-5">
-                      {formatTime(item.startAt, tz)}
-                    </p>
-                    <p className="text-[11px] text-ink-faint leading-4">
-                      {formatTime(item.endAt, tz)}
-                    </p>
-                  </div>
-                  <div className="w-px self-stretch bg-line shrink-0" aria-hidden />
-                  <div className="grow min-w-0">
-                    <p className="flex items-center gap-1.5 font-medium text-[15px] text-ink truncate">
-                      <span className="truncate">{item.clientName}</span>
-                      {item.hasContraindication ? (
-                        <span
-                          className="text-danger shrink-0"
-                          title="Contraindicação na anamnese"
-                          aria-label="Contraindicação na anamnese"
-                        >
-                          <IconAlert width={15} height={15} />
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="text-[13px] text-ink-soft truncate mt-0.5">{item.serviceName}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {isNext && nextLabel ? (
-                      <Badge className="bg-accent text-accent-ink">{nextLabel}</Badge>
-                    ) : null}
-                    <AppointmentStatusBadge status={item.status} />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          </li>
+                {formatTime(item.startAt, tz)}
+              </p>
+              <p className="text-[11.5px] leading-4 tabular-nums text-ink-faint">
+                {formatTime(item.endAt, tz)}
+              </p>
+            </div>
+            <div className="min-w-0 grow">
+              <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+                {isNext ? <span aria-label="Próxima" className="h-2 w-2 shrink-0 rounded-full bg-accent" /> : null}
+                <span className="truncate">{item.clientName}</span>
+                {item.hasContraindication ? (
+                  <span
+                    className="shrink-0 text-danger"
+                    title="Contraindicação na anamnese"
+                    aria-label="Contraindicação na anamnese"
+                  >
+                    <IconAlert width={15} height={15} />
+                  </span>
+                ) : null}
+              </p>
+              <p className="mt-0.5 truncate text-[13px] text-ink-soft">{item.serviceName}</p>
+            </div>
+            <AppointmentStatusBadge status={item.status} />
+          </Link>
         );
       })}
-    </ul>
+    </Card>
   );
 }

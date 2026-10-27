@@ -12,7 +12,7 @@ export default async function PerfilPage() {
     <div>
       <PageHeader
         title="Perfil do estúdio"
-        subtitle="Seus dados e a identidade visual do app"
+        subtitle="Os dados que aparecem para as clientes: no link de agendamento, nas mensagens e no Pix do sinal."
         backHref="/config"
       />
       <PerfilForm

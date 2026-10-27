@@ -60,7 +60,7 @@ export function StatusGroups({ groups }: { groups: StatusGroupData[] }) {
       <div className="grid grid-cols-4 gap-2">
         {groups.map((g) => (
           <Card key={g.status} className="px-1 py-2.5 text-center">
-            <p className={cn("font-display text-xl font-semibold leading-6", NUM_TONES[g.status])}>
+            <p className={cn("font-display text-xl font-bold tracking-[-0.03em] leading-6", NUM_TONES[g.status])}>
               {g.clientes.length}
             </p>
             <p className="mt-0.5 text-[11px] leading-tight text-ink-soft">

@@ -247,7 +247,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
       {/* Ciclo de cílios */}
       <Card>
         <CardBody>
-          <h2 className="font-display text-base font-semibold text-ink">Ciclo de cílios</h2>
+          <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink">Ciclo de cílios</h2>
           {lastLash && cycle.lastLashAt ? (
             <>
               <p className="text-sm text-ink-soft mt-1">
@@ -373,7 +373,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
       {/* Cadastro */}
       <Card>
         <CardBody>
-          <h2 className="font-display text-base font-semibold text-ink mb-2">Cadastro</h2>
+          <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink mb-2">Cadastro</h2>
           <dl className="space-y-2">
             <InfoRow label="WhatsApp" value={formatPhone(client.phone)} />
             <InfoRow label="Instagram" value={client.instagram} />
@@ -405,7 +405,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
 
       {/* Linha do tempo */}
       <section>
-        <h2 className="font-display text-base font-semibold text-ink mb-2">Histórico</h2>
+        <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink mb-2">Histórico</h2>
         <Card>
           {events.length === 0 ? (
             <EmptyState
@@ -505,7 +505,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
         <CardBody>
           <div className="flex items-center gap-2">
             <IconShield width={18} height={18} className="text-ink-soft" />
-            <h2 className="font-display text-base font-semibold text-ink">
+            <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink">
               Privacidade (LGPD)
             </h2>
           </div>

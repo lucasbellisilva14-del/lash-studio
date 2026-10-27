@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-/** Saudação da home: "Bom dia, <nome>" + data por extenso + estúdio discreto. */
+/** Topo da home: o dia por extenso como título e a saudação embaixo. */
 export function Greeting({
   greeting,
   firstName,
@@ -15,23 +15,24 @@ export function Greeting({
   logoUrl: string | null;
 }) {
   return (
-    <header className="flex items-center justify-between gap-3">
+    <header className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-[13px] text-ink-soft">{dateLabel}</p>
-        <h1 className="font-display text-[27px] leading-8 font-semibold text-accent-gradient mt-0.5 truncate pb-0.5">
-          {greeting}, {firstName} ✨
+        <h1 className="font-display text-[28px] font-bold leading-[1.12] tracking-[-0.035em] text-ink text-balance lg:text-[34px]">
+          {dateLabel}
         </h1>
-        <p className="text-[13px] text-ink-faint mt-1 truncate">{studioName}</p>
+        <p className="mt-1.5 text-[14px] text-ink-soft">
+          {greeting}, {firstName}
+        </p>
       </div>
-      <div className="shrink-0" aria-hidden>
+      <div className="shrink-0 lg:hidden" aria-hidden>
         {logoUrl ? (
           <img
             src={logoUrl}
             alt=""
-            className="h-11 w-11 rounded-full object-cover border border-line bg-surface"
+            className="h-10 w-10 rounded-full object-cover ring-1 ring-line bg-surface"
           />
         ) : (
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-accent-strong font-display font-semibold text-base">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink font-bold text-[15px] shadow-[var(--shadow-card)]">
             {studioName.trim().charAt(0).toUpperCase() || "L"}
           </span>
         )}

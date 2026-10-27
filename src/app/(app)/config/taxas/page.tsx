@@ -22,7 +22,7 @@ export default async function TaxasPage() {
     <div>
       <PageHeader
         title="Taxas"
-        subtitle="O que a maquininha desconta em cada forma"
+        subtitle="O que a maquininha desconta em cada forma. O financeiro e a calculadora usam essas taxas."
         backHref="/config"
       />
       <TaxasForm fees={fees} />

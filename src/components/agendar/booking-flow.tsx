@@ -203,7 +203,7 @@ export function BookingFlow({
       {/* Etapa 1 — serviço */}
       {etapa === 1 ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold text-ink">
+          <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
             Escolha o serviço
           </h2>
           {gruposServicos.length === 0 ? (
@@ -263,7 +263,7 @@ export function BookingFlow({
       {/* Etapa 2 — dia + horário */}
       {etapa === 2 && servico ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold text-ink">
+          <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
             Escolha o dia e o horário
           </h2>
 
@@ -363,7 +363,7 @@ export function BookingFlow({
       {/* Etapa 3 — dados da cliente */}
       {etapa === 3 && servico && dia && hora ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold text-ink">Seus dados</h2>
+          <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">Seus dados</h2>
 
           <form id="ag-form" onSubmit={enviar} className="space-y-4">
             <Field label="Nome completo" htmlFor="ag-nome">

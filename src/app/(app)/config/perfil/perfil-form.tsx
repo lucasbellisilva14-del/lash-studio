@@ -2,15 +2,15 @@
 
 import { useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { IconCamera, IconCheck } from "@/components/ui/icons";
 import { FieldError, FormError, SavedToast } from "@/components/config/feedback";
+import { AutoSaveStatus, useAutoSave } from "@/components/config/autosave";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { salvarPerfilAction } from "./actions";
 
-/** Paleta de acentos elegantes (escuros o bastante p/ texto branco). */
+/** Acentos do link público (escuros o bastante p/ texto branco). */
 const PALETTE = [
   { hex: "#D6336C", nome: "Pink" },
   { hex: "#BE4368", nome: "Rosa queimado" },
@@ -23,7 +23,7 @@ const PALETTE = [
   { hex: "#44403C", nome: "Grafite" },
 ] as const;
 
-/** Tons claros para o plano de fundo (o gradiente é derivado deles). */
+/** Fundos claros do link público. */
 const BG_PALETTE = [
   { hex: "#FFD9E9", nome: "Rosa vivo" },
   { hex: "#FFEDF4", nome: "Rosa claro" },
@@ -48,11 +48,49 @@ export type PerfilDefaults = {
   pixKey: string;
 };
 
+function Amostra({
+  hex,
+  nome,
+  selecionada,
+  onClick,
+  claro = false,
+}: {
+  hex: string;
+  nome: string;
+  selecionada: boolean;
+  onClick: () => void;
+  claro?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={nome}
+      aria-pressed={selecionada}
+      className="flex flex-col items-center gap-1.5"
+    >
+      <span
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-full transition-transform",
+          claro ? "text-ink ring-1 ring-line" : "text-white",
+          selecionada ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : "hover:scale-105",
+        )}
+        style={{ backgroundColor: hex }}
+      >
+        {selecionada ? <IconCheck width={15} height={15} /> : null}
+      </span>
+      <span className="text-[11px] text-ink-soft">{nome}</span>
+    </button>
+  );
+}
+
 export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
   const [state, formAction, pending] = useActionState<ConfigFormState, FormData>(
     salvarPerfilAction,
     initialConfigFormState,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const { agendar, aoEnviar } = useAutoSave(formRef, formAction);
 
   const [accent, setAccent] = useState(defaults.accentColor);
   const [bg, setBg] = useState(defaults.backgroundColor);
@@ -73,39 +111,43 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
     setLogoPreview(url);
   }
 
-  const isCustom = !PALETTE.some(
-    (p) => p.hex.toLowerCase() === accent.toLowerCase(),
-  );
-  const isCustomBg = !BG_PALETTE.some(
-    (p) => p.hex.toLowerCase() === bg.toLowerCase(),
-  );
+  function escolherAcento(hex: string) {
+    setAccent(hex);
+    agendar();
+  }
 
+  function escolherFundo(hex: string) {
+    setBg(hex);
+    agendar();
+  }
+
+  const isCustom = !PALETTE.some((p) => p.hex.toLowerCase() === accent.toLowerCase());
+  const isCustomBg = !BG_PALETTE.some((p) => p.hex.toLowerCase() === bg.toLowerCase());
+
+  // Prévia do link público com as cores escolhidas
   const previewVars = {
     "--accent": accent,
     "--accent-soft": `color-mix(in srgb, ${accent} 10%, white)`,
-    "--accent-strong": `color-mix(in srgb, ${accent} 85%, black)`,
-    "--bg": bg,
-    "--background": bg,
+    background: bg,
   } as CSSProperties;
 
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} onSubmit={aoEnviar} className="space-y-5">
+      <div className="flex justify-end">
+        <AutoSaveStatus pending={pending} state={state} />
+      </div>
+
       {/* Identidade */}
       <Card>
-        <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">Identidade</h2>
-
+        <CardHeader title="Identidade" description="Como o estúdio aparece para as clientes." />
+        <CardBody className="space-y-5">
           <div className="flex items-center gap-4">
-            <span className="h-16 w-16 rounded-2xl bg-surface-sunken border border-line overflow-hidden flex items-center justify-center shrink-0">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-line-strong bg-surface-muted">
               {logoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoPreview}
-                  alt="Logo do estúdio"
-                  className="h-full w-full object-cover"
-                />
+                <img src={logoPreview} alt="Logo do estúdio" className="h-full w-full object-cover" />
               ) : (
                 <IconCamera className="text-ink-faint" />
               )}
@@ -113,7 +155,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
             <div className="min-w-0">
               <label
                 htmlFor="logo"
-                className="inline-flex items-center justify-center h-9 px-3 text-sm rounded-lg bg-surface text-ink border border-line font-medium cursor-pointer hover:bg-background transition-colors"
+                className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-line bg-surface px-4 text-[13px] font-semibold text-ink hover:border-line-strong transition-colors"
               >
                 {logoPreview ? "Trocar logo" : "Enviar logo"}
               </label>
@@ -125,194 +167,144 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
                 className="sr-only"
                 onChange={(e) => onLogoChange(e.target.files?.[0])}
               />
-              <p className="text-xs text-ink-faint mt-1.5">JPG, PNG ou WebP · até 5MB</p>
+              <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                Aparece no seu link de agendamento e no resumo da semana. Quadrada fica melhor. JPG,
+                PNG ou WebP até 5 MB.
+              </p>
               <FieldError message={errors.logo} />
             </div>
           </div>
 
-          <Field label="Seu nome" htmlFor="name">
-            <Input
-              id="name"
-              name="name"
-              defaultValue={defaults.name}
-              placeholder="Ex.: Ana Souza"
-              autoComplete="name"
-              required
-            />
-            <FieldError message={errors.name} />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Seu nome" htmlFor="name" hint="É como o app te chama." error={errors.name}>
+              <Input
+                id="name"
+                name="name"
+                defaultValue={defaults.name}
+                placeholder="Ex.: Ana Souza"
+                autoComplete="name"
+                required
+              />
+            </Field>
 
-          <Field label="Nome do estúdio" htmlFor="studioName">
-            <Input
-              id="studioName"
-              name="studioName"
-              defaultValue={defaults.studioName}
-              placeholder="Ex.: Ana Lash Studio"
-              required
-            />
-            <FieldError message={errors.studioName} />
-          </Field>
+            <Field
+              label="Nome do estúdio"
+              htmlFor="studioName"
+              hint="Aparece no link de agendamento e nas mensagens."
+              error={errors.studioName}
+            >
+              <Input
+                id="studioName"
+                name="studioName"
+                defaultValue={defaults.studioName}
+                placeholder="Ex.: Ana Lash Studio"
+                required
+              />
+            </Field>
+          </div>
         </CardBody>
       </Card>
 
-      {/* Cor do app */}
+      {/* Cores do link público */}
       <Card>
-        <CardBody className="space-y-4">
-          <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Cor do app</h2>
-            <p className="text-[13px] text-ink-soft mt-0.5">
-              O tom principal dos botões e destaques do seu LashOS.
-            </p>
-          </div>
-
+        <CardHeader
+          title="Cores do seu link de agendamento"
+          description="Valem só na página que a cliente abre para agendar. O app continua neutro."
+        />
+        <CardBody className="space-y-5">
           <input type="hidden" name="accentColor" value={accent} />
+          <input type="hidden" name="backgroundColor" value={bg} />
 
-          <div className="grid grid-cols-4 gap-3">
-            {PALETTE.map((tone) => {
-              const selected = tone.hex.toLowerCase() === accent.toLowerCase();
-              return (
-                <button
+          <div>
+            <p className="mb-3 text-[13px] font-semibold text-ink">Cor dos botões</p>
+            <div className="grid grid-cols-5 gap-3 sm:grid-cols-9">
+              {PALETTE.map((tone) => (
+                <Amostra
                   key={tone.hex}
-                  type="button"
-                  onClick={() => setAccent(tone.hex)}
-                  aria-label={`Cor ${tone.nome}`}
-                  aria-pressed={selected}
-                  className="flex flex-col items-center gap-1.5"
+                  hex={tone.hex}
+                  nome={tone.nome}
+                  selecionada={tone.hex.toLowerCase() === accent.toLowerCase()}
+                  onClick={() => escolherAcento(tone.hex)}
+                />
+              ))}
+              <label className="flex cursor-pointer flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    "relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-line",
+                    isCustom && "ring-2 ring-accent ring-offset-2 ring-offset-surface",
+                  )}
+                  style={{
+                    background: isCustom
+                      ? accent
+                      : "conic-gradient(#d6336c, #c24b8b, #7a3b47, #5d4157, #3e5c50, #be4368, #d6336c)",
+                  }}
                 >
-                  <span
-                    className={cn(
-                      "h-11 w-11 rounded-full flex items-center justify-center text-white transition-all",
-                      selected
-                        ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface"
-                        : "hover:scale-105",
-                    )}
-                    style={{ backgroundColor: tone.hex }}
-                  >
-                    {selected ? <IconCheck width={16} height={16} /> : null}
-                  </span>
-                  <span className="text-[11px] text-ink-soft">{tone.nome}</span>
-                </button>
-              );
-            })}
+                  <input
+                    type="color"
+                    value={accent}
+                    onChange={(e) => setAccent(e.target.value)}
+                    aria-label="Cor dos botões personalizada"
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                </span>
+                <span className="text-[11px] text-ink-soft">Outra</span>
+              </label>
+            </div>
+            <FieldError message={errors.accentColor} />
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer">
-            <span
-              className={cn(
-                "relative h-11 w-11 rounded-full overflow-hidden border border-line transition-all",
-                isCustom ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface" : "",
-              )}
-              style={{
-                background: isCustom
-                  ? accent
-                  : "conic-gradient(#d6336c, #c24b8b, #7a3b47, #5d4157, #3e5c50, #be4368, #d6336c)",
-              }}
-            >
-              <input
-                type="color"
-                value={accent}
-                onChange={(e) => setAccent(e.target.value)}
-                aria-label="Cor personalizada"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              {isCustom ? (
-                <span className="absolute inset-0 flex items-center justify-center text-white pointer-events-none">
-                  <IconCheck width={16} height={16} />
-                </span>
-              ) : null}
-            </span>
-            <span className="text-sm text-ink-soft">
-              Cor personalizada
-              <span className="block text-xs text-ink-faint uppercase">{accent}</span>
-            </span>
-          </label>
-          <FieldError message={errors.accentColor} />
-
-          <div className="pt-1">
-            <h3 className="text-sm font-semibold text-ink">Cor do fundo</h3>
-            <p className="text-[13px] text-ink-soft mt-0.5 mb-3">
-              O plano de fundo do app inteiro (o degradê nasce dela).
-            </p>
-
-            <input type="hidden" name="backgroundColor" value={bg} />
-
-            <div className="grid grid-cols-4 gap-3">
-              {BG_PALETTE.map((tone) => {
-                const selected = tone.hex.toLowerCase() === bg.toLowerCase();
-                return (
-                  <button
-                    key={tone.hex}
-                    type="button"
-                    onClick={() => setBg(tone.hex)}
-                    aria-label={`Fundo ${tone.nome}`}
-                    aria-pressed={selected}
-                    className="flex flex-col items-center gap-1.5"
-                  >
-                    <span
-                      className={cn(
-                        "h-11 w-11 rounded-full flex items-center justify-center text-ink border border-line transition-all",
-                        selected
-                          ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface"
-                          : "hover:scale-105",
-                      )}
-                      style={{ backgroundColor: tone.hex }}
-                    >
-                      {selected ? <IconCheck width={16} height={16} /> : null}
-                    </span>
-                    <span className="text-[11px] text-ink-soft">{tone.nome}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <label className="flex items-center gap-3 cursor-pointer mt-3">
-              <span
-                className={cn(
-                  "relative h-11 w-11 rounded-full overflow-hidden border border-line transition-all",
-                  isCustomBg ? "ring-2 ring-offset-2 ring-ink/60 ring-offset-surface" : "",
-                )}
-                style={{
-                  background: isCustomBg
-                    ? bg
-                    : "conic-gradient(#ffd9e9, #f6ebdd, #f3e8fa, #e4f0fa, #e7f4ec, #ffd9e9)",
-                }}
-              >
-                <input
-                  type="color"
-                  value={bg}
-                  onChange={(e) => setBg(e.target.value)}
-                  aria-label="Fundo personalizado"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+          <div>
+            <p className="mb-3 text-[13px] font-semibold text-ink">Fundo da página</p>
+            <div className="grid grid-cols-5 gap-3 sm:grid-cols-9">
+              {BG_PALETTE.map((tone) => (
+                <Amostra
+                  key={tone.hex}
+                  hex={tone.hex}
+                  nome={tone.nome}
+                  claro
+                  selecionada={tone.hex.toLowerCase() === bg.toLowerCase()}
+                  onClick={() => escolherFundo(tone.hex)}
                 />
-                {isCustomBg ? (
-                  <span className="absolute inset-0 flex items-center justify-center text-ink pointer-events-none">
-                    <IconCheck width={16} height={16} />
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-sm text-ink-soft">
-                Fundo personalizado
-                <span className="block text-xs text-ink-faint uppercase">{bg}</span>
-              </span>
-            </label>
+              ))}
+              <label className="flex cursor-pointer flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    "relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-line",
+                    isCustomBg && "ring-2 ring-accent ring-offset-2 ring-offset-surface",
+                  )}
+                  style={{
+                    background: isCustomBg
+                      ? bg
+                      : "conic-gradient(#ffd9e9, #f6ebdd, #f3e8fa, #e4f0fa, #e7f4ec, #ffd9e9)",
+                  }}
+                >
+                  <input
+                    type="color"
+                    value={bg}
+                    onChange={(e) => setBg(e.target.value)}
+                    aria-label="Fundo personalizado"
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                </span>
+                <span className="text-[11px] text-ink-soft">Outro</span>
+              </label>
+            </div>
             <FieldError message={errors.backgroundColor} />
           </div>
 
-          <div
-            style={previewVars}
-            className="rounded-xl border border-line bg-background p-3.5 space-y-2.5"
-          >
-            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-              Pré-visualização
-            </p>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex h-9 items-center px-4 rounded-lg bg-accent text-accent-ink text-sm font-medium shadow-sm">
-                Agendar
-              </span>
-              <span className="inline-flex h-9 items-center px-3 rounded-lg bg-accent-soft text-accent-strong text-sm font-medium">
-                Destaque
-              </span>
-              <span className="text-accent-strong text-sm font-semibold">Link</span>
+          {/* Prévia */}
+          <div style={previewVars} className="rounded-[18px] border border-line p-4">
+            <p className="text-[12px] font-semibold text-ink-soft">Prévia do link</p>
+            <div className="mt-3 rounded-[14px] bg-surface p-3.5 shadow-[var(--shadow-card)]">
+              <p className="text-[14px] font-bold text-ink">{defaults.studioName || "Seu estúdio"}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex h-8 items-center rounded-full bg-[var(--accent-soft)] px-3 text-[12.5px] font-semibold text-ink">
+                  14:00
+                </span>
+                <span className="inline-flex h-8 items-center rounded-full bg-[var(--accent)] px-4 text-[12.5px] font-semibold text-white">
+                  Confirmar horário
+                </span>
+              </div>
             </div>
           </div>
         </CardBody>
@@ -320,15 +312,13 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
 
       {/* Contato e localização */}
       <Card>
-        <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">
-            Contato e localização
-          </h2>
-
+        <CardHeader title="Contato e endereço" description="O que a cliente usa para falar com você e chegar." />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field
             label="WhatsApp"
             htmlFor="whatsapp"
-            hint="Com DDD — usado nos links e mensagens para clientes."
+            hint="Com DDD. É o contato que aparece para as clientes."
+            error={errors.whatsapp}
           >
             <Input
               id="whatsapp"
@@ -338,14 +328,11 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
               defaultValue={defaults.whatsapp}
               placeholder="(48) 99999-8888"
             />
-            <FieldError message={errors.whatsapp} />
           </Field>
 
-          <Field label="Instagram" htmlFor="instagram">
+          <Field label="Instagram" htmlFor="instagram" hint="Aparece no seu link de agendamento." error={errors.instagram}>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-ink-faint">
-                @
-              </span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-ink-faint">@</span>
               <Input
                 id="instagram"
                 name="instagram"
@@ -355,10 +342,15 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
                 className="pl-8"
               />
             </div>
-            <FieldError message={errors.instagram} />
           </Field>
 
-          <Field label="Endereço" htmlFor="addressLine">
+          <Field
+            label="Endereço"
+            htmlFor="addressLine"
+            hint="Vai nas mensagens de confirmação, com o link do mapa."
+            error={errors.addressLine}
+            className="sm:col-span-2"
+          >
             <Input
               id="addressLine"
               name="addressLine"
@@ -366,13 +358,14 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
               placeholder="Rua, número, bairro — cidade/UF"
               autoComplete="street-address"
             />
-            <FieldError message={errors.addressLine} />
           </Field>
 
           <Field
             label="Link do Google Maps"
             htmlFor="mapsUrl"
-            hint="Cole o link de compartilhamento do seu estúdio no Maps."
+            hint="No Maps, toque em Compartilhar e cole o link aqui."
+            error={errors.mapsUrl}
+            className="sm:col-span-2"
           >
             <Input
               id="mapsUrl"
@@ -382,19 +375,19 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
               defaultValue={defaults.mapsUrl}
               placeholder="https://maps.app.goo.gl/..."
             />
-            <FieldError message={errors.mapsUrl} />
           </Field>
         </CardBody>
       </Card>
 
       {/* Pagamento */}
       <Card>
-        <CardBody className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-ink">Pagamento</h2>
+        <CardHeader title="Pix" description="Para o sinal, quando o Mercado Pago não está conectado." />
+        <CardBody>
           <Field
             label="Chave Pix"
             htmlFor="pixKey"
-            hint="Enviada nas mensagens de cobrança de sinal."
+            hint="Vai no Pix copia-e-cola do sinal que a cliente recebe."
+            error={errors.pixKey}
           >
             <Input
               id="pixKey"
@@ -402,18 +395,15 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
               defaultValue={defaults.pixKey}
               placeholder="CPF, celular, e-mail ou chave aleatória"
             />
-            <FieldError message={errors.pixKey} />
           </Field>
         </CardBody>
       </Card>
 
       <FormError error={state.error} />
-
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Salvando..." : "Salvar perfil"}
-      </Button>
-
-      <SavedToast savedAt={state.savedAt} message="Perfil salvo!" />
+      <button type="submit" className="sr-only">
+        Salvar
+      </button>
+      <SavedToast savedAt={state.savedAt} message="Perfil salvo" />
     </form>
   );
 }

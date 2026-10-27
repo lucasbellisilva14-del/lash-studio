@@ -7,6 +7,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sheet } from "@/components/ui/sheet";
+import { buttonClasses } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/field";
 import { IconWhatsApp } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
@@ -25,6 +26,7 @@ export function AvulsaSheet({
   const [isPending, startTransition] = useTransition();
 
   const trimmed = body.trim();
+  const disabled = !trimmed || isPending;
 
   const close = () => {
     setOpen(false);
@@ -48,52 +50,49 @@ export function AvulsaSheet({
   };
 
   return (
-    <Sheet open={open} onClose={close} title="Mensagem avulsa">
-      <div className="space-y-4 pt-1">
-        <div className="rounded-xl bg-surface-sunken px-3.5 py-2.5">
-          <p className="font-medium text-ink">{client.name}</p>
-          <p className="text-xs text-ink-faint mt-0.5">{formatPhone(client.phone)}</p>
+    <Sheet
+      open={open}
+      onClose={close}
+      title="Mensagem avulsa"
+      description={`Para ${client.name} · ${formatPhone(client.phone)}`}
+      footer={
+        <div className="space-y-2">
+          <a
+            href={trimmed ? waLink(client.phone, trimmed) : undefined}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              if (disabled) {
+                e.preventDefault();
+                return;
+              }
+              handleSend();
+            }}
+            aria-disabled={disabled}
+            className={cn(
+              buttonClasses("primary", "lg"),
+              disabled && "pointer-events-none opacity-45",
+            )}
+          >
+            <IconWhatsApp width={18} height={18} />
+            {isPending ? "Registrando..." : "Enviar no WhatsApp"}
+          </a>
+          <p className="text-center text-[12.5px] leading-snug text-ink-soft">
+            O WhatsApp abre com a mensagem pronta. É só tocar em enviar lá.
+          </p>
         </div>
-
-        <Field label="Mensagem" htmlFor="mensagem-livre">
-          <Textarea
-            id="mensagem-livre"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Escreva sua mensagem para a cliente..."
-            className="min-h-36"
-            autoFocus
-          />
-        </Field>
-
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
-
-        <a
-          href={trimmed ? waLink(client.phone, trimmed) : undefined}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => {
-            if (!trimmed || isPending) {
-              e.preventDefault();
-              return;
-            }
-            handleSend();
-          }}
-          aria-disabled={!trimmed || isPending}
-          className={cn(
-            "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent",
-            "text-base font-medium text-accent-ink shadow-sm transition-colors select-none",
-            "hover:bg-accent-strong active:bg-accent-strong",
-            (!trimmed || isPending) && "pointer-events-none opacity-45",
-          )}
-        >
-          <IconWhatsApp width={18} height={18} />
-          {isPending ? "Registrando..." : "Enviar no WhatsApp"}
-        </a>
-        <p className="text-xs text-ink-faint text-center -mt-1">
-          O WhatsApp abre com a mensagem pronta — é só tocar em enviar lá.
-        </p>
-      </div>
+      }
+    >
+      <Field label="Mensagem" htmlFor="mensagem-livre" error={error ?? undefined}>
+        <Textarea
+          id="mensagem-livre"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Escreva sua mensagem para a cliente..."
+          className="min-h-40"
+          autoFocus
+        />
+      </Field>
     </Sheet>
   );
 }

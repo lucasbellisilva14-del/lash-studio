@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { IconPlus } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 
-/** Botão flutuante de ação principal (acima da bottom nav). */
+/** Botão flutuante de ação principal (acima da navegação no celular). */
 export function Fab({
   label,
   className,
@@ -13,14 +13,14 @@ export function Fab({
       aria-label={label ?? "Adicionar"}
       className={cn(
         "fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 lg:bottom-8 lg:right-8",
-        "h-14 rounded-full bg-accent-gradient text-accent-ink shadow-[var(--shadow-pop)]",
-        "flex items-center justify-center gap-2 px-4 active:scale-95 transition-transform",
+        "h-14 rounded-full bg-accent text-accent-ink shadow-[var(--shadow-pop)] hover:bg-accent-hover",
+        "flex items-center justify-center gap-2 px-4 active:scale-95 transition-[transform,background-color]",
         className,
       )}
       {...props}
     >
       <IconPlus width={22} height={22} />
-      {label ? <span className="font-medium text-[15px] pr-1">{label}</span> : null}
+      {label ? <span className="font-semibold text-[15px] pr-1">{label}</span> : null}
     </button>
   );
 }

@@ -21,32 +21,41 @@ const items = [
   { href: "/mais", label: "Mais", icon: IconMore },
 ] as const;
 
+/** Barra inferior do celular: branca, com indicador escuro no item ativo. */
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] inset-x-3 z-40"
+      className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] inset-x-3 z-40 no-print"
     >
-      <div className="mx-auto max-w-lg rounded-[26px] bg-surface/90 backdrop-blur-xl border border-white/70 shadow-[var(--shadow-pop)] grid grid-cols-6 p-1.5">
+      <div className="mx-auto grid max-w-lg grid-cols-6 rounded-[24px] bg-surface p-1.5 shadow-[var(--shadow-pop)] ring-1 ring-[rgb(23_21_30/0.06)]">
         {items.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex flex-col items-center gap-0.5 py-2 rounded-2xl text-[10px] font-medium transition-colors min-w-0",
-                active
-                  ? "bg-accent-soft text-accent-strong"
-                  : "text-ink-faint hover:text-ink-soft",
-              )}
+              className="flex min-w-0 flex-col items-center gap-1 py-1"
             >
-              <Icon width={21} height={21} strokeWidth={active ? 2.1 : 1.75} />
-              <span className="truncate max-w-full px-0.5">{label}</span>
+              <span
+                className={cn(
+                  "flex h-7 w-11 items-center justify-center rounded-full transition-colors duration-200",
+                  active ? "bg-accent text-accent-ink" : "text-ink-faint",
+                )}
+              >
+                <Icon width={20} height={20} strokeWidth={active ? 1.8 : 1.5} />
+              </span>
+              <span
+                className={cn(
+                  "max-w-full truncate px-0.5 text-[10.5px] font-semibold",
+                  active ? "text-ink" : "text-ink-faint",
+                )}
+              >
+                {label}
+              </span>
             </Link>
           );
         })}

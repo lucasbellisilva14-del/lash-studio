@@ -110,6 +110,8 @@ export const TEMPLATE_KINDS = {
   RESGATE_45: "Resgate — 45 dias",
   RESGATE_60: "Resgate — 60 dias",
   RESGATE_90: "Resgate — 90 dias",
+  REMARCAR: "Remarcar horário",
+  RETORNO: "Hora do retorno",
 } as const;
 export type TemplateKind = keyof typeof TEMPLATE_KINDS;
 

@@ -20,7 +20,7 @@ export default async function PoliticasPage() {
     <div>
       <PageHeader
         title="Políticas"
-        subtitle="Sinal, cancelamento, manutenção e status"
+        subtitle="As regras que o app aplica sozinho: sinal, cancelamento, prazo da manutenção e status das clientes."
         backHref="/config"
       />
       <PoliticasForm

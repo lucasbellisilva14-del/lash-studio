@@ -229,7 +229,7 @@ export function FichaForm({
                 className="w-full accent-accent"
                 aria-label="Retenção observada em porcentagem"
               />
-              <span className="w-14 shrink-0 text-right font-display text-xl font-semibold text-ink">
+              <span className="w-14 shrink-0 text-right font-display text-xl font-bold tracking-[-0.03em] text-ink">
                 {retention}%
               </span>
             </div>

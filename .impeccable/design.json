@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T12:00:00.000Z",
+  "title": "Design System: LashOS",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Berinjela", "canonical": "#2A2240", "tonalRamp": ["#15111f", "#2a2240", "#3a3156", "#55497a", "#7a6f9c", "#b9b2cf", "#dcd8e8", "#efedf5"] },
+      "accent-hover": { "role": "primary", "displayName": "Berinjela clara", "canonical": "#3A3156" },
+      "accent-soft": { "role": "primary", "displayName": "Véu berinjela", "canonical": "#EFEDF5" },
+      "accent-glow": { "role": "primary", "displayName": "Lavanda apagada", "canonical": "#B9B2CF" },
+      "accent-ink": { "role": "primary", "displayName": "Branco sobre a berinjela", "canonical": "#FFFFFF" },
+      "background": { "role": "neutral", "displayName": "Cinza-gelo", "canonical": "#F3F3F6", "tonalRamp": ["#17151e", "#2f2d38", "#5e5b68", "#77747f", "#d9d9e0", "#e8e8ed", "#f3f3f6", "#fafafb"] },
+      "surface": { "role": "neutral", "displayName": "Branco", "canonical": "#FFFFFF" },
+      "surface-sunken": { "role": "neutral", "displayName": "Cinza trilho", "canonical": "#F4F4F7" },
+      "surface-muted": { "role": "neutral", "displayName": "Branco gelo", "canonical": "#FAFAFB" },
+      "ink": { "role": "neutral", "displayName": "Tinta", "canonical": "#17151E" },
+      "ink-soft": { "role": "neutral", "displayName": "Tinta suave", "canonical": "#5E5B68" },
+      "ink-faint": { "role": "neutral", "displayName": "Tinta clara", "canonical": "#77747F" },
+      "line": { "role": "neutral", "displayName": "Fio", "canonical": "#E8E8ED" },
+      "line-strong": { "role": "neutral", "displayName": "Fio forte", "canonical": "#D9D9E0" },
+      "success": { "role": "status", "displayName": "Sucesso", "canonical": "#17703F", "tonalRamp": ["#0b3a20", "#17703f", "#2e8f58", "#5aae7e", "#8fcaa6", "#c2e3cf", "#e4f4ea", "#f3faf6"] },
+      "success-soft": { "role": "status", "displayName": "Sucesso tonal", "canonical": "#E4F4EA" },
+      "warning": { "role": "status", "displayName": "Aviso", "canonical": "#8A5300", "tonalRamp": ["#462a00", "#8a5300", "#ad6c0a", "#cf8f2e", "#e6b866", "#f3d9a3", "#fdf3dc", "#fffaee"] },
+      "warning-soft": { "role": "status", "displayName": "Aviso tonal", "canonical": "#FDF3DC" },
+      "danger": { "role": "status", "displayName": "Perigo", "canonical": "#B42318", "tonalRamp": ["#5c110b", "#b42318", "#cf3b2f", "#e0675d", "#ec9890", "#f6c8c3", "#fdecea", "#fff6f5"] },
+      "danger-soft": { "role": "status", "displayName": "Perigo tonal", "canonical": "#FDECEA" },
+      "cat-aplicacao": { "role": "category", "displayName": "Lilás (Aplicação)", "canonical": "#EEEBF7" },
+      "cat-aplicacao-line": { "role": "category", "displayName": "Fio lilás", "canonical": "#D8D1EE" },
+      "cat-manutencao": { "role": "category", "displayName": "Sálvia (Manutenção)", "canonical": "#E6F3EB" },
+      "cat-manutencao-line": { "role": "category", "displayName": "Fio sálvia", "canonical": "#C7E3D1" },
+      "cat-lifting": { "role": "category", "displayName": "Pêssego (Lash lifting)", "canonical": "#FCEFE4" },
+      "cat-lifting-line": { "role": "category", "displayName": "Fio pêssego", "canonical": "#F2D7BF" },
+      "cat-outro": { "role": "category", "displayName": "Cinza (Outros)", "canonical": "#F4F4F7" },
+      "cat-outro-line": { "role": "category", "displayName": "Fio cinza", "canonical": "#E2E2E8" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Título de página e título do dia na home (34px no PC)." },
+      "display-lg": { "displayName": "Display PC", "purpose": "Título de página a partir de 1024px." },
+      "figure-hero": { "displayName": "Figure hero", "purpose": "A hora do cartão do próximo atendimento." },
+      "figure": { "displayName": "Figure", "purpose": "Números de painel (Stat)." },
+      "title": { "displayName": "Title", "purpose": "Título de sheet." },
+      "title-sm": { "displayName": "Title pequeno", "purpose": "Faixa de título de cartão e títulos de seção." },
+      "body": { "displayName": "Body", "purpose": "Campos e texto corrido." },
+      "body-sm": { "displayName": "Body pequeno", "purpose": "Subtítulos de página e descrições." },
+      "button": { "displayName": "Botão", "purpose": "Rótulo de botão médio." },
+      "label": { "displayName": "Label", "purpose": "Rótulo de campo." },
+      "hint": { "displayName": "Dica", "purpose": "O que o campo faz; vira erro em perigo." },
+      "caption": { "displayName": "Caption", "purpose": "Selos e metadados curtos." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 2px rgb(23 21 30 / 0.04), 0 8px 24px -14px rgb(23 21 30 / 0.12)", "purpose": "Cartões, stats, abas, menu lateral, timeline; sempre com o anel 0 0 0 1px rgb(23 21 30 / 0.04)." },
+      { "name": "pop", "value": "0 2px 6px rgb(23 21 30 / 0.06), 0 16px 36px -16px rgb(23 21 30 / 0.22)", "purpose": "Barra inferior, FAB, cartão do próximo atendimento." },
+      { "name": "modal", "value": "0 24px 64px -20px rgb(23 21 30 / 0.35)", "purpose": "Sheets e diálogos." },
+      { "name": "button", "value": "0 1px 2px rgb(23 21 30 / 0.14)", "purpose": "Botão principal." },
+      { "name": "segment-active", "value": "0 1px 2px rgb(23 21 30 / 0.08), 0 2px 8px -3px rgb(23 21 30 / 0.14)", "purpose": "Opção ativa do controle segmentado." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Sheets (340ms) e destaques do tour (260ms), sem quicar." },
+      { "name": "page-in", "value": "opacity 0.22s ease-out", "purpose": "Entrada de página só por opacidade; nada de transform no contêiner." },
+      { "name": "fade-in", "value": "opacity 0.2s ease-out", "purpose": "Véu do sheet." },
+      { "name": "state", "value": "150ms", "purpose": "Transições de cor, borda e escala de botões, chips, campos e segmentado." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "A única cor de ação, em pílula.",
+      "html": "<button class=\"ds-btn-primary\">Salvar agendamento</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border: none; border-radius: 9999px; background: var(--accent, #2a2240); color: var(--accent-ink, #ffffff); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; box-shadow: 0 1px 2px rgb(23 21 30 / 0.14); cursor: pointer; transition: background-color 150ms, transform 150ms; } .ds-btn-primary:hover { background: var(--accent-hover, #3a3156); } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; }"
+    },
+    {
+      "name": "Botão secundário",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação alternativa, branca com fio.",
+      "html": "<button class=\"ds-btn-secondary\">Lista de espera</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border: 1px solid var(--line, #e8e8ed); border-radius: 9999px; background: var(--surface, #ffffff); color: var(--ink, #17151e); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: background-color 150ms, border-color 150ms, transform 150ms; } .ds-btn-secondary:hover { border-color: var(--line-strong, #d9d9e0); background: var(--surface-muted, #fafafb); } .ds-btn-secondary:active { transform: scale(0.98); } .ds-btn-secondary:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; }"
+    },
+    {
+      "name": "Campo com dica",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Rótulo, campo de 44px e uma linha dizendo o que acontece.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-nome\">Nome do estúdio</label><input id=\"ds-nome\" class=\"ds-input\" placeholder=\"Ex.: Studio Kay\" /><p class=\"ds-field-hint\">Aparece no link que a cliente abre.</p></div>",
+      "css": ".ds-field { font-family: Inter, ui-sans-serif, system-ui, sans-serif; max-width: 320px; } .ds-field-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--ink, #17151e); } .ds-input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--line, #e8e8ed); border-radius: 14px; background: var(--surface, #ffffff); color: var(--ink, #17151e); font-size: 15px; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: var(--ink-faint, #77747f); } .ds-input:hover { border-color: var(--line-strong, #d9d9e0); } .ds-input:focus { border-color: var(--accent, #2a2240); box-shadow: 0 0 0 3px rgb(42 34 64 / 0.10); } .ds-field-hint { margin-top: 6px; font-size: 12.5px; line-height: 1.375; color: var(--ink-soft, #5e5b68); }"
+    },
+    {
+      "name": "Abas com contador",
+      "kind": "nav",
+      "refersTo": "tabs",
+      "description": "Abas de página em pílula; a ativa na berinjela.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab ds-tab-active\" role=\"tab\" aria-selected=\"true\">Hoje <span class=\"ds-tab-count\">4</span></button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Pendentes <span class=\"ds-tab-count\">2</span></button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Enviadas</button></div>",
+      "css": ".ds-tabs { display: inline-flex; gap: 2px; padding: 4px; border-radius: 9999px; background: var(--surface, #ffffff); box-shadow: 0 1px 2px rgb(23 21 30 / 0.04), 0 8px 24px -14px rgb(23 21 30 / 0.12), 0 0 0 1px rgb(23 21 30 / 0.04); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-tab { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: none; border-radius: 9999px; background: transparent; color: var(--ink-soft, #5e5b68); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: color 150ms, background-color 150ms; } .ds-tab:hover { color: var(--ink, #17151e); background: var(--surface-sunken, #f4f4f7); } .ds-tab-active, .ds-tab-active:hover { background: var(--accent, #2a2240); color: var(--accent-ink, #ffffff); } .ds-tab-count { display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 20px; padding: 0 6px; border-radius: 9999px; background: var(--surface-sunken, #f4f4f7); color: var(--ink-soft, #5e5b68); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-tab-active .ds-tab-count { background: rgb(255 255 255 / 0.2); color: #ffffff; } .ds-tab:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; }"
+    },
+    {
+      "name": "Controle segmentado",
+      "kind": "nav",
+      "refersTo": "segmented",
+      "description": "Troca de vista num trilho cinza; a ativa branca e levantada.",
+      "html": "<div class=\"ds-seg\" role=\"radiogroup\"><button class=\"ds-seg-opt ds-seg-active\" role=\"radio\" aria-checked=\"true\">Dia</button><button class=\"ds-seg-opt\" role=\"radio\" aria-checked=\"false\">Semana</button><button class=\"ds-seg-opt\" role=\"radio\" aria-checked=\"false\">Mês</button></div>",
+      "css": ".ds-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 4px; width: 280px; border-radius: 9999px; background: var(--surface-sunken, #f4f4f7); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-seg-opt { height: 36px; padding: 0 12px; border: none; border-radius: 9999px; background: transparent; color: var(--ink-soft, #5e5b68); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: color 150ms, background-color 150ms, box-shadow 150ms; } .ds-seg-opt:hover { color: var(--ink, #17151e); } .ds-seg-active { background: var(--surface, #ffffff); color: var(--ink, #17151e); box-shadow: 0 1px 2px rgb(23 21 30 / 0.08), 0 2px 8px -3px rgb(23 21 30 / 0.14); } .ds-seg-opt:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; }"
+    },
+    {
+      "name": "Chip e selos",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "Escolha rápida em pílula e selos de status em pares tonais.",
+      "html": "<div class=\"ds-row\"><button class=\"ds-chip ds-chip-on\" aria-pressed=\"true\">60 min</button><button class=\"ds-chip\" aria-pressed=\"false\">90 min</button><span class=\"ds-badge ds-badge-accent\">Confirmado</span><span class=\"ds-badge ds-badge-success\">Concluído</span><span class=\"ds-badge ds-badge-warning\">Pré-agendado</span><span class=\"ds-badge ds-badge-danger\">Faltou</span></div>",
+      "css": ".ds-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-chip { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border: 1px solid var(--line, #e8e8ed); border-radius: 9999px; background: var(--surface, #ffffff); color: var(--ink, #17151e); font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color 150ms, background-color 150ms, color 150ms; } .ds-chip:hover { border-color: var(--line-strong, #d9d9e0); } .ds-chip-on, .ds-chip-on:hover { border-color: var(--accent, #2a2240); background: var(--accent, #2a2240); color: var(--accent-ink, #ffffff); } .ds-chip:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; } .ds-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; } .ds-badge-accent { background: var(--accent-soft, #efedf5); color: var(--accent, #2a2240); } .ds-badge-success { background: var(--success-soft, #e4f4ea); color: var(--success, #17703f); } .ds-badge-warning { background: var(--warning-soft, #fdf3dc); color: var(--warning, #8a5300); } .ds-badge-danger { background: var(--danger-soft, #fdecea); color: var(--danger, #b42318); }"
+    },
+    {
+      "name": "Cartão com faixa de título",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Cartão base branco de 22px com CardHeader.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\"><h2>Pagamentos</h2><p>Como a cliente paga o sinal pelo link.</p></div><div class=\"ds-card-body\">Pix e Mercado Pago conectados.</div></div>",
+      "css": ".ds-card { width: 340px; border-radius: 22px; background: var(--surface, #ffffff); box-shadow: 0 1px 2px rgb(23 21 30 / 0.04), 0 8px 24px -14px rgb(23 21 30 / 0.12), 0 0 0 1px rgb(23 21 30 / 0.04); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-card-head { padding: 16px; border-radius: 22px 22px 0 0; border-bottom: 1px solid var(--line, #e8e8ed); background: var(--surface-muted, #fafafb); } .ds-card-head h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink, #17151e); } .ds-card-head p { margin: 2px 0 0; font-size: 13px; color: var(--ink-soft, #5e5b68); } .ds-card-body { padding: 16px; font-size: 15px; color: var(--ink, #17151e); }"
+    },
+    {
+      "name": "Barra inferior",
+      "kind": "nav",
+      "refersTo": "bottom-nav",
+      "description": "Barra branca do celular com indicador escuro no item ativo.",
+      "html": "<nav class=\"ds-bnav\"><a class=\"ds-bnav-item ds-bnav-on\" href=\"#\"><span class=\"ds-bnav-ic\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z\"/></svg></span><span class=\"ds-bnav-l\">Hoje</span></a><a class=\"ds-bnav-item\" href=\"#\"><span class=\"ds-bnav-ic\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4.5\" width=\"18\" height=\"16.5\" rx=\"3\"/><path d=\"M8 2.5v4M16 2.5v4M3 9.5h18\"/></svg></span><span class=\"ds-bnav-l\">Agenda</span></a><a class=\"ds-bnav-item\" href=\"#\"><span class=\"ds-bnav-ic\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a5.5 5.5 0 0 1 3.5 5.5\"/></svg></span><span class=\"ds-bnav-l\">Clientes</span></a></nav>",
+      "css": ".ds-bnav { display: grid; grid-template-columns: repeat(3, 1fr); width: 300px; padding: 6px; border-radius: 24px; background: var(--surface, #ffffff); box-shadow: 0 2px 6px rgb(23 21 30 / 0.06), 0 16px 36px -16px rgb(23 21 30 / 0.22), 0 0 0 1px rgb(23 21 30 / 0.06); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-bnav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; text-decoration: none; } .ds-bnav-ic { display: flex; align-items: center; justify-content: center; width: 44px; height: 28px; border-radius: 9999px; color: var(--ink-faint, #77747f); transition: background-color 200ms, color 200ms; } .ds-bnav-l { font-size: 10.5px; font-weight: 600; color: var(--ink-faint, #77747f); } .ds-bnav-on .ds-bnav-ic { background: var(--accent, #2a2240); color: var(--accent-ink, #ffffff); } .ds-bnav-on .ds-bnav-l { color: var(--ink, #17151e); } .ds-bnav-item:hover .ds-bnav-l { color: var(--ink, #17151e); } .ds-bnav-item:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; border-radius: 12px; }"
+    },
+    {
+      "name": "Próximo atendimento",
+      "kind": "custom",
+      "refersTo": "next-appointment",
+      "description": "O cartão escuro da home: hora grande, quem vem, WhatsApp a um toque.",
+      "html": "<section class=\"ds-next\"><div class=\"ds-next-top\"><p>Próximo atendimento</p><span>Em 25 min</span></div><div class=\"ds-next-time\"><strong>14:30</strong><small>até 16:00</small></div><p class=\"ds-next-name\">Fernanda Castro</p><p class=\"ds-next-svc\">Manutenção · Volume</p><div class=\"ds-next-actions\"><a class=\"ds-next-zap\" href=\"#\">WhatsApp</a><a class=\"ds-next-link\" href=\"#\">Ver na agenda</a></div></section>",
+      "css": ".ds-next { width: 340px; padding: 20px; border-radius: 24px; background: var(--accent, #2a2240); color: var(--accent-ink, #ffffff); box-shadow: 0 2px 6px rgb(23 21 30 / 0.06), 0 16px 36px -16px rgb(23 21 30 / 0.22); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-next-top { display: flex; align-items: center; justify-content: space-between; } .ds-next-top p { margin: 0; font-size: 13px; font-weight: 600; color: rgb(255 255 255 / 0.7); } .ds-next-top span { padding: 4px 10px; border-radius: 9999px; background: rgb(255 255 255 / 0.15); font-size: 12px; font-weight: 600; } .ds-next-time { display: flex; align-items: flex-end; gap: 16px; margin-top: 12px; } .ds-next-time strong { font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; } .ds-next-time small { padding-bottom: 4px; font-size: 13px; color: rgb(255 255 255 / 0.6); } .ds-next-name { margin: 12px 0 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; } .ds-next-svc { margin: 2px 0 0; font-size: 14px; color: rgb(255 255 255 / 0.7); } .ds-next-actions { display: flex; gap: 8px; margin-top: 20px; } .ds-next-actions a { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 9999px; font-size: 13.5px; font-weight: 600; text-decoration: none; transition: background-color 150ms, transform 150ms; } .ds-next-zap { background: #ffffff; color: var(--accent, #2a2240); } .ds-next-zap:active { transform: scale(0.98); } .ds-next-link { background: rgb(255 255 255 / 0.12); color: #ffffff; } .ds-next-link:hover { background: rgb(255 255 255 / 0.2); } .ds-next-actions a:focus-visible { outline: 2px solid rgb(255 255 255 / 0.7); outline-offset: 2px; }"
+    },
+    {
+      "name": "Timeline com linha do agora",
+      "kind": "custom",
+      "refersTo": "timeline-block",
+      "description": "Grade do dia com blocos tingidos por categoria e a linha do agora.",
+      "html": "<div class=\"ds-tl\"><div class=\"ds-tl-row\" style=\"top:0\"><span>09:00</span><i></i></div><div class=\"ds-tl-row\" style=\"top:96px\"><span>10:00</span><i></i></div><div class=\"ds-tl-row\" style=\"top:192px\"><span>11:00</span><i></i></div><button class=\"ds-tl-block ds-tl-man\" style=\"top:8px;height:80px\"><span class=\"ds-tl-meta\"><b class=\"ds-tl-dot\"></b>09:05–09:55</span><span class=\"ds-tl-name\">Fernanda Castro</span><span class=\"ds-tl-svc\">Manutenção · Volume</span></button><button class=\"ds-tl-block ds-tl-apl\" style=\"top:120px;height:64px\"><span class=\"ds-tl-meta\"><b class=\"ds-tl-dot\"></b>10:15–10:55</span><span class=\"ds-tl-name\">Carla Mendes</span></button><div class=\"ds-tl-now\" style=\"top:104px\"><b></b><i></i></div></div>",
+      "css": ".ds-tl { position: relative; width: 340px; height: 210px; margin: 12px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-tl-row { position: absolute; left: 0; right: 0; display: flex; align-items: flex-start; } .ds-tl-row span { width: 52px; padding-right: 12px; transform: translateY(-8px); text-align: right; font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink-faint, #77747f); } .ds-tl-row i { flex: 1; border-top: 1px solid var(--line, #e8e8ed); } .ds-tl-block { position: absolute; left: 56px; right: 4px; display: flex; flex-direction: column; padding: 8px 12px; border: 1px solid; border-radius: 12px; text-align: left; cursor: pointer; transition: box-shadow 150ms, transform 150ms; } .ds-tl-block:hover { box-shadow: 0 1px 2px rgb(23 21 30 / 0.04), 0 8px 24px -14px rgb(23 21 30 / 0.12); } .ds-tl-block:active { transform: scale(0.99); } .ds-tl-block:focus-visible { outline: 2px solid color-mix(in srgb, #2a2240 45%, white); outline-offset: 2px; } .ds-tl-man { background: var(--cat-manutencao, #e6f3eb); border-color: var(--cat-manutencao-line, #c7e3d1); } .ds-tl-apl { background: var(--cat-aplicacao, #eeebf7); border-color: var(--cat-aplicacao-line, #d8d1ee); } .ds-tl-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink-soft, #5e5b68); } .ds-tl-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--accent, #2a2240); } .ds-tl-name { margin-top: 2px; font-size: 14.5px; font-weight: 600; color: var(--ink, #17151e); } .ds-tl-svc { font-size: 12.5px; color: var(--ink-soft, #5e5b68); } .ds-tl-now { position: absolute; left: 48px; right: 0; display: flex; align-items: center; pointer-events: none; } .ds-tl-now b { width: 8px; height: 8px; border-radius: 9999px; background: var(--danger, #b42318); } .ds-tl-now i { flex: 1; border-top: 1.5px solid var(--danger, #b42318); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "O Caderno Clínico",
+    "overview": "O LashOS é um caderno de trabalho limpo: fundo cinza-gelo, cartões brancos que mal se levantam da página e uma única tinta de ação, a berinjela, que marca o que se aperta e o que está selecionado. A calma é a função. Ela abre o app entre uma cliente e outra e em segundos sabe quem vem agora, o que mandar e o que está pendente; nada na tela disputa atenção com isso.\n\nO app de trabalho é neutro e igual para todas as contas. A cor de cada estúdio vale só no link público de agendamento, onde `.accent-scope` recebe o acento e o fundo da profissional e recalcula os tons derivados. Densidade média, pensada para o polegar: uma coluna de até 512px no celular, alvos de 40 a 56px, e no PC um menu lateral branco flutuante, conteúdo central e uma coluna de resumo à direita (a agenda ocupa a largura toda com mini calendário e timeline).\n\nA tipografia é só Inter: títulos em 700 apertados, números tabulares grandes, texto de trabalho em 400 e 600. Os ícones são Hugeicons de traço 1.5. As cores de estado só aparecem onde significam algo, e a agenda ganha três tons calmos por categoria de serviço. Rejeição confirmada no contrato de direção: o \"app de beleza rosa com degradê\" e o painel genérico de muitas cores.",
+    "keyCharacteristics": [
+      "Fundo cinza-gelo chapado, cartões brancos de 22px com sombra curta, neutra e um fio de 4% de tinta.",
+      "Uma única cor de ação, a berinjela, sempre em pílula: botão principal, aba ativa, chip marcado, item ativo do menu, FAB.",
+      "Inter em tudo; títulos 700 com tracking negativo; números tabulares.",
+      "Ícones Hugeicons de traço 1.5 (1.8 quando ativos na navegação).",
+      "Abas em pílula com contador; controle segmentado num trilho cinza.",
+      "Tons de categoria na agenda (lilás, sálvia, pêssego) e pares tonais de status.",
+      "Assinaturas: o cartão escuro do próximo atendimento e a linha do agora na timeline."
+    ],
+    "rules": [
+      { "name": "The One Ink Rule", "body": "No app de trabalho existe uma só cor de ação, a berinjela. O que se aperta ou está selecionado é berinjela com texto branco; todo o resto é neutro. Nada de segundo acento.", "section": "colors" },
+      { "name": "The Studio Color Lives Outside Rule", "body": "A cor e o fundo do estúdio só entram no link público, dentro de `.accent-scope` (que redefine `--accent`, `--bg` e os derivados por `color-mix`). O app logado nunca lê a cor do estúdio.", "section": "colors" },
+      { "name": "The Meaningful Color Rule", "body": "Verde, âmbar e vermelho aparecem só como estado (selos, avisos, erros, a linha do agora); lilás, sálvia e pêssego só como categoria na agenda. Componente nenhum escreve hex; a exceção é marca de terceiros (o azul do Mercado Pago).", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Só Inter. Hierarquia por peso (400, 600, 700), tamanho e tracking negativo nos títulos; nada de serifa, nada de segunda família.", "section": "typography" },
+      { "name": "The Solid Title Rule", "body": "Títulos são tinta sólida. Sem degradê no texto.", "section": "typography" },
+      { "name": "The Tabular Figures Rule", "body": "Horários, contagens e dinheiro usam números tabulares.", "section": "typography" },
+      { "name": "The Short Neutral Shadow Rule", "body": "Toda sombra é feita da tinta (#17151E em baixa opacidade), curta e macia. Nada de sombra tingida pelo acento nem de sombra dura deslocada.", "section": "elevation" },
+      { "name": "The No Glass Rule", "body": "Superfícies são brancas e opacas, inclusive a barra inferior e o menu lateral.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** usar a berinjela (`bg-accent text-accent-ink`) só para ação e seleção, sempre em pílula.",
+      "**Do** usar o cartão branco de 22px com sombra Card e anel de tinta a 4% como contêiner base sobre o cinza-gelo.",
+      "**Do** abrir cada tela com um título Display e uma linha dizendo para que ela serve, e dar a cada campo uma dica do que acontece.",
+      "**Do** pôr formulários em sheet com a ação principal no rodapé fixo.",
+      "**Do** usar abas em pílula com contador para navegar entre seções e o segmentado no trilho cinza para trocar de vista.",
+      "**Do** usar os tons de categoria só na agenda, sempre com o fio da categoria.",
+      "**Do** usar números tabulares em horários, contagens e dinheiro.",
+      "**Do** desligar animações com `prefers-reduced-motion` e animar a página só por opacidade (transform no contêiner prende FAB, sheet e véu na coluna)."
+    ],
+    "donts": [
+      "**Don't** trazer a cor do estúdio para o app logado; ela vive só no link público, em `.accent-scope`.",
+      "**Don't** usar degradê decorativo em botões, cartões, fundos ou texto: o app é chapado. O hachurado dos bloqueios na timeline é textura funcional e continua valendo.",
+      "**Don't** tingir sombras com o acento, nem usar vidro ou desfoque nas superfícies.",
+      "**Don't** usar outra família além da Inter, nem serifa em títulos.",
+      "**Don't** pôr um sobretítulo em caixa alta espaçada acima de títulos; o título e a linha de subtítulo bastam.",
+      "**Don't** usar verde, âmbar ou vermelho como decoração; eles só dizem estado.",
+      "**Don't** escrever hex em componentes; a exceção é marca de terceiros (o azul do Mercado Pago).",
+      "**Don't** usar a escala cinza do Tailwind (`gray`, `zinc`, `slate`, `stone`, `neutral`); os neutros vêm dos tokens."
+    ]
+  }
+}

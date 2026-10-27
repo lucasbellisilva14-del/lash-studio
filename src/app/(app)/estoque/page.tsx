@@ -100,7 +100,7 @@ export default async function EstoquePage() {
     <>
       <PageHeader
         title="Estoque"
-        subtitle={activeCount === 1 ? "1 insumo ativo" : `${activeCount} insumos ativos`}
+        subtitle={`${activeCount === 1 ? "1 insumo ativo" : `${activeCount} insumos ativos`}. A baixa é automática a cada atendimento e a cola aberta avisa antes de vencer.`}
       />
       <EstoqueView products={items} />
     </>

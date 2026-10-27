@@ -50,3 +50,6 @@ prisma/dev.db-journal
 
 /*.mjs
 .claude/launch.json.bak
+
+# impeccable: prints de revisão (não versionar)
+.impeccable/review/

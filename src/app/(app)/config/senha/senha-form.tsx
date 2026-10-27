@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { Field, Input } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { FieldError, FormError, SavedToast } from "@/components/config/feedback";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { trocarSenhaAction } from "./actions";
@@ -27,10 +28,9 @@ export function SenhaForm() {
       <Card>
         <CardBody className="space-y-4">
           <Field label="Senha atual" htmlFor="senha-atual">
-            <Input
+            <PasswordInput
               id="senha-atual"
               name="senhaAtual"
-              type="password"
               autoComplete="current-password"
               required
             />
@@ -41,10 +41,9 @@ export function SenhaForm() {
             htmlFor="nova-senha"
             hint="Pelo menos 8 caracteres — misture letras e números."
           >
-            <Input
+            <PasswordInput
               id="nova-senha"
               name="novaSenha"
-              type="password"
               autoComplete="new-password"
               required
               minLength={8}
@@ -52,10 +51,9 @@ export function SenhaForm() {
             <FieldError message={errors.novaSenha} />
           </Field>
           <Field label="Confirmar a nova senha" htmlFor="confirmar-senha">
-            <Input
+            <PasswordInput
               id="confirmar-senha"
               name="confirmarSenha"
-              type="password"
               autoComplete="new-password"
               required
             />

@@ -15,8 +15,15 @@ import { CriarContaForm } from "./criar-conta-form";
 import {
   adicionarTrintaDiasAction,
   alternarSuspensaoAction,
+  resolverSuporteAction,
   tornarCortesiaAction,
 } from "./actions";
+
+const TIPO_SUPORTE: Record<string, string> = {
+  DUVIDA: "Dúvida",
+  PROBLEMA: "Problema",
+  SUGESTAO: "Sugestão",
+};
 
 export const metadata = { title: "Admin · LashOS" };
 
@@ -44,12 +51,18 @@ export default async function AdminPage() {
     },
   });
   const now = new Date();
+  const suporte = await prisma.supportMessage.findMany({
+    where: { status: "NOVA" },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { professional: { select: { studioName: true, email: true, whatsapp: true } } },
+  });
 
   return (
     <div className="min-h-dvh bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <header>
-          <h1 className="font-display text-3xl font-semibold text-ink">
+          <h1 className="font-display text-3xl font-bold tracking-[-0.035em] text-ink">
             Admin · LashOS
           </h1>
           <p className="text-sm text-ink-soft mt-1">
@@ -60,7 +73,43 @@ export default async function AdminPage() {
 
         <Card>
           <CardBody>
-            <h2 className="font-display text-lg font-semibold text-ink mb-4">
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
+              Suporte{suporte.length ? ` · ${suporte.length} nova${suporte.length === 1 ? "" : "s"}` : ""}
+            </h2>
+            {suporte.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">Nenhuma mensagem esperando resposta.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-line">
+                {suporte.map((m) => (
+                  <li key={m.id} className="py-3.5 flex items-start gap-3">
+                    <div className="min-w-0 grow">
+                      <p className="text-[13px] text-ink-soft">
+                        <span className="font-semibold text-ink">{TIPO_SUPORTE[m.kind] ?? m.kind}</span>
+                        {" · "}
+                        {m.professional.studioName} · {m.professional.email}
+                        {m.professional.whatsapp ? ` · ${m.professional.whatsapp}` : ""}
+                        {" · "}
+                        {formatDate(m.createdAt, TZ)}
+                        {m.pagePath ? ` · tela ${m.pagePath}` : ""}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-[14px] text-ink">{m.message}</p>
+                    </div>
+                    <form action={resolverSuporteAction}>
+                      <input type="hidden" name="id" value={m.id} />
+                      <button className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-sunken">
+                        Resolvida
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink mb-4">
               Nova conta
             </h2>
             <CriarContaForm />

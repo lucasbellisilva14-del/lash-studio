@@ -2,14 +2,15 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireProfessional } from "@/lib/session";
 import { formatDate } from "@/lib/dates";
+import {
+  ANAMNESIS_LIMITS,
+  anamnesisQuestionsOrDefault,
+  readAnamnesisAnswers,
+} from "@/lib/domain/anamnesis-model";
 import { PageHeader } from "@/components/ui/page-header";
 import { AnamnesisForm } from "@/components/anamnese/anamnesis-form";
 import { AnamnesisView } from "@/components/anamnese/anamnesis-view";
-import {
-  DEFAULT_CONSENT_TEXT,
-  FLAG_ALERGIA_CIANOACRILATO,
-  parseAnamnesisAnswers,
-} from "@/components/anamnese/questions";
+import { DEFAULT_CONSENT_TEXT } from "@/components/anamnese/questions";
 import { parseContraindicationFlags } from "@/components/clientes/contraindications";
 
 export default async function AnamnesePage(props: PageProps<"/clientes/[id]/anamnese">) {
@@ -34,14 +35,19 @@ export default async function AnamnesePage(props: PageProps<"/clientes/[id]/anam
   const editing = !form || Boolean(sp.editar);
   const consentText = professional.consentText?.trim() || DEFAULT_CONSENT_TEXT;
 
-  // Inicial do modo edição; no formato legado a flag de cianoacrilato
-  // vem do que foi gravado em contraindicationFlags.
-  const parsedInitial = form ? parseAnamnesisAnswers(form.answersJson) : null;
-  if (form && parsedInitial && !parsedInitial.alergiaCianoacrilato) {
-    parsedInitial.alergiaCianoacrilato = parseContraindicationFlags(
-      form.contraindicationFlags,
-    ).includes(FLAG_ALERGIA_CIANOACRILATO);
-  }
+  // Preenchimento: modelo atual da profissional (ou o padrão). Numa
+  // atualização, as respostas anteriores entram nas perguntas de mesmo id.
+  const questions = editing
+    ? anamnesisQuestionsOrDefault(professional.anamnesisQuestionsJson)
+    : [];
+  const initialAnswers =
+    editing && form
+      ? readAnamnesisAnswers(
+          form.answersJson,
+          questions,
+          parseContraindicationFlags(form.contraindicationFlags),
+        ).answers
+      : null;
 
   return (
     <div>
@@ -60,18 +66,23 @@ export default async function AnamnesePage(props: PageProps<"/clientes/[id]/anam
           clientId={client.id}
           clientName={client.name}
           consentText={consentText}
-          initial={parsedInitial}
+          questions={questions}
+          initialAnswers={initialAnswers}
           naturalInitial={form?.naturalLashCondition ?? null}
           hasExistingSignature={signatures.length > 0}
-          lastSignedAtLabel={
-            signatures[0] ? formatDate(signatures[0].signedAt, tz) : null
-          }
+          lastSignedAtLabel={signatures[0] ? formatDate(signatures[0].signedAt, tz) : null}
+          limits={{
+            detail: ANAMNESIS_LIMITS.detail,
+            shortAnswer: ANAMNESIS_LIMITS.shortAnswer,
+            longAnswer: ANAMNESIS_LIMITS.longAnswer,
+          }}
         />
       ) : form ? (
         <AnamnesisView
           clientId={client.id}
           clientName={client.name}
           answersJson={form.answersJson}
+          questionsSnapshotJson={form.questionsSnapshotJson}
           contraindicationFlags={form.contraindicationFlags}
           hasContraindication={form.hasContraindication}
           naturalLashCondition={form.naturalLashCondition}

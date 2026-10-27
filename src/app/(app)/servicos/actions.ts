@@ -6,8 +6,22 @@ import { prisma } from "@/lib/prisma";
 import { requireProfessionalId } from "@/lib/session";
 import { parseBRL } from "@/lib/money";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
+import {
+  acceptsReturnDays,
+  RETURN_DAYS_MAX,
+  RETURN_DAYS_MIN,
+} from "@/components/servicos/types";
 
 export type ServiceActionState = { ok: boolean; error: string | null };
+
+const RETURN_DAYS_ERROR = `Retorno ideal: use de ${RETURN_DAYS_MIN} a ${RETURN_DAYS_MAX} dias, ou deixe em branco.`;
+
+/** Retorno ideal em dias inteiros (1 a 365). Vazio = sem aviso de retorno. */
+const returnDaysSchema = z.coerce
+  .number({ message: RETURN_DAYS_ERROR })
+  .int({ message: RETURN_DAYS_ERROR })
+  .min(RETURN_DAYS_MIN, { message: RETURN_DAYS_ERROR })
+  .max(RETURN_DAYS_MAX, { message: RETURN_DAYS_ERROR });
 
 const CATEGORY_KEYS = Object.keys(SERVICE_CATEGORIES) as [
   ServiceCategory,
@@ -56,6 +70,19 @@ export async function saveService(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const data = parsed.data;
+
+  // Retorno ideal: só lifting, brow, design e outro. Nas demais categorias fica nulo.
+  let returnDays: number | null = null;
+  if (acceptsReturnDays(data.category)) {
+    const raw = String(formData.get("returnDays") ?? "").trim();
+    if (raw !== "") {
+      const parsedReturn = returnDaysSchema.safeParse(raw);
+      if (!parsedReturn.success) {
+        return { ok: false, error: RETURN_DAYS_ERROR };
+      }
+      returnDays = parsedReturn.data;
+    }
+  }
 
   // Vínculo de manutenção: obrigatório e validado só quando a categoria é MANUTENCAO.
   let maintenanceOfId: string | null = null;
@@ -116,6 +143,7 @@ export async function saveService(
         priceCents: data.priceCents,
         requiresDeposit: data.requiresDeposit,
         maintenanceOfId,
+        returnDays,
       },
     });
   } else {
@@ -128,6 +156,7 @@ export async function saveService(
         priceCents: data.priceCents,
         requiresDeposit: data.requiresDeposit,
         maintenanceOfId,
+        returnDays,
         active: true,
       },
     });

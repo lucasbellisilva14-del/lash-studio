@@ -1,6 +1,6 @@
 "use client";
 
-/** Visão SEMANA: lista dos 7 dias com compromissos resumidos. */
+/** Visão SEMANA (seg → dom): cada dia com seus horários resumidos. */
 import { useMemo } from "react";
 import Link from "next/link";
 import { addDays } from "date-fns";
@@ -8,7 +8,7 @@ import { IconAlert, IconChevronRight } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import {
   dayKeyToUtcStart,
-  formatDateShort,
+  formatWithPattern,
   localDayKey,
   localTimeOf,
   localWeekday,
@@ -21,6 +21,10 @@ const STATUS_PONTO: Record<string, string> = {
   CONCLUIDO: "bg-success",
   FALTOU: "bg-danger",
 };
+
+function capitalizar(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export function WeekList({
   diaKey,
@@ -37,7 +41,7 @@ export function WeekList({
 }) {
   const dias = useMemo(() => {
     const base = dayKeyToUtcStart(diaKey, tz);
-    const inicioSemana = addDays(base, -localWeekday(base, tz));
+    const inicioSemana = addDays(base, -((localWeekday(base, tz) + 6) % 7));
     const porDia = new Map<string, AgendaCompromisso[]>();
     for (const c of compromissos) {
       const k = localDayKey(new Date(c.inicio), tz);
@@ -48,82 +52,75 @@ export function WeekList({
     return Array.from({ length: 7 }, (_, i) => {
       const data = addDays(inicioSemana, i);
       const chave = localDayKey(data, tz);
-      return { chave, data, itens: porDia.get(chave) ?? [] };
+      const itens = (porDia.get(chave) ?? []).sort((a, b) => a.inicio.localeCompare(b.inicio));
+      return { chave, data, itens };
     });
   }, [diaKey, tz, compromissos]);
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
       {dias.map(({ chave, data, itens }) => {
         const ehHoje = chave === hojeKey;
         return (
           <section
             key={chave}
-            className="bg-surface border border-line rounded-2xl overflow-hidden"
+            className="overflow-hidden rounded-[22px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]"
           >
             <Link
               href={`/agenda?visao=dia&dia=${chave}`}
-              className="flex items-center justify-between px-4 py-2.5 hover:bg-surface-sunken/60"
+              className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-surface-muted"
             >
-              <span
-                className={cn(
-                  "text-sm font-semibold capitalize",
-                  ehHoje ? "text-accent-strong" : "text-ink",
-                )}
-              >
-                {formatDateShort(data, tz)}
-                {ehHoje ? (
-                  <span className="ml-2 text-[11px] font-medium bg-accent-soft text-accent-strong rounded-full px-2 py-0.5">
-                    hoje
+              <span className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-bold tabular-nums",
+                    ehHoje ? "bg-accent text-accent-ink" : "bg-surface-sunken text-ink",
+                  )}
+                >
+                  {formatWithPattern(data, "d", tz)}
+                </span>
+                <span>
+                  <span className="block text-[14.5px] font-semibold text-ink">
+                    {capitalizar(formatWithPattern(data, "EEEE", tz))}
                   </span>
-                ) : null}
+                  <span className="block text-[12.5px] text-ink-soft">
+                    {itens.length === 0
+                      ? "Livre"
+                      : `${itens.length} horário${itens.length === 1 ? "" : "s"}`}
+                  </span>
+                </span>
               </span>
-              <span className="flex items-center gap-1 text-xs text-ink-faint">
-                {itens.length > 0
-                  ? `${itens.length} agendamento${itens.length === 1 ? "" : "s"}`
-                  : ""}
-                <IconChevronRight width={16} height={16} />
-              </span>
+              <IconChevronRight width={16} height={16} className="text-ink-faint" />
             </Link>
-            {itens.length === 0 ? (
-              <p className="px-4 pb-3 text-sm text-ink-faint">Sem agendamentos.</p>
-            ) : (
-              <ul className="border-t border-line/70 divide-y divide-line/60">
+            {itens.length > 0 ? (
+              <ul className="divide-y divide-line border-t border-line">
                 {itens.map((c) => (
                   <li key={c.id}>
                     <button
+                      type="button"
                       onClick={() => onSelecionar(c)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-sunken/60"
+                      className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-muted"
                     >
                       <span
-                        className={cn(
-                          "h-2 w-2 rounded-full shrink-0",
-                          STATUS_PONTO[c.status] ?? "bg-ink-faint",
-                        )}
+                        className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_PONTO[c.status] ?? "bg-ink-faint")}
                       />
-                      <span className="text-sm text-ink-soft tabular-nums shrink-0">
+                      <span className="w-11 shrink-0 text-[13px] font-semibold tabular-nums text-ink">
                         {localTimeOf(new Date(c.inicio), tz)}
                       </span>
                       <span className="min-w-0 grow">
-                        <span className="flex items-center gap-1 font-medium text-sm text-ink truncate">
-                          {c.cliente.nome}
+                        <span className="flex items-center gap-1 truncate text-[14px] font-semibold text-ink">
+                          <span className="truncate">{c.cliente.nome}</span>
                           {c.cliente.temContraindicacao ? (
-                            <IconAlert
-                              width={13}
-                              height={13}
-                              className="text-danger shrink-0"
-                            />
+                            <IconAlert width={13} height={13} className="shrink-0 text-danger" />
                           ) : null}
                         </span>
-                        <span className="block text-xs text-ink-soft truncate">
-                          {c.servico.nome}
-                        </span>
+                        <span className="block truncate text-[12.5px] text-ink-soft">{c.servico.nome}</span>
                       </span>
                     </button>
                   </li>
                 ))}
               </ul>
-            )}
+            ) : null}
           </section>
         );
       })}

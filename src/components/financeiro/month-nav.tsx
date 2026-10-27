@@ -23,7 +23,7 @@ export function MonthNav({
       >
         <IconChevronLeft />
       </Link>
-      <p className="font-display text-[15px] font-semibold text-ink">{monthLabel}</p>
+      <p className="font-display text-[15px] font-bold tracking-[-0.03em] text-ink">{monthLabel}</p>
       <Link
         href={nextHref}
         aria-label="Próximo mês"

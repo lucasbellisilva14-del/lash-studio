@@ -2,12 +2,12 @@
 
 /**
  * Visão DIA: linha do tempo vertical com agendamentos e bloqueios.
- * Abre já rolada pro momento relevante, pinta os cards pela categoria do
- * serviço e cria agendamento com um toque em qualquer espaço vazio.
+ * Abre já rolada pro momento relevante, pinta os blocos pela categoria do
+ * serviço e cria agendamento com um toque em qualquer espaço vazio
+ * (no PC, o horário aparece onde o mouse passa).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconAlert } from "@/components/ui/icons";
-import { AppointmentStatusBadge } from "@/components/ui/badge";
+import { IconAlert, IconPlus } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import {
   dayKeyToUtcStart,
@@ -17,27 +17,30 @@ import {
   minutesToTime,
   timeToMinutes,
 } from "@/lib/dates";
+import { APPOINTMENT_STATUSES } from "@/lib/constants";
 import type {
   AgendaBloqueio,
   AgendaCompromisso,
   HorarioFuncionamento,
 } from "./types";
 
-const PX_POR_MIN = 1.5;
+const PX_POR_MIN = 1.6;
+const COLUNA_HORA = 52; // px reservados para os rótulos de hora
 
-const STATUS_BARRA: Record<string, string> = {
+const STATUS_PONTO: Record<string, string> = {
   PRE_AGENDADO: "bg-warning",
   CONFIRMADO: "bg-accent",
   CONCLUIDO: "bg-success",
   FALTOU: "bg-danger",
 };
 
-/** Fundo suave por categoria do serviço (tokens em globals.css). */
-const CATEGORIA_FUNDO: Record<string, string> = {
-  APLICACAO: "var(--cat-aplicacao)",
-  MANUTENCAO: "var(--cat-manutencao)",
-  LASH_LIFTING: "var(--cat-lifting)",
+/** Tom por categoria do serviço (tokens em globals.css). */
+const CATEGORIA: Record<string, { fundo: string; linha: string }> = {
+  APLICACAO: { fundo: "var(--cat-aplicacao)", linha: "var(--cat-aplicacao-line)" },
+  MANUTENCAO: { fundo: "var(--cat-manutencao)", linha: "var(--cat-manutencao-line)" },
+  LASH_LIFTING: { fundo: "var(--cat-lifting)", linha: "var(--cat-lifting-line)" },
 };
+const CATEGORIA_OUTRO = { fundo: "var(--cat-outro)", linha: "var(--cat-outro-line)" };
 
 type BloqueioDoDia = { id: string; titulo: string; inicioMin: number; fimMin: number };
 
@@ -61,14 +64,14 @@ export function DayTimeline({
   /** Toque num espaço vazio da timeline → agendar já naquele horário. */
   onNovoHorario?: (hora: string) => void;
 }) {
-  const [agoraMin, setAgoraMin] = useState<number | null>(null);
+  const [relogioMin, setAgoraMin] = useState<number | null>(null);
+  const agoraMin = diaKey === hojeKey ? relogioMin : null;
+  const [fantasmaMin, setFantasmaMin] = useState<number | null>(null);
   const gradeRef = useRef<HTMLDivElement>(null);
+  const rolagemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (diaKey !== hojeKey) {
-      setAgoraMin(null);
-      return;
-    }
+    if (diaKey !== hojeKey) return;
     const atualizar = () => setAgoraMin(timeToMinutes(localTimeOf(new Date(), tz)));
     atualizar();
     const timer = setInterval(atualizar, 60_000);
@@ -118,49 +121,70 @@ export function DayTimeline({
     return { regra, bloqueiosDoDia: doDia, inicioMin, fimMin };
   }, [diaKey, tz, horarios, bloqueios, compromissos]);
 
-  // Abre já rolada pro que importa: o "agora" (hoje) ou o 1º agendamento.
+  // Abre já rolada pro que importa: o "agora" (hoje) ou o 1º agendamento,
+  // com o "agora" a ~1/4 da altura visível — o que vem depois fica à vista.
+  // No PC a grade rola dentro do cartão; no celular, a página inteira.
+  // Espera um quadro: o roteador do Next rola a página pro topo ao montar.
   useEffect(() => {
-    const grade = gradeRef.current;
-    if (!grade) return;
-    let alvoMin: number | null = null;
-    if (agoraMin !== null && agoraMin >= inicioMin && agoraMin <= fimMin) {
-      alvoMin = agoraMin;
-    } else if (compromissos.length > 0) {
-      const primeiro = compromissos.reduce((a, b) => (a.inicio < b.inicio ? a : b));
-      alvoMin = timeToMinutes(localTimeOf(new Date(primeiro.inicio), tz));
-    }
-    if (alvoMin === null) return;
-    const y =
-      grade.getBoundingClientRect().top +
-      window.scrollY +
-      (alvoMin - inicioMin) * PX_POR_MIN -
-      180;
-    if (y > 40) window.scrollTo({ top: y, behavior: "auto" });
+    const rolar = () => {
+      const grade = gradeRef.current;
+      const caixa = rolagemRef.current;
+      if (!grade) return;
+      const agora = diaKey === hojeKey ? timeToMinutes(localTimeOf(new Date(), tz)) : null;
+      let alvoMin: number | null = null;
+      if (agora !== null && agora >= inicioMin && agora <= fimMin) {
+        alvoMin = agora;
+      } else if (compromissos.length > 0) {
+        const primeiro = compromissos.reduce((a, b) => (a.inicio < b.inicio ? a : b));
+        alvoMin = timeToMinutes(localTimeOf(new Date(primeiro.inicio), tz));
+      }
+      if (alvoMin === null) return;
+      const deslocamento = (alvoMin - inicioMin) * PX_POR_MIN;
+      if (caixa && caixa.scrollHeight > caixa.clientHeight + 4) {
+        caixa.scrollTo({ top: Math.max(0, deslocamento - caixa.clientHeight * 0.25), behavior: "auto" });
+        return;
+      }
+      const y =
+        grade.getBoundingClientRect().top + window.scrollY + deslocamento - window.innerHeight * 0.3;
+      if (y > 40) window.scrollTo({ top: y, behavior: "auto" });
+    };
+    const quadro = requestAnimationFrame(() => setTimeout(rolar, 60));
+    return () => cancelAnimationFrame(quadro);
     // roda só na troca de dia — não a cada tick do relógio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diaKey]);
 
+  function minutoDoPonteiro(clientY: number): number | null {
+    const grade = gradeRef.current;
+    if (!grade) return null;
+    const offsetY = clientY - grade.getBoundingClientRect().top;
+    const minuto = inicioMin + offsetY / PX_POR_MIN;
+    return Math.max(inicioMin, Math.min(fimMin - 30, Math.floor(minuto / 30) * 30));
+  }
+
   function clicarVazio(e: React.MouseEvent<HTMLDivElement>) {
     if (!onNovoHorario) return;
     // só espaço vazio: cliques em agendamentos/bloqueios não contam
-    if ((e.target as HTMLElement).closest("button")) return;
-    const grade = gradeRef.current;
-    if (!grade) return;
-    const offsetY = e.clientY - grade.getBoundingClientRect().top;
-    const minuto = inicioMin + offsetY / PX_POR_MIN;
-    const arredondado = Math.max(
-      inicioMin,
-      Math.min(fimMin - 30, Math.round(minuto / 30) * 30),
-    );
-    onNovoHorario(minutesToTime(arredondado));
+    if ((e.target as HTMLElement).closest("button,[data-bloqueio]")) return;
+    const m = minutoDoPonteiro(e.clientY);
+    if (m !== null) onNovoHorario(minutesToTime(m));
+  }
+
+  function moverPonteiro(e: React.PointerEvent<HTMLDivElement>) {
+    if (!onNovoHorario || e.pointerType !== "mouse") return;
+    if ((e.target as HTMLElement).closest("button,[data-bloqueio]")) {
+      setFantasmaMin(null);
+      return;
+    }
+    setFantasmaMin(minutoDoPonteiro(e.clientY));
   }
 
   if (!regra && compromissos.length === 0 && bloqueiosDoDia.length === 0) {
     return (
-      <div className="bg-surface border border-line rounded-2xl py-14 px-6 text-center">
-        <p className="font-medium text-ink">Estúdio fechado neste dia</p>
-        <p className="text-sm text-ink-soft mt-1">
-          Sem horário de funcionamento configurado para esse dia da semana.
+      <div className="rounded-[22px] bg-surface px-6 py-14 text-center shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
+        <p className="text-[16px] font-bold tracking-[-0.015em] text-ink">Estúdio fechado neste dia</p>
+        <p className="mx-auto mt-1.5 max-w-xs text-[14px] text-ink-soft">
+          Não há horário de atendimento para este dia da semana. Ajuste em Configurações › Horários.
         </p>
       </div>
     );
@@ -171,122 +195,157 @@ export function DayTimeline({
   for (let m = inicioMin; m <= fimMin; m += 60) horas.push(m);
 
   return (
-    <div className="bg-surface border border-line rounded-2xl p-3 overflow-hidden">
+    <div className="rounded-[22px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] overflow-hidden">
       {compromissos.length === 0 ? (
-        <p className="text-sm text-ink-faint text-center pb-2 pt-1">
-          Nenhum agendamento neste dia.
+        <p className="border-b border-line px-5 py-3 text-[13px] text-ink-soft">
+          Nenhum horário marcado. Toque num espaço livre para agendar.
         </p>
       ) : null}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
-        ref={gradeRef}
-        className="relative"
-        style={{ height: alturaTotal }}
-        onClick={clicarVazio}
+        ref={rolagemRef}
+        className="px-3 pt-4 pb-12 sm:px-4 lg:max-h-[calc(100dvh-210px)] lg:overflow-y-auto"
       >
-        {/* Linhas de hora */}
-        {horas.map((m) => (
-          <div
-            key={m}
-            className="absolute inset-x-0 flex items-start gap-2"
-            style={{ top: (m - inicioMin) * PX_POR_MIN }}
-          >
-            <span className="w-11 shrink-0 text-[11px] text-ink-faint -translate-y-1.5 text-right pr-1 tabular-nums">
-              {minutesToTime(m)}
-            </span>
-            <div className="grow border-t border-line/70" />
-          </div>
-        ))}
-
-        {/* Bloqueios (visual sóbrio hachurado) */}
-        {bloqueiosDoDia.map((b) => {
-          const topo = Math.max(b.inicioMin, inicioMin);
-          const base = Math.min(b.fimMin, fimMin);
-          if (base <= topo) return null;
-          return (
-            <div
-              key={b.id}
-              className="absolute left-12 right-1 rounded-lg border border-line/80 flex items-center justify-center overflow-hidden"
-              style={{
-                top: (topo - inicioMin) * PX_POR_MIN,
-                height: (base - topo) * PX_POR_MIN,
-                backgroundImage:
-                  "repeating-linear-gradient(45deg, var(--surface-sunken) 0 8px, transparent 8px 16px)",
-              }}
-            >
-              <span className="text-xs font-medium text-ink-faint px-2 truncate">
-                {b.titulo} · {minutesToTime(b.inicioMin)}–{minutesToTime(b.fimMin)}
-              </span>
+        <div
+          ref={gradeRef}
+          className={cn("relative", onNovoHorario && "cursor-pointer")}
+          style={{ height: alturaTotal }}
+          onClick={clicarVazio}
+          onPointerMove={moverPonteiro}
+          onPointerLeave={() => setFantasmaMin(null)}
+        >
+          {/* Linhas de hora (cheias) e de meia hora (tracejadas) */}
+          {horas.map((m) => (
+            <div key={m}>
+              <div
+                className="absolute inset-x-0 flex items-start"
+                style={{ top: (m - inicioMin) * PX_POR_MIN }}
+              >
+                <span
+                  className="shrink-0 -translate-y-2 pr-3 text-right text-[11.5px] font-medium tabular-nums text-ink-faint"
+                  style={{ width: COLUNA_HORA }}
+                >
+                  {minutesToTime(m)}
+                </span>
+                <div className="grow border-t border-line" />
+              </div>
+              {m + 30 < fimMin ? (
+                <div
+                  className="absolute right-0 border-t border-dashed border-line/80"
+                  style={{ top: (m + 30 - inicioMin) * PX_POR_MIN, left: COLUNA_HORA }}
+                />
+              ) : null}
             </div>
-          );
-        })}
+          ))}
 
-        {/* Agendamentos */}
-        {compromissos.map((c) => {
-          const inicio = new Date(c.inicio);
-          const fim = new Date(c.fim);
-          const inicioC = timeToMinutes(localTimeOf(inicio, tz));
-          const fimC =
-            localDayKey(fim, tz) > diaKey ? 24 * 60 : timeToMinutes(localTimeOf(fim, tz));
-          const topo = (inicioC - inicioMin) * PX_POR_MIN;
-          const altura = Math.max((fimC - inicioC) * PX_POR_MIN, 52);
-          const compacto = altura < 80;
-          return (
-            <button
-              key={c.id}
-              onClick={() => onSelecionar(c)}
-              className={cn(
-                "absolute left-12 right-1 text-left rounded-xl border border-line",
-                "shadow-[0_1px_3px_rgba(28,25,23,0.08)] overflow-hidden",
-                "active:scale-[0.99] transition-transform",
-              )}
+          {/* Bloqueios (hachurado sóbrio) */}
+          {bloqueiosDoDia.map((b) => {
+            const topo = Math.max(b.inicioMin, inicioMin);
+            const base = Math.min(b.fimMin, fimMin);
+            if (base <= topo) return null;
+            return (
+              <div
+                key={b.id}
+                data-bloqueio
+                className="absolute right-1 flex items-center justify-center overflow-hidden rounded-[12px] border border-line"
+                style={{
+                  left: COLUNA_HORA + 4,
+                  top: (topo - inicioMin) * PX_POR_MIN,
+                  height: (base - topo) * PX_POR_MIN,
+                  backgroundImage:
+                    "repeating-linear-gradient(135deg, var(--surface-sunken) 0 7px, var(--surface) 7px 14px)",
+                }}
+              >
+                <span className="truncate px-2 text-[12px] font-semibold text-ink-soft">
+                  {b.titulo} · {minutesToTime(b.inicioMin)}–{minutesToTime(b.fimMin)}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* Espaço livre sob o mouse (PC) */}
+          {fantasmaMin !== null ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-1 flex items-center gap-1.5 rounded-[12px] border border-dashed border-accent/40 bg-accent-soft/60 px-3 text-[12.5px] font-semibold text-ink"
               style={{
-                top: topo,
-                height: altura,
-                background: CATEGORIA_FUNDO[c.servico.categoria] ?? "var(--cat-outro)",
+                left: COLUNA_HORA + 4,
+                top: (fantasmaMin - inicioMin) * PX_POR_MIN,
+                height: 30 * PX_POR_MIN,
               }}
             >
-              <span
+              <IconPlus width={14} height={14} />
+              Agendar às {minutesToTime(fantasmaMin)}
+            </div>
+          ) : null}
+
+          {/* Agendamentos */}
+          {compromissos.map((c) => {
+            const inicio = new Date(c.inicio);
+            const fim = new Date(c.fim);
+            const inicioC = timeToMinutes(localTimeOf(inicio, tz));
+            const fimC =
+              localDayKey(fim, tz) > diaKey ? 24 * 60 : timeToMinutes(localTimeOf(fim, tz));
+            const topo = (inicioC - inicioMin) * PX_POR_MIN;
+            const altura = Math.max((fimC - inicioC) * PX_POR_MIN, 50);
+            const compacto = altura < 84;
+            const tom = CATEGORIA[c.servico.categoria] ?? CATEGORIA_OUTRO;
+            const apagado = c.status === "FALTOU";
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onSelecionar(c)}
                 className={cn(
-                  "absolute left-0 top-0 bottom-0 w-1",
-                  STATUS_BARRA[c.status] ?? "bg-ink-faint",
+                  "absolute right-1 flex flex-col justify-start overflow-hidden rounded-[12px] border text-left",
+                  "transition-[transform,box-shadow] hover:shadow-[var(--shadow-card)] active:scale-[0.99]",
+                  apagado && "opacity-60",
                 )}
-              />
-              <span className="block pl-3 pr-2 py-1.5">
-                <span className="flex items-center gap-1.5 text-xs text-ink-soft tabular-nums">
-                  {localTimeOf(inicio, tz)}–{localTimeOf(fim, tz)}
-                  {c.cliente.temContraindicacao ? (
-                    <IconAlert width={14} height={14} className="text-danger shrink-0" />
+                style={{
+                  left: COLUNA_HORA + 4,
+                  top: topo,
+                  height: altura,
+                  background: tom.fundo,
+                  borderColor: tom.linha,
+                }}
+              >
+                <span className="block px-3 py-2">
+                  <span className="flex items-center gap-1.5 text-[12px] font-semibold tabular-nums text-ink-soft">
+                    <span
+                      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_PONTO[c.status] ?? "bg-ink-faint")}
+                      title={APPOINTMENT_STATUSES[c.status]}
+                    />
+                    {localTimeOf(inicio, tz)}–{localTimeOf(fim, tz)}
+                    {c.cliente.temContraindicacao ? (
+                      <IconAlert width={13} height={13} className="shrink-0 text-danger" />
+                    ) : null}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[14.5px] font-semibold leading-5 text-ink">
+                    {c.cliente.nome}
+                  </span>
+                  {!compacto ? (
+                    <>
+                      <span className="block truncate text-[12.5px] text-ink-soft">{c.servico.nome}</span>
+                      <span className="mt-1 block text-[11.5px] font-semibold text-ink-soft">
+                        {APPOINTMENT_STATUSES[c.status]}
+                      </span>
+                    </>
                   ) : null}
                 </span>
-                <span className="block font-medium text-[15px] text-ink truncate leading-5">
-                  {c.cliente.nome}
-                </span>
-                {!compacto ? (
-                  <>
-                    <span className="block text-[13px] text-ink-soft truncate">
-                      {c.servico.nome}
-                    </span>
-                    <span className="mt-1 inline-block">
-                      <AppointmentStatusBadge status={c.status} />
-                    </span>
-                  </>
-                ) : null}
-              </span>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
 
-        {/* Agora */}
-        {agoraMin !== null && agoraMin >= inicioMin && agoraMin <= fimMin ? (
-          <div
-            className="absolute left-11 right-0 flex items-center pointer-events-none"
-            style={{ top: (agoraMin - inicioMin) * PX_POR_MIN }}
-          >
-            <span className="h-2 w-2 rounded-full bg-danger -translate-x-1" />
-            <span className="grow border-t-2 border-danger/70" />
-          </div>
-        ) : null}
+          {/* Agora */}
+          {agoraMin !== null && agoraMin >= inicioMin && agoraMin <= fimMin ? (
+            <div
+              className="pointer-events-none absolute right-0 flex items-center"
+              style={{ top: (agoraMin - inicioMin) * PX_POR_MIN, left: COLUNA_HORA - 4 }}
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
+              <span className="grow border-t-[1.5px] border-danger" />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

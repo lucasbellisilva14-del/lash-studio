@@ -1,11 +1,10 @@
 "use client";
 
-/** Lista do dia selecionado na visão MÊS: cards com hora, cliente, serviço,
- *  preço e status — tocar abre o detalhe (mesmo sheet da visão dia). */
+/** Lista do dia selecionado na visão MÊS: hora, cliente, serviço, preço e
+ *  status — tocar abre o detalhe (mesmo sheet da visão dia). */
 import { useMemo } from "react";
-import { IconAlert, IconCalendar } from "@/components/ui/icons";
 import { AppointmentStatusBadge } from "@/components/ui/badge";
-import { cn } from "@/lib/cn";
+import { IconAlert } from "@/components/ui/icons";
 import { formatBRL } from "@/lib/money";
 import {
   dayKeyToUtcStart,
@@ -39,68 +38,53 @@ export function MonthDayList({
   const rotulo = formatDateLong(dayKeyToUtcStart(diaKey, tz), tz);
 
   return (
-    <section className="mt-4" aria-label={`Atendimentos de ${rotulo}`}>
-      <div className="flex items-baseline justify-between mb-2 px-1">
-        <h2 className="text-sm font-semibold text-ink capitalize">
-          {rotulo}
-          {diaKey === hojeKey ? (
-            <span className="ml-2 text-[11px] font-medium bg-accent-soft text-accent-strong rounded-full px-2 py-0.5">
-              hoje
-            </span>
-          ) : null}
+    <section aria-label={`Atendimentos de ${rotulo}`}>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-[17px] font-bold tracking-[-0.02em] text-ink first-letter:uppercase">
+          {diaKey === hojeKey ? `Hoje, ${rotulo.split(", ")[1] ?? rotulo}` : rotulo}
         </h2>
-        <span className="text-xs text-ink-faint">
-          {itens.length === 0
-            ? ""
-            : `${itens.length} atendimento${itens.length === 1 ? "" : "s"}`}
+        <span className="text-[13px] text-ink-soft">
+          {itens.length === 0 ? "" : `${itens.length} horário${itens.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
       {itens.length === 0 ? (
-        <div className="bg-surface border border-line rounded-2xl px-4 py-6 text-center">
-          <IconCalendar width={22} height={22} className="mx-auto text-ink-faint mb-1.5" />
-          <p className="text-sm text-ink-faint">Nenhum atendimento neste dia.</p>
+        <div className="rounded-[22px] bg-surface px-5 py-8 text-center shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
+          <p className="text-[15px] font-semibold text-ink">Dia livre</p>
+          <p className="mt-1 text-[13.5px] text-ink-soft">Nenhum horário marcado neste dia.</p>
         </div>
       ) : (
-        <ul className="space-y-2.5">
-          {itens.map((c) => {
-            const inicial = c.cliente.nome.trim().charAt(0).toUpperCase();
-            return (
-              <li key={c.id}>
-                <button
-                  onClick={() => onSelecionar(c)}
-                  className={cn(
-                    "w-full flex items-center gap-3 bg-surface border border-line rounded-2xl px-3.5 py-3 text-left",
-                    "shadow-[var(--shadow-card)] hover:bg-surface-sunken/50 transition-colors",
-                  )}
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-strong font-semibold text-[15px] shrink-0">
-                    {inicial}
+        <ul className="divide-y divide-line overflow-hidden rounded-[22px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
+          {itens.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onSelecionar(c)}
+                className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left hover:bg-surface-muted transition-colors"
+              >
+                <span className="w-12 shrink-0">
+                  <span className="block text-[15px] font-bold tabular-nums tracking-[-0.02em] text-ink">
+                    {localTimeOf(new Date(c.inicio), tz)}
                   </span>
-                  <span className="min-w-0 grow">
-                    <span className="flex items-center gap-2">
-                      <span className="text-[13px] font-semibold text-accent-strong bg-accent-soft rounded-full px-2 py-0.5 tabular-nums shrink-0">
-                        {localTimeOf(new Date(c.inicio), tz)}
-                      </span>
-                      <span className="flex items-center gap-1 font-medium text-[15px] text-ink truncate">
-                        {c.cliente.nome}
-                        {c.cliente.temContraindicacao ? (
-                          <IconAlert width={13} height={13} className="text-danger shrink-0" />
-                        ) : null}
-                      </span>
-                    </span>
-                    <span className="mt-1 flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-ink-soft truncate">{c.servico.nome}</span>
-                      <span className="text-xs font-semibold text-accent-strong shrink-0">
-                        {formatBRL(c.precoCents)}
-                      </span>
-                    </span>
+                  <span className="block text-[11.5px] tabular-nums text-ink-faint">
+                    {localTimeOf(new Date(c.fim), tz)}
                   </span>
-                  <AppointmentStatusBadge status={c.status} />
-                </button>
-              </li>
-            );
-          })}
+                </span>
+                <span className="min-w-0 grow">
+                  <span className="flex items-center gap-1 truncate text-[15px] font-semibold text-ink">
+                    <span className="truncate">{c.cliente.nome}</span>
+                    {c.cliente.temContraindicacao ? (
+                      <IconAlert width={14} height={14} className="shrink-0 text-danger" />
+                    ) : null}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
+                    {c.servico.nome} · {formatBRL(c.precoCents)}
+                  </span>
+                </span>
+                <AppointmentStatusBadge status={c.status} />
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </section>

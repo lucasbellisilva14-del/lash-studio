@@ -23,7 +23,7 @@ export function ClientAvatar({
     <span
       aria-hidden
       className={cn(
-        "flex items-center justify-center rounded-full bg-accent-soft text-accent-strong font-display font-semibold shrink-0 select-none",
+        "flex items-center justify-center rounded-full bg-accent-soft text-accent-strong font-display font-bold shrink-0 select-none",
         size === "lg" ? "w-14 h-14 text-xl" : "w-10 h-10 text-sm",
         className,
       )}

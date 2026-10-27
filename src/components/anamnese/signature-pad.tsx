@@ -118,7 +118,7 @@ export function SignaturePad({ onChange }: { onChange: (blob: Blob | null) => vo
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="relative overflow-hidden rounded-[18px] border border-line bg-surface">
         <canvas
           ref={canvasRef}
           className="block w-full h-44 touch-none text-ink"

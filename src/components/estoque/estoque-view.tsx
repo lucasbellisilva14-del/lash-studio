@@ -28,7 +28,7 @@ import {
 import { IconDroplet, IconMinus } from "@/components/estoque/icons";
 import { MovementSheet, type MovementKind } from "@/components/estoque/movement-sheet";
 import { ProductFormSheet } from "@/components/estoque/product-form-sheet";
-import { formatQty, type ProductCategory, type ProductItem } from "@/components/estoque/types";
+import { formatQty, unidadeComPlural, type ProductCategory, type ProductItem } from "@/components/estoque/types";
 
 const initialState: EstoqueActionState = { ok: false, error: null };
 
@@ -93,7 +93,7 @@ function buildAlerts(actives: ProductItem[]): EstoqueAlert[] {
       tone: p.quantity <= 0 ? "danger" : "warning",
       icon: "box",
       title: `${p.name} abaixo do mínimo`,
-      description: `${formatQty(p.quantity)} ${p.unit} em estoque — mínimo ${formatQty(p.minQuantity)}`,
+      description: `${formatQty(p.quantity)} ${unidadeComPlural(p.unit, p.quantity)} em estoque — mínimo ${formatQty(p.minQuantity)}`,
       product: p,
     });
   }
@@ -344,7 +344,7 @@ function ProductRow({
               product.lowStock ? "text-danger" : "text-ink-soft",
             )}
           >
-            {formatQty(product.quantity)} {product.unit}
+            {formatQty(product.quantity)} {unidadeComPlural(product.unit, product.quantity)}
           </span>
           {product.minQuantity > 0 ? (
             <span className="text-ink-faint"> · mín. {formatQty(product.minQuantity)}</span>

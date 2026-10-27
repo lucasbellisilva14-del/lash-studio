@@ -1,9 +1,9 @@
 import type { LevelInfo } from "@/lib/domain/gamification";
 
-/** Card-herói do nível: gradiente pink, XP e progresso até o próximo nível. */
+/** Card-herói do nível: cartão escuro na tinta de ação, XP e progresso até o próximo nível. */
 export function LevelCard({ level }: { level: LevelInfo }) {
   return (
-    <div className="bg-accent-gradient text-white rounded-3xl p-5 shadow-lg shadow-accent/25">
+    <div className="bg-accent text-accent-ink rounded-[24px] p-5 shadow-[var(--shadow-pop)]">
       <div className="flex items-center gap-4">
         <span className="text-4xl drop-shadow-sm" aria-hidden>
           {level.emoji}
@@ -12,10 +12,10 @@ export function LevelCard({ level }: { level: LevelInfo }) {
           <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
             Nível {level.level}
           </p>
-          <p className="font-display text-2xl font-semibold leading-7 truncate">{level.name}</p>
+          <p className="font-display text-2xl font-bold tracking-[-0.03em] leading-7 truncate">{level.name}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="font-display text-2xl font-semibold leading-6">{level.xp}</p>
+          <p className="font-display text-2xl font-bold tracking-[-0.03em] leading-6">{level.xp}</p>
           <p className="text-[11px] font-medium opacity-80">XP</p>
         </div>
       </div>

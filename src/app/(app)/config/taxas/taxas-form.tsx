@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/constants";
 import { applyFee, formatBRL } from "@/lib/money";
-import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/field";
 import { FieldError, FormError, SavedToast } from "@/components/config/feedback";
+import { AutoSaveStatus, useAutoSave } from "@/components/config/autosave";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { salvarTaxasAction } from "./actions";
 
@@ -26,6 +26,8 @@ export function TaxasForm({ fees }: { fees: Record<PaymentMethod, number> }) {
     salvarTaxasAction,
     initialConfigFormState,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const { aoEnviar } = useAutoSave(formRef, formAction);
 
   const [values, setValues] = useState<Record<PaymentMethod, string>>(() => {
     const initial = {} as Record<PaymentMethod, string>;
@@ -36,7 +38,11 @@ export function TaxasForm({ fees }: { fees: Record<PaymentMethod, number> }) {
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} onSubmit={aoEnviar} className="space-y-5">
+      <div className="flex justify-end">
+        <AutoSaveStatus pending={pending} state={state} />
+      </div>
+
       <Card className="divide-y divide-line overflow-hidden">
         {METHODS.map((method) => {
           const pct = parsePct(values[method]);
@@ -85,11 +91,11 @@ export function TaxasForm({ fees }: { fees: Record<PaymentMethod, number> }) {
 
       <FormError error={state.error} />
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Salvando..." : "Salvar taxas"}
-      </Button>
+      <button type="submit" className="sr-only">
+        Salvar
+      </button>
 
-      <SavedToast savedAt={state.savedAt} message="Taxas salvas!" />
+      <SavedToast savedAt={state.savedAt} message="Taxas salvas" />
     </form>
   );
 }

@@ -78,11 +78,14 @@ model Professional {
   resetTokenHash      String?   @unique
   resetTokenExpiresAt DateTime?
   consentText      String? // termo de consentimento (anamnese)
+  /// Modelo de anamnese personalizado (JSON de perguntas). Nulo = modelo padrão do sistema.
+  anamnesisQuestionsJson String?
   onboardingDone   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  supportMessages   SupportMessage[]
   workingHours      WorkingHour[]
   paymentFees       PaymentMethodFee[]
   clients           Client[]
@@ -172,6 +175,8 @@ model Service {
   priceCents      Int
   requiresDeposit Boolean @default(false)
   maintenanceOfId String? // p/ MANUTENCAO: aponta o serviço de aplicação correspondente
+  /// Retorno ideal (dias) depois deste serviço — lifting, brow, design. Nulo = sem aviso.
+  returnDays      Int?
   active          Boolean @default(true)
 
   professional  Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
@@ -265,6 +270,8 @@ model AnamnesisForm {
   professionalId        String
   clientId              String  @unique
   answersJson           String // JSON com todas as respostas
+  /// Perguntas exatamente como foram feitas no dia (JSON). Nulo = respondida no modelo padrão antigo.
+  questionsSnapshotJson String?
   contraindicationFlags String  @default("[]") // JSON array com as flags contraindicadas
   hasContraindication   Boolean @default(false)
   naturalLashCondition  String? // FORTES | MEDIOS | FRAGEIS | FALHADOS
@@ -294,7 +301,7 @@ model ConsentSignature {
 model MessageTemplate {
   id             String  @id @default(cuid())
   professionalId String
-  kind           String // CONFIRMACAO | LEMBRETE_24H | POS_APLICACAO | MANUTENCAO | ANIVERSARIO | RESGATE_45 | RESGATE_60 | RESGATE_90
+  kind           String // CONFIRMACAO | LEMBRETE_24H | POS_APLICACAO | MANUTENCAO | ANIVERSARIO | RESGATE_45 | RESGATE_60 | RESGATE_90 | REMARCAR | RETORNO
   name           String
   body           String // com variáveis {{nome}}, {{data}}, {{hora}}, {{servico}}, {{valor}}, {{endereco}}, {{pix}}, {{nome_estudio}}
   active         Boolean @default(true)
@@ -447,4 +454,20 @@ model ScheduleBlock {
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, startAt])
+}
+
+/// Mensagem enviada pela profissional pelo "Falar com o suporte" (lida no /admin).
+model SupportMessage {
+  id             String    @id @default(cuid())
+  professionalId String
+  kind           String // DUVIDA | PROBLEMA | SUGESTAO
+  message        String
+  pagePath       String? // tela onde ela estava ao abrir o suporte
+  status         String    @default("NOVA") // NOVA | RESOLVIDA
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }

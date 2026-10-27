@@ -90,6 +90,7 @@ export async function GET(
     anamnese: form
       ? {
           respostas: safeParseJson(form.answersJson),
+          perguntas: safeParseJson(form.questionsSnapshotJson),
           contraindicacoes: parseContraindicationFlags(form.contraindicationFlags).map(
             contraindicationLabel,
           ),

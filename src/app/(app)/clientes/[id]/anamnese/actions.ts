@@ -13,28 +13,30 @@ import { requireProfessional, requireProfessionalId } from "@/lib/session";
 import { getStorageProvider, newStorageKey } from "@/lib/providers/storage";
 import { NATURAL_LASH_CONDITIONS } from "@/lib/constants";
 import {
-  ANAMNESIS_QUESTIONS,
-  DEFAULT_CONSENT_TEXT,
-  FLAG_ALERGIA_CIANOACRILATO,
+  ANAMNESIS_LIMITS,
+  anamnesisQuestionsOrDefault,
+  computeContraindications,
+  serializeAnamnesisAnswers,
+  serializeAnamnesisQuestions,
+  validateAnamnesisModel,
   type AnamnesisAnswer,
-  type AnamnesisQuestionId,
-} from "@/components/anamnese/questions";
+  type AnamnesisAnswers,
+  type AnamnesisQuestion,
+} from "@/lib/domain/anamnesis-model";
+import { DEFAULT_CONSENT_TEXT } from "@/components/anamnese/questions";
 
-export type AnamnesisState = { error?: string };
+export type AnamnesisState = {
+  error?: string;
+  /** Ids das perguntas obrigatórias sem resposta (o formulário destaca). */
+  missing?: string[];
+};
 
 const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
 
 const NATURAL_KEYS = Object.keys(NATURAL_LASH_CONDITIONS) as [string, ...string[]];
 
-const respostaSchema = z.object({
-  sim: z.boolean(),
-  detalhe: z.string().trim().max(600, "Detalhe muito longo (máximo 600 caracteres)."),
-});
-
 const payloadSchema = z.object({
   clientId: z.string().min(1, "Cliente inválida."),
-  respostas: z.record(z.string(), respostaSchema),
-  alergiaCianoacrilato: z.boolean(),
   naturalLashCondition: z.enum(NATURAL_KEYS).nullable(),
   lgpd: z.literal(true),
 });
@@ -44,31 +46,79 @@ function fieldText(formData: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Perguntas que a tela mostrou (retrato do dia), validadas. Se não vierem ou
+ * não passarem na validação, vale o modelo atual da profissional.
+ */
+function questionsFromForm(
+  formData: FormData,
+  professionalModelJson: string | null,
+): AnamnesisQuestion[] {
+  const raw = formData.get("modelo");
+  if (typeof raw === "string" && raw) {
+    try {
+      const result = validateAnamnesisModel(JSON.parse(raw));
+      if (result.ok) return result.questions;
+    } catch {
+      // JSON inválido: segue com o modelo atual.
+    }
+  }
+  return anamnesisQuestionsOrDefault(professionalModelJson);
+}
+
+function tooLong(question: AnamnesisQuestion, max: number): string {
+  return `A resposta de “${question.text}” passou de ${max} caracteres.`;
+}
+
 /** Cria ou atualiza a anamnese; assinatura nova (PNG) gera novo ConsentSignature. */
 export async function saveAnamnesisAction(
   _prev: AnamnesisState,
   formData: FormData,
 ): Promise<AnamnesisState> {
   const professional = await requireProfessional();
+  const L = ANAMNESIS_LIMITS;
 
-  // ── Monta as respostas a partir do form ──
-  const respostas = {} as Record<AnamnesisQuestionId, AnamnesisAnswer>;
-  for (const q of ANAMNESIS_QUESTIONS) {
-    const raw = formData.get(`q_${q.id}`);
-    if (raw !== "sim" && raw !== "nao") {
-      return { error: "Responda todas as perguntas antes de salvar." };
+  // ── Perguntas e respostas ──
+  const questions = questionsFromForm(formData, professional.anamnesisQuestionsJson);
+  const answers: AnamnesisAnswers = {};
+  const missing: AnamnesisQuestion[] = [];
+
+  for (const question of questions) {
+    const value = fieldText(formData, `q_${question.id}`);
+    let answer: AnamnesisAnswer | null = null;
+
+    if (question.type === "SIM_NAO") {
+      if (value === "sim" || value === "nao") {
+        const detalhe =
+          value === "sim" && question.followUp ? fieldText(formData, `d_${question.id}`) : "";
+        if (detalhe.length > L.detail) return { error: tooLong(question, L.detail) };
+        answer = { sim: value === "sim", detalhe };
+      }
+    } else if (question.type === "ESCOLHA") {
+      if (value && (question.options ?? []).includes(value)) answer = { opcao: value };
+    } else if (value) {
+      const max = question.type === "TEXTO_CURTO" ? L.shortAnswer : L.longAnswer;
+      if (value.length > max) return { error: tooLong(question, max) };
+      answer = { texto: value };
     }
-    respostas[q.id] = {
-      sim: raw === "sim",
-      detalhe: raw === "sim" ? fieldText(formData, `d_${q.id}`) : "",
+
+    if (answer) answers[question.id] = answer;
+    else if (question.required) missing.push(question);
+  }
+
+  if (missing.length > 0) {
+    return {
+      error:
+        missing.length === 1
+          ? `Responda a pergunta “${missing[0].text}”.`
+          : `Faltam ${missing.length} respostas obrigatórias, a começar por “${missing[0].text}”.`,
+      missing: missing.map((q) => q.id),
     };
   }
 
   const naturalRaw = fieldText(formData, "naturalLashCondition");
   const parsed = payloadSchema.safeParse({
     clientId: fieldText(formData, "clientId"),
-    respostas,
-    alergiaCianoacrilato: formData.get("alergiaCianoacrilato") === "1",
     naturalLashCondition: naturalRaw || null,
     lgpd: formData.get("lgpd") === "1" ? true : undefined,
   });
@@ -79,7 +129,7 @@ export async function saveAnamnesisAction(
     }
     return { error: issue?.message ?? "Confira os campos e tente novamente." };
   }
-  const { clientId, alergiaCianoacrilato, naturalLashCondition } = parsed.data;
+  const { clientId, naturalLashCondition } = parsed.data;
 
   const client = await prisma.client.findFirst({
     where: { id: clientId, professionalId: professional.id },
@@ -108,24 +158,15 @@ export async function saveAnamnesisAction(
     }
   }
 
-  // ── Flags de contraindicação (mesmas chaves de contraindications.ts) ──
-  const temAlergiaCiano = respostas.alergias.sim && alergiaCianoacrilato;
-  const flags: string[] = [];
-  for (const q of ANAMNESIS_QUESTIONS) {
-    if (q.flag && respostas[q.id].sim) flags.push(q.flag);
-    if (q.id === "alergias" && temAlergiaCiano) flags.push(FLAG_ALERGIA_CIANOACRILATO);
-  }
-
-  const answersJson = JSON.stringify({
-    versao: 1,
-    respostas,
-    alergiaCianoacrilato: temAlergiaCiano,
-  });
+  // ── Contraindicações: perguntas com alerta respondidas "sim" ──
+  const { flags, hasContraindication } = computeContraindications(questions, answers);
 
   const data = {
-    answersJson,
+    answersJson: serializeAnamnesisAnswers(questions, answers),
+    // Retrato das perguntas como foram feitas hoje: mudar o modelo depois não altera esta anamnese.
+    questionsSnapshotJson: serializeAnamnesisQuestions(questions),
     contraindicationFlags: JSON.stringify(flags),
-    hasContraindication: flags.length > 0,
+    hasContraindication,
     naturalLashCondition,
     lgpdConsent: true,
   };

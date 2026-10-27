@@ -1,85 +1,92 @@
 import { LoginForm } from "./login-form";
+import { IconCheckCircle, IconMoney, IconClock } from "@/components/ui/icons";
 
 export const metadata = { title: "Entrar" };
 
-const DESTAQUES = [
-  { emoji: "📅", texto: "Agenda inteligente com regras do ciclo de manutenção" },
-  { emoji: "💬", texto: "Fila de WhatsApp pronta: confirmações, lembretes e resgates" },
-  { emoji: "💸", texto: "Sinal via Pix copia-e-cola e financeiro completo" },
-  { emoji: "🏆", texto: "Conquistas e metas para o estúdio crescer jogando" },
+/** Exemplos ilustrativos do que o app faz sozinho (não são dados reais). */
+const MOMENTOS = [
+  { icon: IconCheckCircle, titulo: "Horário confirmado", texto: "Amanhã, 14:00 · Volume brasileiro" },
+  { icon: IconMoney, titulo: "Sinal recebido", texto: "Pix confirmado sozinho no Mercado Pago" },
+  { icon: IconClock, titulo: "Hora da manutenção", texto: "Mensagem pronta na fila do dia" },
 ];
 
-function MarcaLashOS({ compacta }: { compacta?: boolean }) {
+function MarcaLashOS({ grande }: { grande?: boolean }) {
   return (
-    <div className={compacta ? "text-center" : ""}>
-      <div
-        className={
-          compacta
-            ? "mx-auto mb-4 h-16 w-16 rounded-3xl bg-accent-gradient shadow-lg shadow-accent/25 flex items-center justify-center"
-            : "mb-5 h-20 w-20 rounded-[28px] bg-white/15 backdrop-blur flex items-center justify-center"
-        }
+    <div
+      className={
+        grande
+          ? "flex h-14 w-14 items-center justify-center rounded-[18px] bg-white/12"
+          : "mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent shadow-[var(--shadow-pop)]"
+      }
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        className="h-8 w-8"
+        aria-hidden
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#fff7fa"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-          className={compacta ? "w-9 h-9" : "w-11 h-11"}
-        >
-          <path d="M4 9c2.5 3.5 13.5 3.5 16 0" />
-          <path d="M6 11.2 4.8 13M9.2 12.4l-.7 2M12 12.8v2.1M14.8 12.4l.7 2M18 11.2l1.2 1.8" />
-        </svg>
-      </div>
+        <path d="M4 9c2.5 3.5 13.5 3.5 16 0" />
+        <path d="M6 11.2 4.8 13M9.2 12.4l-.7 2M12 12.8v2.1M14.8 12.4l.7 2M18 11.2l1.2 1.8" />
+      </svg>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      {/* Painel de marca — só no desktop */}
-      <aside className="hidden lg:flex flex-col justify-between bg-accent-gradient text-white p-12 xl:p-16">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* Painel da marca — só no PC */}
+      <aside className="relative hidden overflow-hidden bg-accent p-12 text-accent-ink lg:m-3 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px] xl:p-16">
         <div>
-          <MarcaLashOS />
-          <h1 className="font-display text-5xl xl:text-6xl font-semibold leading-tight">
-            LashOS
+          <MarcaLashOS grande />
+          <h1 className="mt-10 max-w-md text-[44px] font-bold leading-[1.05] tracking-[-0.04em] xl:text-[52px]">
+            Seu estúdio inteiro, num app só.
           </h1>
-          <p className="mt-3 text-lg text-white/85 max-w-md">
-            Seu estúdio inteiro — agenda, clientes, WhatsApp e financeiro — em um
-            lugar só, lindo de usar.
+          <p className="mt-4 max-w-md text-[16px] leading-relaxed text-white/70">
+            Agenda, clientes, ficha técnica, WhatsApp e financeiro, pensados para o ciclo dos cílios.
           </p>
         </div>
-        <ul className="space-y-4 max-w-md">
-          {DESTAQUES.map((d) => (
-            <li key={d.texto} className="flex items-start gap-3.5">
-              <span className="text-xl shrink-0" aria-hidden>
-                {d.emoji}
+
+        <ul className="max-w-sm space-y-3" aria-label="Exemplos do que o LashOS faz">
+          {MOMENTOS.map(({ icon: Icon, titulo, texto }, i) => (
+            <li
+              key={titulo}
+              className="flex items-center gap-3.5 rounded-[18px] bg-white px-4 py-3.5 text-ink shadow-[var(--shadow-pop)]"
+              style={{ marginLeft: i * 28 }}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink">
+                <Icon width={18} height={18} />
               </span>
-              <span className="text-[15px] text-white/90 leading-snug">{d.texto}</span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold">{titulo}</span>
+                <span className="block truncate text-[12.5px] text-ink-soft">{texto}</span>
+              </span>
             </li>
           ))}
         </ul>
-        <p className="text-xs text-white/60">
-          Feito para lash designers brasileiras 💗
-        </p>
+
+        <p className="text-[12.5px] text-white/50">Feito para lash designers brasileiras 💗</p>
       </aside>
 
       {/* Formulário */}
-      <div className="min-h-dvh lg:min-h-0 flex flex-col justify-center px-6 py-10 bg-background bg-[radial-gradient(80%_50%_at_50%_0%,color-mix(in_srgb,var(--accent)_14%,transparent),transparent)]">
+      <div className="flex min-h-dvh flex-col justify-center px-6 py-10 lg:min-h-0">
         <div className="mx-auto w-full max-w-sm">
-          <div className="text-center mb-10">
-            <MarcaLashOS compacta />
-            <h2 className="font-display text-3xl font-semibold text-ink">
-              <span className="lg:hidden">LashOS</span>
-              <span className="hidden lg:inline">Bem-vinda de volta</span>
+          <div className="mb-9 text-center lg:text-left">
+            <div className="lg:hidden">
+              <MarcaLashOS />
+            </div>
+            <h2 className="text-[30px] font-bold leading-[1.1] tracking-[-0.035em] text-ink">
+              Bem-vinda de volta
             </h2>
-            <p className="text-sm text-ink-soft mt-1.5">
-              <span className="lg:hidden">Seu estúdio inteiro, no seu celular.</span>
-              <span className="hidden lg:inline">Entre para abrir o seu estúdio.</span>
-            </p>
+            <p className="mt-2 text-[15px] text-ink-soft">Entre para abrir o seu estúdio.</p>
           </div>
           <LoginForm />
+          <p className="mt-10 text-center text-[12.5px] text-ink-faint lg:hidden">
+            Feito para lash designers brasileiras 💗
+          </p>
         </div>
       </div>
     </div>

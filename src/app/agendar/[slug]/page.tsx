@@ -83,12 +83,10 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
       <main className="mx-auto w-full max-w-lg px-4 pb-32 pt-8">
         <header className="text-center mb-8">
           <StudioLogo src={logoSrc} nome={estudio.studioName} />
-          <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong">
-            Agendamento online
-          </p>
-          <h1 className="font-display text-3xl font-semibold text-ink mt-1">
+          <h1 className="font-display mt-5 text-[30px] font-bold leading-[1.1] tracking-[-0.035em] text-ink">
             {estudio.studioName}
           </h1>
+          <p className="mt-1.5 text-[14px] text-ink-soft">Escolha o serviço, o dia e o horário.</p>
           {estudio.addressLine || estudio.instagram || estudio.whatsapp ? (
             <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
               {estudio.addressLine ? (

@@ -184,7 +184,7 @@ export function NotificacoesManager({ dailySummaryTime }: { dailySummaryTime: st
       <Card>
         <CardBody className="space-y-4">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Neste aparelho</h2>
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Neste aparelho</h2>
             <p className="text-[13px] text-ink-soft mt-0.5">
               As notificações valem por aparelho — ative no celular que você usa no dia a dia.
             </p>
@@ -257,7 +257,7 @@ export function NotificacoesManager({ dailySummaryTime }: { dailySummaryTime: st
       <Card>
         <CardBody className="space-y-3">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Resumo diário</h2>
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">Resumo diário</h2>
             <p className="text-[13px] text-ink-soft mt-0.5">
               Comece o dia sabendo de tudo, sem abrir o app.
             </p>

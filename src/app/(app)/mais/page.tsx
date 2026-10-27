@@ -3,8 +3,10 @@ import { requireProfessional } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { SupportButton } from "@/components/shell/support";
 import {
   IconBox,
+  IconCalculator,
   IconChart,
   IconChevronRight,
   IconLogout,
@@ -15,13 +17,38 @@ import {
 
 export const metadata = { title: "Mais" };
 
-const links = [
+const gestao = [
+  { href: "/servicos", label: "Serviços", description: "Preço, duração e sinal de cada serviço", icon: IconScissors },
+  { href: "/estoque", label: "Estoque", description: "Insumos, colas abertas e validades", icon: IconBox },
+  { href: "/relatorios", label: "Relatórios", description: "Clientes, serviços, demanda e origens", icon: IconChart },
+  { href: "/ferramentas", label: "Ferramentas", description: "Calculadora de cobrança e quanto vale sua hora", icon: IconCalculator },
   { href: "/conquistas", label: "Conquistas", description: "Seu nível, medalhas e desafios da semana", icon: IconTrophy },
-  { href: "/servicos", label: "Serviços", description: "Catálogo, preços e durações", icon: IconScissors },
-  { href: "/estoque", label: "Estoque", description: "Insumos, colas e validades", icon: IconBox },
-  { href: "/relatorios", label: "Relatórios", description: "Clientes, serviços e origens", icon: IconChart },
-  { href: "/config", label: "Configurações", description: "Perfil, horários e políticas", icon: IconSettings },
 ];
+
+function Row({
+  href,
+  label,
+  description,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  description: string;
+  icon: typeof IconBox;
+}) {
+  return (
+    <Link href={href} className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-muted transition-colors">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft">
+        <Icon width={18} height={18} />
+      </span>
+      <span className="min-w-0 grow">
+        <span className="block text-[15px] font-semibold text-ink">{label}</span>
+        <span className="block truncate text-[13px] text-ink-soft">{description}</span>
+      </span>
+      <IconChevronRight className="shrink-0 text-ink-faint" width={18} height={18} />
+    </Link>
+  );
+}
 
 export default async function MaisPage() {
   const professional = await requireProfessional();
@@ -29,23 +56,21 @@ export default async function MaisPage() {
   return (
     <div>
       <PageHeader title={professional.studioName} subtitle={professional.name} />
+
       <Card className="divide-y divide-line overflow-hidden">
-        {links.map(({ href, label, description, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-background transition-colors"
-          >
-            <span className="h-10 w-10 rounded-xl bg-accent-soft text-accent-strong flex items-center justify-center shrink-0">
-              <Icon />
-            </span>
-            <span className="grow min-w-0">
-              <span className="block font-medium text-[15px] text-ink">{label}</span>
-              <span className="block text-[13px] text-ink-soft truncate">{description}</span>
-            </span>
-            <IconChevronRight className="text-ink-faint shrink-0" width={18} height={18} />
-          </Link>
+        {gestao.map((item) => (
+          <Row key={item.href} {...item} />
         ))}
+      </Card>
+
+      <Card className="mt-4 divide-y divide-line overflow-hidden">
+        <Row
+          href="/config"
+          label="Configurações"
+          description="Perfil, horários, políticas, taxas e pagamentos"
+          icon={IconSettings}
+        />
+        <SupportButton variant="row" />
       </Card>
 
       <form
@@ -57,7 +82,7 @@ export default async function MaisPage() {
       >
         <button
           type="submit"
-          className="flex items-center gap-2 mx-auto text-sm font-medium text-ink-soft hover:text-danger transition-colors py-2 px-3"
+          className="mx-auto flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold text-ink-soft hover:bg-danger-soft hover:text-danger transition-colors"
         >
           <IconLogout width={18} height={18} />
           Sair da conta
