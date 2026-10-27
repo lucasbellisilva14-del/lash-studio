@@ -7,7 +7,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import {
   getDefaultAnamnesisModel,
   isDefaultAnamnesisModel,
@@ -45,7 +45,7 @@ export async function saveAnamnesisModelAction(
   _prev: AnamnesisModelState,
   formData: FormData,
 ): Promise<AnamnesisModelState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   if (formData.get("intencao") === "restaurar") {
     try {

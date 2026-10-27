@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { CalculadoraCobranca } from "@/components/ferramentas/calculadora-cobranca";
@@ -20,6 +20,7 @@ const ABAS = [
  * a hora dela (?aba=hora). Os dados saem do servidor; as contas, do aparelho.
  */
 export default async function FerramentasPage(props: PageProps<"/ferramentas">) {
+  await requireOwner();
   const professional = await requireProfessional();
   const sp = await props.searchParams;
   const pedida = Array.isArray(sp.aba) ? sp.aba[0] : sp.aba;

@@ -1,10 +1,10 @@
 "use server";
 
-/** Server actions da lista de espera. */
+/** Server actions da lista de espera — só da dona (requireOwner). */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { dayKeyToUtcStart, localToUtc } from "@/lib/dates";
 
 const diaRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,6 +23,7 @@ export async function criarEsperaAction(
   _prev: EsperaFormState,
   formData: FormData,
 ): Promise<EsperaFormState> {
+  await requireOwner(); // lista de espera é só da dona
   const professional = await requireProfessional();
   const parsed = esperaSchema.safeParse({
     clienteId: formData.get("clienteId"),
@@ -78,6 +79,7 @@ export async function mudarStatusEspera(
   id: string,
   status: "ATENDIDA" | "CANCELADA",
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
+  await requireOwner(); // lista de espera é só da dona
   const professional = await requireProfessional();
   const parsed = statusSchema.safeParse(status);
   if (!parsed.success) return { ok: false, erro: "Status inválido." };

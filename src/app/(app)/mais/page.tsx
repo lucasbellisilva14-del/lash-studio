@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { requireProfessional } from "@/lib/session";
-import { signOut } from "@/lib/auth";
+import { requireProfessional, requireViewer } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { SupportButton } from "@/components/shell/support";
+import { sairDaConta } from "@/components/shell/sign-out-action";
 import {
   IconBox,
   IconCalculator,
   IconChart,
   IconChevronRight,
+  IconLock,
   IconLogout,
+  IconMoney,
   IconScissors,
   IconSettings,
   IconTrophy,
@@ -50,8 +52,50 @@ function Row({
   );
 }
 
+function SairDaConta() {
+  return (
+    <form action={sairDaConta} className="mt-6">
+      <button
+        type="submit"
+        className="mx-auto flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold text-ink-soft hover:bg-danger-soft hover:text-danger transition-colors"
+      >
+        <IconLogout width={18} height={18} />
+        Sair da conta
+      </button>
+    </form>
+  );
+}
+
 export default async function MaisPage() {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
+
+  // Funcionária: os números dela, a senha, o suporte e sair. Nada de gestão do estúdio.
+  if (!viewer.isOwner) {
+    return (
+      <div>
+        <PageHeader title={professional.studioName} subtitle={`${viewer.name} · Equipe`} />
+
+        <Card className="divide-y divide-line overflow-hidden">
+          <Row
+            href="/financeiro"
+            label="Meus números"
+            description="Seus atendimentos, recebimentos e comissão"
+            icon={IconMoney}
+          />
+          <Row
+            href="/config/senha"
+            label="Sua senha"
+            description="Troque a senha do seu login"
+            icon={IconLock}
+          />
+          <SupportButton variant="row" />
+        </Card>
+
+        <SairDaConta />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -67,27 +111,13 @@ export default async function MaisPage() {
         <Row
           href="/config"
           label="Configurações"
-          description="Perfil, horários, políticas, taxas e pagamentos"
+          description="Perfil, equipe, horários, políticas e pagamentos"
           icon={IconSettings}
         />
         <SupportButton variant="row" />
       </Card>
 
-      <form
-        action={async () => {
-          "use server";
-          await signOut({ redirectTo: "/login" });
-        }}
-        className="mt-6"
-      >
-        <button
-          type="submit"
-          className="mx-auto flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold text-ink-soft hover:bg-danger-soft hover:text-danger transition-colors"
-        >
-          <IconLogout width={18} height={18} />
-          Sair da conta
-        </button>
-      </form>
+      <SairDaConta />
     </div>
   );
 }

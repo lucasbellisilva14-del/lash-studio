@@ -1,6 +1,9 @@
 "use client";
 
-/** Tela de sucesso da solicitação pública — resumo + instruções do sinal (Pix). */
+/**
+ * Tela de sucesso da solicitação pública — resumo + instruções do sinal (Pix).
+ * Com equipe, cita quem vai atender.
+ */
 import { useEffect, useRef, useState } from "react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,13 +74,18 @@ export function SuccessScreen({
           Solicitação enviada!
         </h2>
         <p className="mx-auto mt-1.5 max-w-xs text-sm text-ink-soft">
-          Sua solicitação foi enviada — o estúdio confirma em breve pelo WhatsApp.
+          {sucesso.profissional
+            ? `Sua solicitação foi enviada — seu horário é com ${sucesso.profissional}. O estúdio confirma em breve pelo WhatsApp.`
+            : "Sua solicitação foi enviada — o estúdio confirma em breve pelo WhatsApp."}
         </p>
       </div>
 
       <Card className="mt-6">
         <CardBody className="space-y-2.5">
           <LinhaResumo rotulo="Serviço" valor={sucesso.servico} />
+          {sucesso.profissional ? (
+            <LinhaResumo rotulo="Profissional" valor={sucesso.profissional} />
+          ) : null}
           <LinhaResumo rotulo="Data" valor={sucesso.data} />
           <LinhaResumo rotulo="Hora" valor={sucesso.hora} />
           <LinhaResumo rotulo="Valor" valor={formatBRL(sucesso.valorCents)} />

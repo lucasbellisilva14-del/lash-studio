@@ -20,6 +20,21 @@ export type AgendaServico = {
   manutencaoDeId: string | null;
 };
 
+/** Quem atende um agendamento (memberId nulo = a dona). */
+export type AgendaQuemAtende = {
+  /** OWNER_KEY ("dona") ou o id da funcionária. */
+  key: string;
+  memberId: string | null;
+  nome: string;
+  cor: string;
+};
+
+/** Profissional da equipe para filtros e seletores (só a dona com equipe recebe a lista). */
+export type AgendaPro = AgendaQuemAtende & {
+  /** Rótulo curto e único na tela: "Você", "Ana", "Ana P.". */
+  rotulo: string;
+};
+
 export type AgendaCompromisso = {
   id: string;
   /** ISO UTC */
@@ -33,6 +48,7 @@ export type AgendaCompromisso = {
   observacoes: string | null;
   cliente: AgendaCliente;
   servico: { id: string; nome: string; categoria: ServiceCategory };
+  profissional: AgendaQuemAtende;
 };
 
 export type AgendaBloqueio = {
@@ -44,6 +60,16 @@ export type AgendaBloqueio = {
   diaSemana: number | null; // 0-6 (SEMANAL)
   horaInicio: string | null; // "12:00"
   horaFim: string | null;
+  /** Vale para o estúdio inteiro (toda a equipe). */
+  estudioInteiro: boolean;
+  /** A quem vale, para exibir com equipe ("Estúdio inteiro", "Você", "Ana"); nulo sem equipe. */
+  para: string | null;
+};
+
+/** Quem está logada, no que importa para a tela (sem dados sensíveis). */
+export type AgendaViewer = {
+  isOwner: boolean;
+  memberId: string | null;
 };
 
 export type HorarioFuncionamento = {

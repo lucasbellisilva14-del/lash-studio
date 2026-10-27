@@ -2,15 +2,17 @@
 
 /**
  * Server actions da ficha técnica do atendimento.
- * Multi-tenant: toda escrita valida que o agendamento pertence à profissional.
+ * Multi-tenant: toda escrita valida que o agendamento pertence ao estúdio.
+ * Equipe: a funcionária só mexe nos agendamentos dela (canActOnAppointment).
  */
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireViewer, type Viewer } from "@/lib/session";
+import { canActOnAppointment } from "@/lib/team";
 import { getStorageProvider, newStorageKey } from "@/lib/providers/storage";
 import { processPhoto } from "@/lib/images";
 import { consumirEstoqueDoAtendimento } from "@/app/(app)/estoque/consumo";
-import { applyFee, parseBRL } from "@/lib/money";
+import { applyFee, formatBRL, parseBRL } from "@/lib/money";
 import {
   CURVATURES,
   MAPPING_MAX_MM,
@@ -37,15 +39,17 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-async function findOwnAppointment(appointmentId: string, professionalId: string) {
+/** Agendamento do estúdio que quem está logada pode mexer (nulo = fora do escopo). */
+async function findOwnAppointment(appointmentId: string, viewer: Viewer) {
   if (!appointmentId) return null;
-  return prisma.appointment.findFirst({
-    where: { id: appointmentId, professionalId },
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, professionalId: viewer.professionalId },
     include: {
       client: { select: { id: true, name: true } },
       service: { select: { name: true, category: true } },
     },
   });
+  return appointment && canActOnAppointment(viewer, appointment) ? appointment : null;
 }
 
 function revalidateAtendimento(appointmentId: string, clientId: string) {
@@ -61,9 +65,10 @@ export async function saveFichaAction(
   _prev: FichaState,
   formData: FormData,
 ): Promise<FichaState> {
-  const professionalId = await requireProfessionalId();
+  const viewer = await requireViewer();
+  const professionalId = viewer.professionalId;
   const appointmentId = textOrNull(formData.get("appointmentId")) ?? "";
-  const appointment = await findOwnAppointment(appointmentId, professionalId);
+  const appointment = await findOwnAppointment(appointmentId, viewer);
   if (!appointment) return { error: "Atendimento não encontrado." };
 
   const techniqueRaw = textOrNull(formData.get("technique"));
@@ -163,7 +168,8 @@ export async function uploadPhotoAction(
   _prev: PhotoState,
   formData: FormData,
 ): Promise<PhotoState> {
-  const professionalId = await requireProfessionalId();
+  const viewer = await requireViewer();
+  const professionalId = viewer.professionalId;
   const appointmentId = textOrNull(formData.get("appointmentId")) ?? "";
   const kind = formData.get("kind") === "DEPOIS" ? "DEPOIS" : "ANTES";
 
@@ -178,7 +184,7 @@ export async function uploadPhotoAction(
     return { error: "Imagem muito grande (máximo 12 MB)." };
   }
 
-  const appointment = await findOwnAppointment(appointmentId, professionalId);
+  const appointment = await findOwnAppointment(appointmentId, viewer);
   if (!appointment) return { error: "Atendimento não encontrado." };
 
   // Garante a ficha (pode fotografar antes de preencher o restante).
@@ -227,12 +233,19 @@ export async function uploadPhotoAction(
 }
 
 export async function deletePhotoAction(formData: FormData): Promise<void> {
-  const professionalId = await requireProfessionalId();
+  const viewer = await requireViewer();
   const photoId = textOrNull(formData.get("photoId")) ?? "";
   const appointmentId = textOrNull(formData.get("appointmentId")) ?? "";
 
+  // Funcionária: só fotos da ficha de um agendamento dela.
   const photo = await prisma.photo.findFirst({
-    where: { id: photoId, professionalId },
+    where: {
+      id: photoId,
+      professionalId: viewer.professionalId,
+      ...(viewer.isOwner
+        ? {}
+        : { attendanceRecord: { is: { appointment: { memberId: viewer.memberId } } } }),
+    },
   });
   if (!photo) return;
 
@@ -251,9 +264,10 @@ export async function registerPaymentAction(
   _prev: PaymentState,
   formData: FormData,
 ): Promise<PaymentState> {
-  const professionalId = await requireProfessionalId();
+  const viewer = await requireViewer();
+  const professionalId = viewer.professionalId;
   const appointmentId = textOrNull(formData.get("appointmentId")) ?? "";
-  const appointment = await findOwnAppointment(appointmentId, professionalId);
+  const appointment = await findOwnAppointment(appointmentId, viewer);
   if (!appointment) return { error: "Atendimento não encontrado." };
 
   const existing = await prisma.transaction.findFirst({
@@ -268,6 +282,17 @@ export async function registerPaymentAction(
 
   const amountCents = parseBRL(String(formData.get("amount") ?? ""));
   if (amountCents <= 0) return { error: "Informe um valor válido." };
+
+  // Funcionária: só lança recebimento de atendimento concluído e até o preço
+  // do serviço (a comissão dela sai desse valor). A dona segue livre.
+  if (!viewer.isOwner) {
+    if (appointment.status !== "CONCLUIDO") {
+      return { error: "Marque o atendimento como concluído antes de lançar o recebimento." };
+    }
+    if (amountCents > appointment.priceCents) {
+      return { error: `O valor não pode passar do preço do serviço (${formatBRL(appointment.priceCents)}).` };
+    }
+  }
 
   const method = textOrNull(formData.get("method")) ?? "";
   if (!(method in PAYMENT_METHODS)) return { error: "Escolha a forma de pagamento." };

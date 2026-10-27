@@ -441,9 +441,26 @@ async function main() {
     ],
   });
 
+  console.log("🌱 Criando equipe de teste...");
+  await prisma.teamMember.createMany({
+    data: [
+      {
+        professionalId: pid, name: "Ana Souza", email: "ana@equipe.test",
+        passwordHash: bcrypt.hashSync("ana-equipe-123", 10),
+        color: "#6f5fa8", commissionPct: 40,
+      },
+      {
+        professionalId: pid, name: "Bia Lima", email: "bia@equipe.test",
+        passwordHash: bcrypt.hashSync("bia-equipe-123", 10),
+        color: "#2f7d6d", commissionPct: 50,
+      },
+    ],
+  });
+
   console.log("✅ Seed concluído!");
   console.log("   Login: kay@kaycilios.com.br");
   console.log("   Senha: kaycilios123");
+  console.log("   Equipe: ana@equipe.test / ana-equipe-123 · bia@equipe.test / bia-equipe-123");
 }
 
 main()

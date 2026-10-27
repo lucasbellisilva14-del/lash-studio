@@ -7,7 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional, requireProfessionalId } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { parseBRL } from "@/lib/money";
 import { dayKeyToUtcStart } from "@/lib/dates";
 import { CURVATURES, PRODUCT_CATEGORIES, THICKNESSES } from "@/lib/constants";
@@ -104,6 +104,7 @@ export async function saveProductAction(
   _prev: EstoqueActionState,
   formData: FormData,
 ): Promise<EstoqueActionState> {
+  await requireOwner();
   const professional = await requireProfessional();
   const professionalId = professional.id;
   const tz = professional.timezone;
@@ -211,7 +212,7 @@ export async function registerMovementAction(
   _prev: EstoqueActionState,
   formData: FormData,
 ): Promise<EstoqueActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const typeRaw = String(formData.get("type") ?? "");
   const type = typeRaw === "ENTRADA" || typeRaw === "BAIXA" ? typeRaw : null;
@@ -289,7 +290,7 @@ export async function openGlueAction(
   _prev: EstoqueActionState,
   formData: FormData,
 ): Promise<EstoqueActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Insumo inválido." };
@@ -317,7 +318,7 @@ export async function deactivateProductAction(
   _prev: EstoqueActionState,
   formData: FormData,
 ): Promise<EstoqueActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Insumo inválido." };
@@ -339,7 +340,7 @@ export async function reactivateProductAction(
   _prev: EstoqueActionState,
   formData: FormData,
 ): Promise<EstoqueActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Insumo inválido." };

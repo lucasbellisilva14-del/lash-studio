@@ -1,5 +1,5 @@
 import { LoginForm } from "./login-form";
-import { IconCheckCircle, IconMoney, IconClock } from "@/components/ui/icons";
+import { IconCheckCircle, IconMoney, IconClock, IconLock } from "@/components/ui/icons";
 
 export const metadata = { title: "Entrar" };
 
@@ -35,7 +35,11 @@ function MarcaLashOS({ grande }: { grande?: boolean }) {
   );
 }
 
-export default function LoginPage() {
+export default async function LoginPage(props: PageProps<"/login">) {
+  const sp = await props.searchParams;
+  // Funcionária desativada pela dona: a sessão caiu em /sair?motivo=acesso.
+  const acessoEncerrado = (Array.isArray(sp.acesso) ? sp.acesso[0] : sp.acesso) === "encerrado";
+
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Painel da marca — só no PC */}
@@ -83,6 +87,15 @@ export default function LoginPage() {
             </h2>
             <p className="mt-2 text-[15px] text-ink-soft">Entre para abrir o seu estúdio.</p>
           </div>
+          {acessoEncerrado ? (
+            <div
+              role="status"
+              className="mb-6 flex items-start gap-2.5 rounded-[14px] bg-warning-soft px-4 py-3 text-[13.5px] leading-snug text-ink"
+            >
+              <IconLock width={17} height={17} className="mt-px shrink-0 text-warning" />
+              <p>Seu acesso a este estúdio foi encerrado. Fale com a responsável pelo estúdio.</p>
+            </div>
+          ) : null}
           <LoginForm />
           <p className="mt-10 text-center text-[12.5px] text-ink-faint lg:hidden">
             Feito para lash designers brasileiras 💗

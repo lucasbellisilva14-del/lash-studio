@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { messageProviderIsAutomatic } from "@/lib/providers/message";
 import { PageHeader } from "@/components/ui/page-header";
 import { NotificacoesManager } from "@/components/push/notificacoes-manager";
@@ -7,6 +7,7 @@ import { ResumoConfig } from "@/components/push/resumo-config";
 export const metadata = { title: "Notificações" };
 
 export default async function NotificacoesPage() {
+  await requireOwner();
   const professional = await requireProfessional();
 
   return (

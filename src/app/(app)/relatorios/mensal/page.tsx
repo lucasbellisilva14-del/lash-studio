@@ -2,7 +2,7 @@
  * Fechamento do mês — relatório imprimível (Salvar como PDF).
  * Identidade do estúdio (logo/cores), números do mês e detalhamentos.
  */
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { dayKeyToUtcStart, formatWithPattern } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
@@ -16,6 +16,7 @@ function capitalizar(s: string): string {
 }
 
 export default async function FechamentoPage(props: PageProps<"/relatorios/mensal">) {
+  await requireOwner();
   const professional = await requireProfessional();
   const tz = professional.timezone;
   const sp = await props.searchParams;

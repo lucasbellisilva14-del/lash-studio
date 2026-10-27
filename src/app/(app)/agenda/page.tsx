@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
 import { addDays } from "date-fns";
-import { requireProfessional } from "@/lib/session";
+import type { Prisma } from "@prisma/client";
+import { requireProfessional, requireViewer } from "@/lib/session";
+import { appointmentScope, clientScope, getTeam } from "@/lib/team";
+import {
+  ALL_KEY,
+  OWNER_KEY,
+  TEAM_COLORS,
+  parseProFilter,
+  proForMember,
+  type ProFilter,
+} from "@/lib/team-shared";
 import { dayKeyToUtcStart, formatWithPattern, localDayKey, localWeekday } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 import { AgendaScreen } from "@/components/agenda/agenda-screen";
+import { rotulosDaEquipe, toAgendaPros } from "@/components/agenda/pro";
 import type {
   AgendaCompromisso,
   AgendaConfig,
@@ -43,10 +54,38 @@ function shiftMes(key: string, delta: number): string {
 }
 
 export default async function AgendaPage(props: PageProps<"/agenda">) {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const sp = await props.searchParams;
   const tz = professional.timezone;
   const hojeKey = localDayKey(new Date(), tz);
+  const team = await getTeam(professional.id);
+  const comEquipe = team.length > 1;
+
+  // Filtro de profissional (?prof=). A dona com equipe começa em "todas"; a
+  // funcionária vê sempre só a própria agenda (o parâmetro é ignorado).
+  let filtro: ProFilter;
+  if (!viewer.isOwner) {
+    const eu = proForMember(team, viewer.memberId) ?? {
+      key: viewer.memberId ?? OWNER_KEY,
+      memberId: viewer.memberId,
+      name: viewer.name,
+      color: TEAM_COLORS[0],
+      isOwner: false,
+      bookableOnline: false,
+      commissionPct: 0,
+    };
+    filtro = { all: false, pro: eu };
+  } else {
+    filtro = comEquipe ? parseProFilter(primeiro(sp.prof), team) : { all: true };
+  }
+  const escopoAgendamentos: Prisma.AppointmentWhereInput = !viewer.isOwner
+    ? appointmentScope(viewer)
+    : filtro.all
+      ? {}
+      : { memberId: filtro.pro.memberId };
+  /** Vai em todos os links da agenda; nulo = "todas" (padrão) ou sem filtro. */
+  const prof = viewer.isOwner && !filtro.all ? filtro.pro.key : null;
 
   const rawVisao = primeiro(sp.visao);
   const visao: VisaoAgenda =
@@ -58,10 +97,26 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
   const clienteInicialId = primeiro(sp.cliente) || null;
 
   const [{ workingHours, blocks }, clientes, servicos] = await Promise.all([
-    getGradeAgenda(professional.id),
-    getClientesAgenda(professional.id),
+    getGradeAgenda(professional.id, filtro.all ? "todas" : { memberId: filtro.pro.memberId }),
+    getClientesAgenda(professional.id, clientScope(viewer)),
     getServicosAtivos(professional.id),
   ]);
+
+  // Em "todas", bloqueios de quem saiu da equipe não interessam mais.
+  const ativas = new Set(team.map((p) => p.memberId));
+  const blocksVisiveis = filtro.all
+    ? blocks.filter((b) => b.allTeam || ativas.has(b.memberId))
+    : blocks;
+  // Com equipe em "todas", o bloqueio de uma pessoa diz de quem é.
+  const rotulos = rotulosDaEquipe(team, viewer.memberId);
+  const bloqueios = blocksVisiveis.map((b) =>
+    toAgendaBloqueio(
+      b,
+      comEquipe && filtro.all && !b.allTeam
+        ? (rotulos.get(b.memberId ?? OWNER_KEY) ?? null)
+        : null,
+    ),
+  );
 
   // Grade do mês do dia aberto (semana começa na segunda): alimenta o mini
   // calendário do PC, a faixa da semana do celular e a visão Mês.
@@ -85,6 +140,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
   const semana = Array.from({ length: 7 }, (_, i) => shiftDia(inicioSemanaKey, i, tz));
 
   // Navegação e dados por visão
+  const donaNome = team[0]?.name ?? professional.name;
   let anteriorKey: string;
   let proximoKey: string;
   let compromissos: AgendaCompromisso[] = [];
@@ -93,20 +149,39 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
     anteriorKey = shiftDia(diaKey, -1, tz);
     proximoKey = shiftDia(diaKey, 1, tz);
     const start = dayKeyToUtcStart(diaKey, tz);
-    compromissos = await getCompromissosNoIntervalo(professional.id, start, addDays(start, 1));
+    compromissos = await getCompromissosNoIntervalo(
+      professional.id,
+      start,
+      addDays(start, 1),
+      escopoAgendamentos,
+      donaNome,
+    );
   } else if (visao === "semana") {
     anteriorKey = shiftDia(diaKey, -7, tz);
     proximoKey = shiftDia(diaKey, 7, tz);
     const start = dayKeyToUtcStart(inicioSemanaKey, tz);
-    compromissos = await getCompromissosNoIntervalo(professional.id, start, addDays(start, 7));
+    compromissos = await getCompromissosNoIntervalo(
+      professional.id,
+      start,
+      addDays(start, 7),
+      escopoAgendamentos,
+      donaNome,
+    );
   } else {
     anteriorKey = shiftMes(diaKey, -1);
     proximoKey = shiftMes(diaKey, 1);
     // A grade inteira: alimenta os pontos E a lista do dia selecionado.
-    compromissos = await getCompromissosNoIntervalo(professional.id, gridStart, gridEnd);
+    compromissos = await getCompromissosNoIntervalo(
+      professional.id,
+      gridStart,
+      gridEnd,
+      escopoAgendamentos,
+      donaNome,
+    );
   }
 
-  // Contagem por dia na grade (pontos do calendário e da faixa da semana)
+  // Contagem por dia na grade (pontos do calendário e da faixa da semana),
+  // sempre dentro do filtro de profissional.
   const inicios =
     visao === "mes"
       ? compromissos
@@ -116,6 +191,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
           await prisma.appointment.findMany({
             where: {
               professionalId: professional.id,
+              AND: [escopoAgendamentos],
               startAt: { gte: gridStart, lt: gridEnd },
               status: { in: [...BLOCKING_STATUSES] },
             },
@@ -160,10 +236,17 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
       clientes={clientes}
       servicos={servicos}
       horarios={workingHours.map(toHorarioFuncionamento)}
-      bloqueios={blocks.map(toAgendaBloqueio)}
+      bloqueios={bloqueios}
       config={config}
       novoInicial={novoInicial}
       clienteInicialId={clienteInicialId}
+      viewer={{ isOwner: viewer.isOwner, memberId: viewer.memberId }}
+      comEquipe={comEquipe}
+      // A dona recebe a equipe ativa (só ela, sem equipe): destinos do "Trocar
+      // profissional" — inclusive para tirar horários de quem foi desativada.
+      equipe={viewer.isOwner ? toAgendaPros(team, viewer.memberId) : []}
+      filtroKey={filtro.all ? ALL_KEY : filtro.pro.key}
+      prof={prof}
     />
   );
 }

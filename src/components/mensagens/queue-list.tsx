@@ -20,6 +20,7 @@ import {
   IconWhatsApp,
 } from "@/components/ui/icons";
 import { IconSend } from "@/components/mensagens/icons";
+import { ProChip, type ProView } from "@/components/home/pro-avatar";
 import { cn } from "@/lib/cn";
 import type { TemplateKind } from "@/lib/constants";
 import {
@@ -42,6 +43,8 @@ export type QueueListItem = {
   refDate: string;
   /** Linha de contexto pronta (ex.: "Amanhã às 14:00 · Volume brasileiro"). */
   meta: string | null;
+  /** Com equipe, na visão da dona: aviso de outra profissional ("com Ana"). */
+  pro?: ProView | null;
 };
 
 /** Mensagem que saiu hoje (aba "Feitas hoje"). */
@@ -331,7 +334,12 @@ function QueueRow({
             <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{item.meta}</p>
           ) : null}
         </div>
-        {showKind ? <Badge className="shrink-0">{item.kindLabel}</Badge> : null}
+        {showKind || item.pro ? (
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            {showKind ? <Badge>{item.kindLabel}</Badge> : null}
+            {item.pro ? <ProChip pro={item.pro} /> : null}
+          </div>
+        ) : null}
       </div>
 
       <MessagePreview body={item.body} className="mt-3" />

@@ -17,6 +17,7 @@ export function NextAppointmentCard({
   label,
   tz,
   agendaHref,
+  proLabel = null,
 }: {
   startAt: Date;
   endAt: Date;
@@ -27,6 +28,8 @@ export function NextAppointmentCard({
   label: string | null;
   tz: string;
   agendaHref: string;
+  /** Com equipe, na visão da dona: "com Ana" quando o horário é de outra profissional. */
+  proLabel?: string | null;
 }) {
   const primeiroNome = clientName.trim().split(/\s+/)[0];
   const zap = clientPhone ? waLink(clientPhone, `Oi, ${primeiroNome}! Te espero às ${formatTime(startAt, tz)}.`) : null;
@@ -64,7 +67,9 @@ export function NextAppointmentCard({
           </span>
         ) : null}
       </p>
-      <p className="mt-0.5 truncate text-[14px] text-white/70">{serviceName}</p>
+      <p className="mt-0.5 truncate text-[14px] text-white/70">
+        {proLabel ? `${serviceName} · ${proLabel}` : serviceName}
+      </p>
 
       <div className="mt-5 flex gap-2">
         {zap ? (

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import { requireProfessional } from "@/lib/session";
+import { requireProfessional, requireViewer } from "@/lib/session";
+import { getTeam } from "@/lib/team";
+import { firstName } from "@/lib/team-shared";
 import { acessoBloqueado } from "@/lib/domain/subscription";
 import { diffLocalDays, formatDate } from "@/lib/dates";
 import { BottomNav } from "@/components/shell/bottom-nav";
@@ -9,19 +11,35 @@ import { DesktopRail } from "@/components/shell/desktop-rail";
 import { PullToRefresh } from "@/components/shell/pull-to-refresh";
 import { TrialBanner, type TrialBannerInfo } from "@/components/shell/trial-banner";
 import { ContentFrame, RailSlot } from "@/components/shell/content-frame";
+import { sairDaConta } from "@/components/shell/sign-out-action";
+import { Button } from "@/components/ui/button";
+import { IconLock, IconLogout } from "@/components/ui/icons";
 
 /**
  * Shell autenticado — app de trabalho neutro (a cor do estúdio vale só no
  * link público). Celular: coluna única + barra inferior. PC (lg+): menu
  * lateral com nomes, conteúdo e coluna de resumo (some na agenda).
+ * A funcionária (equipe) vê a navegação dela, sem gestão do estúdio.
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
 
-  // Trava de assinatura: vencida/suspensa → tela de renovação (dados intactos).
-  if (acessoBloqueado(professional)) redirect("/assinatura");
+  // Trava de assinatura: vencida/suspensa. A dona vai para a renovação (dados
+  // intactos); a assinatura é só dela, então a equipe vê o aviso aqui mesmo.
+  if (acessoBloqueado(professional)) {
+    if (viewer.isOwner) redirect("/assinatura");
+    return <AcessoPausado donaNome={professional.name} studioName={professional.studioName} />;
+  }
 
-  const banner = bannerDaAssinatura(professional);
+  const banner = viewer.isOwner ? bannerDaAssinatura(professional) : null;
+
+  // "Copiar meu link" da funcionária só faz sentido se ela atende pelo link.
+  const noLink = viewer.isOwner
+    ? true
+    : Boolean(
+        (await getTeam(professional.id)).find((p) => p.memberId === viewer.memberId)?.bookableOnline,
+      );
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -30,6 +48,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         professionalName={professional.name}
         logoUrl={professional.logoUrl}
         slug={professional.slug}
+        viewer={{ isOwner: viewer.isOwner, name: viewer.name, memberId: viewer.memberId }}
+        noLink={noLink}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -45,9 +65,35 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </div>
 
       <div className="lg:hidden">
-        <BottomNav />
+        <BottomNav isOwner={viewer.isOwner} />
       </div>
       <PwaRegister />
+    </div>
+  );
+}
+
+/** Funcionária com o estúdio bloqueado: só a dona resolve a assinatura. */
+function AcessoPausado({ donaNome, studioName }: { donaNome: string; studioName: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
+      <div className="mx-auto w-full max-w-sm text-center">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-[18px] bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
+          <IconLock width={24} height={24} />
+        </span>
+        <p className="mt-6 text-[13px] font-semibold text-ink-soft">{studioName}</p>
+        <h1 className="mt-1.5 text-[28px] font-bold leading-[1.12] tracking-[-0.035em] text-ink text-balance">
+          O acesso do estúdio está pausado
+        </h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+          Fale com {firstName(donaNome)}. Quando o acesso voltar, o app abre do jeito que estava.
+        </p>
+        <form action={sairDaConta} className="mt-8">
+          <Button type="submit" variant="secondary">
+            <IconLogout width={18} height={18} />
+            Sair da conta
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

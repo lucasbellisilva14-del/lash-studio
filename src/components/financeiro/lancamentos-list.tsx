@@ -16,6 +16,7 @@ import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "@/lib/constants";
 import { formatBRL } from "@/lib/money";
 import { ExpenseSheet } from "./expense-sheet";
 import { IconRepeat } from "./icons";
+import { ProDot } from "./pro-avatar";
 import type { ExpenseDraft, LancamentoItem } from "./types";
 
 function kindBadge(item: LancamentoItem) {
@@ -48,10 +49,14 @@ function RowContent({ item, withChevron }: { item: LancamentoItem; withChevron?:
               Fixa mensal
             </Badge>
           ) : null}
+          {item.pro ? (
+            <span className="inline-flex h-6 items-center gap-1.5 rounded-full px-1 text-[12px] font-semibold text-ink-soft">
+              <ProDot color={item.pro.color} />
+              {item.pro.label}
+            </span>
+          ) : null}
         </div>
-        <p className="mt-1 truncate text-[15px] font-medium text-ink">
-          {item.description}
-        </p>
+        <p className="mt-1 truncate text-[15px] font-medium text-ink">{item.description}</p>
         <p className="mt-0.5 text-xs text-ink-faint">
           {item.dateLabel}
           {methodLabel ? ` · ${methodLabel}` : ""}
@@ -61,14 +66,14 @@ function RowContent({ item, withChevron }: { item: LancamentoItem; withChevron?:
       <div className="shrink-0 text-right">
         <p
           className={cn(
-            "text-[15px] font-semibold",
+            "text-[15px] font-semibold tabular-nums",
             isReceita ? "text-success" : "text-danger",
           )}
         >
           {isReceita ? formatBRL(item.amountCents) : `− ${formatBRL(item.amountCents)}`}
         </p>
         {item.netCents !== item.amountCents ? (
-          <p className="mt-0.5 text-[11px] text-ink-faint">
+          <p className="mt-0.5 text-[11px] tabular-nums text-ink-faint">
             líquido {formatBRL(item.netCents)}
           </p>
         ) : null}
@@ -84,28 +89,28 @@ function RowContent({ item, withChevron }: { item: LancamentoItem; withChevron?:
 export function LancamentosList({
   items,
   todayKey,
+  emptyTitle = "Nenhum lançamento neste mês",
+  emptyText = "Recebimentos entram sozinhos pela agenda e pela ficha do atendimento. Despesas você lança no botão Despesa, no topo.",
 }: {
   items: LancamentoItem[];
-  /** "yyyy-MM-dd" de hoje (data padrão ao editar/criar despesa). */
+  /** "yyyy-MM-dd" de hoje (data padrão ao editar despesa). */
   todayKey: string;
+  emptyTitle?: string;
+  emptyText?: string;
 }) {
   const [editing, setEditing] = useState<ExpenseDraft | null>(null);
 
   if (items.length === 0) {
     return (
       <Card>
-        <EmptyState
-          icon={<IconMoney />}
-          title="Nenhum lançamento neste mês"
-          description="Receitas entram sozinhas pela agenda e pela ficha do atendimento. Despesas você lança no botão abaixo."
-        />
+        <EmptyState icon={<IconMoney />} title={emptyTitle} description={emptyText} />
       </Card>
     );
   }
 
   return (
     <>
-      <Card>
+      <Card className="overflow-hidden">
         <ul className="divide-y divide-line">
           {items.map((item) => (
             <li key={item.id}>
@@ -122,14 +127,14 @@ export function LancamentosList({
                       recurrence: item.recurrence,
                     })
                   }
-                  className="w-full text-left transition-colors active:bg-surface-sunken"
+                  className="w-full text-left transition-colors hover:bg-surface-muted active:bg-surface-sunken"
                 >
                   <RowContent item={item} />
                 </button>
               ) : item.appointmentId ? (
                 <Link
                   href={`/atendimentos/${item.appointmentId}`}
-                  className="block transition-colors active:bg-surface-sunken"
+                  className="block transition-colors hover:bg-surface-muted active:bg-surface-sunken"
                 >
                   <RowContent item={item} withChevron />
                 </Link>

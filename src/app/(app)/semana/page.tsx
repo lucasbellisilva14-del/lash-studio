@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { formatBRL } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { ShareSemana } from "./share-semana";
 export const metadata = { title: "Sua semana" };
 
 export default async function SemanaPage() {
+  await requireOwner();
   const professional = await requireProfessional();
   const resumo = await getResumoSemana(professional.id, professional.timezone);
 

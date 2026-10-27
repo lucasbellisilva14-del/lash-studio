@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireProfessional, requireViewer } from "@/lib/session";
+import { clientScope } from "@/lib/team";
 import { formatDate } from "@/lib/dates";
 import {
   ANAMNESIS_LIMITS,
@@ -15,11 +16,12 @@ import { parseContraindicationFlags } from "@/components/clientes/contraindicati
 
 export default async function AnamnesePage(props: PageProps<"/clientes/[id]/anamnese">) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const professional = await requireProfessional();
+  const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
   const tz = professional.timezone;
 
+  // Funcionária: só clientes do escopo dela (cadastrou ou tem/teve horário).
   const client = await prisma.client.findFirst({
-    where: { id, professionalId: professional.id },
+    where: { id, professionalId: professional.id, ...clientScope(viewer) },
     include: { anamnesisForm: true },
   });
   if (!client) notFound();
@@ -71,6 +73,7 @@ export default async function AnamnesePage(props: PageProps<"/clientes/[id]/anam
           naturalInitial={form?.naturalLashCondition ?? null}
           hasExistingSignature={signatures.length > 0}
           lastSignedAtLabel={signatures[0] ? formatDate(signatures[0].signedAt, tz) : null}
+          canEditModel={viewer.isOwner}
           limits={{
             detail: ANAMNESIS_LIMITS.detail,
             shortAnswer: ANAMNESIS_LIMITS.shortAnswer,

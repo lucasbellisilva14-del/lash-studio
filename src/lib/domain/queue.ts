@@ -2,17 +2,45 @@
  * Fila do dia: todas as mensagens de WhatsApp que devem sair hoje.
  * Cada item já vem com o texto renderizado e o link wa.me pronto.
  * Dedup: MessageLog (kind + appointmentId/refDate) marca o que já saiu.
+ *
+ * Equipe: a fila é montada para o estúdio inteiro (as regras de "volta" olham
+ * todos os horários da cliente) e cada item diz de quem é (memberId, nulo =
+ * a dona). Telas usam getMessageQueueForViewer: a dona vê tudo; a funcionária,
+ * só os avisos dela.
  */
 import { cache } from "react";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import type { Viewer } from "@/lib/session";
 import { LASH_CYCLE_CATEGORIES, type ServiceCategory, type TemplateKind } from "@/lib/constants";
 import { dayKeyToUtcStart, diffLocalDays, localDayKey } from "@/lib/dates";
 import { renderTemplate } from "@/lib/domain/templates";
 import { waLink } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
+
+/**
+ * De quem é cada tipo de aviso (equipe; memberId nulo = a dona):
+ * - "agendamento": confirmação, lembrete, pós e remarcar → quem atende aquele horário;
+ * - "ancora": manutenção e retorno → quem fez o atendimento que originou o aviso
+ *   (o último daquela cliente no ciclo dos cílios / naquela categoria);
+ * - "dona": aniversário e resgate, que não têm horário de ninguém → a dona.
+ */
+export type QueueOwnerRule = "agendamento" | "ancora" | "dona";
+
+export const QUEUE_KIND_OWNER: Record<TemplateKind, QueueOwnerRule> = {
+  CONFIRMACAO: "agendamento",
+  LEMBRETE_24H: "agendamento",
+  POS_APLICACAO: "agendamento",
+  REMARCAR: "agendamento",
+  MANUTENCAO: "ancora",
+  RETORNO: "ancora",
+  ANIVERSARIO: "dona",
+  RESGATE_45: "dona",
+  RESGATE_60: "dona",
+  RESGATE_90: "dona",
+};
 
 export type QueueItem = {
   /** Chave sintética estável do item (para dedup/ações). */
@@ -33,6 +61,8 @@ export type QueueItem = {
   anchorStatus: string | null;
   /** Dias desde o atendimento-âncora (manutenção, retorno, resgate, remarcar). */
   daysSince: number | null;
+  /** De quem é o aviso (regra em QUEUE_KIND_OWNER): nulo = a dona. */
+  memberId: string | null;
 };
 
 /** Rótulos curtos dos tipos na fila (cartões, abas, "Feitas hoje"). */
@@ -123,6 +153,24 @@ export const getMessageQueueCached = cache((professionalId: string) =>
   buildMessageQueue(professionalId),
 );
 
+/** Só os avisos de uma funcionária (sobre a mesma fila memoizada do estúdio). */
+const getMemberQueueCached = cache(
+  async (professionalId: string, memberId: string): Promise<QueueItem[]> =>
+    (await getMessageQueueCached(professionalId)).filter((item) => item.memberId === memberId),
+);
+
+/**
+ * Fila de quem está logada (memoizada por request): a dona vê o estúdio
+ * inteiro; a funcionária, só os avisos dela (QUEUE_KIND_OWNER).
+ */
+export function getMessageQueueForViewer(
+  viewer: Pick<Viewer, "professionalId" | "memberId" | "isOwner">,
+): Promise<QueueItem[]> {
+  if (viewer.isOwner) return getMessageQueueCached(viewer.professionalId);
+  if (!viewer.memberId) return Promise.resolve([]);
+  return getMemberQueueCached(viewer.professionalId, viewer.memberId);
+}
+
 export async function buildMessageQueue(
   professionalId: string,
   now = new Date(),
@@ -160,6 +208,8 @@ export async function buildMessageQueue(
     refDate: Date;
     ctx: Parameters<typeof renderTemplate>[1];
     info?: { serviceName?: string | null; anchorStatus?: string | null; daysSince?: number | null };
+    /** Quem atende o horário-âncora (nulo = a dona). Ignorado nos avisos da dona. */
+    memberId?: string | null;
   }) {
     const template = templateByKind.get(params.kind);
     if (!template) return;
@@ -189,6 +239,7 @@ export async function buildMessageQueue(
       serviceName: params.info?.serviceName ?? null,
       anchorStatus: params.info?.anchorStatus ?? null,
       daysSince: params.info?.daysSince ?? null,
+      memberId: QUEUE_KIND_OWNER[params.kind] === "dona" ? null : (params.memberId ?? null),
     });
   }
 
@@ -219,6 +270,7 @@ export async function buildMessageQueue(
         pixCopiaECola: appt.pixCopiaCola,
       },
       info: { serviceName: appt.service.name },
+      memberId: appt.memberId,
     });
   }
 
@@ -246,6 +298,7 @@ export async function buildMessageQueue(
         priceCents: appt.priceCents,
       },
       info: { serviceName: appt.service.name },
+      memberId: appt.memberId,
     });
   }
 
@@ -269,6 +322,7 @@ export async function buildMessageQueue(
       refDate: appt.startAt,
       ctx: { clientName: appt.client.name, serviceName: appt.service.name },
       info: { serviceName: appt.service.name },
+      memberId: appt.memberId,
     });
   }
 
@@ -299,6 +353,7 @@ export async function buildMessageQueue(
           id: true,
           status: true,
           startAt: true,
+          memberId: true,
           service: { select: { name: true, category: true, returnDays: true } },
         },
         orderBy: { startAt: "desc" },
@@ -376,6 +431,7 @@ export async function buildMessageQueue(
           anchorStatus: missed.status,
           daysSince: diffLocalDays(missed.startAt, now, tz),
         },
+        memberId: missed.memberId,
       });
     }
 
@@ -400,6 +456,7 @@ export async function buildMessageQueue(
         refDate: lastLash.startAt,
         ctx: { clientName: client.name, serviceName: lastLash.service.name },
         info: { serviceName: lastLash.service.name, daysSince: lashDays },
+        memberId: lastLash.memberId,
       });
     }
 
@@ -431,6 +488,7 @@ export async function buildMessageQueue(
         refDate: retorno.appt.startAt,
         ctx: { clientName: client.name, serviceName: retorno.appt.service.name },
         info: { serviceName: retorno.appt.service.name, daysSince: retorno.dias },
+        memberId: retorno.appt.memberId,
       });
     }
 

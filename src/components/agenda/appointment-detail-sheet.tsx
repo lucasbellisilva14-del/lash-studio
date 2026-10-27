@@ -1,12 +1,17 @@
 "use client";
 
-/** Sheet de detalhe de um agendamento + ações (sinal, concluir, falta, cancelar, reagendar). */
+/**
+ * Sheet de detalhe de um agendamento + ações (sinal, concluir, falta, cancelar,
+ * reagendar). Com equipe, mostra quem atende; a dona pode passar o atendimento
+ * para outra profissional (o horário é conferido na agenda dela).
+ */
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { AppointmentStatusBadge, Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import { IconWhatsApp } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { hapticSuccess } from "@/lib/haptics";
@@ -28,23 +33,47 @@ import {
   reagendarAgendamento,
   reverterStatus,
   sinalRecebido,
+  trocarProfissional,
 } from "@/app/(app)/agenda/actions";
-import type { AgendaCompromisso, AgendaConfig, AgendaServico, EsperaChamada } from "./types";
+import type {
+  AgendaCompromisso,
+  AgendaConfig,
+  AgendaPro,
+  AgendaServico,
+  AgendaViewer,
+  EsperaChamada,
+} from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
 import { somarDiasKey } from "./new-appointment-sheet";
+import { ProAvatar, ProDot, rotuloQuemAtende } from "./pro";
 
-type Modo = "detalhe" | "cancelar" | "falta" | "reagendar" | "espera" | "manutencao";
+type Modo =
+  | "detalhe"
+  | "cancelar"
+  | "falta"
+  | "reagendar"
+  | "espera"
+  | "manutencao"
+  | "profissional";
 
 export function AppointmentDetailSheet({
   compromisso,
   onClose,
   config,
   servicos,
+  viewer,
+  comEquipe = false,
+  equipe = [],
 }: {
   compromisso: AgendaCompromisso | null;
   onClose: () => void;
   config: AgendaConfig;
   servicos: AgendaServico[];
+  viewer: AgendaViewer;
+  /** O estúdio tem equipe: mostra quem atende. */
+  comEquipe?: boolean;
+  /** Equipe ativa, destinos do "Trocar profissional" — só a dona recebe. */
+  equipe?: AgendaPro[];
 }) {
   const tz = config.timezone;
   const [modo, setModo] = useState<Modo>("detalhe");
@@ -65,6 +94,9 @@ export function AppointmentDetailSheet({
   const [slotsManut, setSlotsManut] = useState<string[] | null>(null);
   const [avisoManut, setAvisoManut] = useState<string | null>(null);
 
+  // Trocar profissional (só a dona)
+  const [novaPro, setNovaPro] = useState<string | null>(null);
+
   const id = compromisso?.id ?? null;
   const aberto = compromisso !== null;
   useEffect(() => {
@@ -75,6 +107,7 @@ export function AppointmentDetailSheet({
     setNovoDia(localDayKey(new Date(compromisso.inicio), tz));
     setNovaHora("");
     setSlots(null);
+    setNovaPro(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, aberto]);
 
@@ -97,18 +130,20 @@ export function AppointmentDetailSheet({
       ? servicos.find((s) => s.manutencaoDeId === compromisso.servico.id) ?? null
       : null;
 
+  // A manutenção fica com quem fez a aplicação: horários livres da agenda dela.
   const manutServicoId = manutServico?.id ?? null;
+  const proDaAplicacao = compromisso?.profissional.key;
   useEffect(() => {
     if (modo !== "manutencao" || !manutServicoId || !diaManut) return;
     let ativo = true;
     setSlotsManut(null);
-    horariosLivres({ dia: diaManut, servicoId: manutServicoId })
+    horariosLivres({ dia: diaManut, servicoId: manutServicoId, profissional: proDaAplicacao })
       .then((r) => ativo && setSlotsManut(r.slots))
       .catch(() => ativo && setSlotsManut([]));
     return () => {
       ativo = false;
     };
-  }, [modo, manutServicoId, diaManut]);
+  }, [modo, manutServicoId, diaManut, proDaAplicacao]);
 
   if (!compromisso) return null;
 
@@ -118,6 +153,21 @@ export function AppointmentDetailSheet({
   const ativo = c.status === "PRE_AGENDADO" || c.status === "CONFIRMADO";
   const tardio =
     inicio.getTime() - Date.now() < config.cancellationWindowHours * 3_600_000;
+  // Quem atende: com equipe, sempre; sem equipe ativa, só nos horários que
+  // ficaram com alguém que foi desativada.
+  const rotuloQuem =
+    comEquipe || c.profissional.memberId !== null
+      ? rotuloQuemAtende(c.profissional, equipe, viewer.memberId)
+      : null;
+  /** Só a dona passa o atendimento para outra profissional ativa (ou para ela). */
+  const destinosPro = viewer.isOwner ? equipe.filter((p) => p.key !== c.profissional.key) : [];
+  const podeTrocarPro = destinosPro.length > 0 && (ativo || c.status === "CONCLUIDO");
+  /** Horário de quem saiu da equipe: a manutenção só depois de trocar a profissional. */
+  const proForaDaEquipe =
+    viewer.isOwner &&
+    c.profissional.memberId !== null &&
+    !equipe.some((p) => p.memberId === c.profissional.memberId);
+  const proDestino = novaPro ? (equipe.find((p) => p.key === novaPro) ?? null) : null;
 
   function rodarAcao(fn: () => Promise<{ ok: boolean; erro?: string } | void>) {
     setErro(null);
@@ -213,6 +263,24 @@ export function AppointmentDetailSheet({
     });
   }
 
+  function abrirTrocaPro() {
+    setNovaPro(null);
+    setErro(null);
+    setModo("profissional");
+  }
+
+  function confirmarTrocaPro() {
+    if (!proDestino) return;
+    rodarAcao(async () => {
+      const res = await trocarProfissional({ id: c.id, profissional: proDestino.key });
+      if (res.ok) {
+        hapticSuccess();
+        onClose();
+      }
+      return res;
+    });
+  }
+
   function confirmarReagendamento() {
     if (!novaHora) return;
     rodarAcao(async () => {
@@ -240,7 +308,9 @@ export function AppointmentDetailSheet({
           ? "Lista de espera"
           : modo === "manutencao"
             ? "Programar manutenção"
-            : "Agendamento"
+            : modo === "profissional"
+              ? "Trocar profissional"
+              : "Agendamento"
       }
       tall={modo === "reagendar" || modo === "manutencao"}
     >
@@ -292,6 +362,26 @@ export function AppointmentDetailSheet({
               <p className="text-sm text-ink-soft tabular-nums">
                 {formatTime(inicio, tz)}–{formatTime(fim, tz)} · {c.servico.nome}
               </p>
+              {rotuloQuem ? (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-ink">
+                    <ProAvatar nome={c.profissional.nome} cor={c.profissional.cor} size={20} />
+                    <span className="truncate">
+                      Com {rotuloQuem === "Você" ? "você" : rotuloQuem}
+                    </span>
+                  </span>
+                  {podeTrocarPro && modo === "detalhe" ? (
+                    <button
+                      type="button"
+                      onClick={abrirTrocaPro}
+                      disabled={pendente}
+                      className="shrink-0 rounded-full px-2.5 py-1 text-[13px] font-semibold text-ink-soft hover:bg-surface-sunken hover:text-ink disabled:opacity-45"
+                    >
+                      Trocar profissional
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <AppointmentStatusBadge status={c.status} />
           </div>
@@ -365,7 +455,7 @@ export function AppointmentDetailSheet({
                       disabled={pendente}
                     >
                       {pixCopiado
-                        ? "Código Pix copiado ✓"
+                        ? "Código Pix copiado"
                         : `Copiar Pix do sinal (${formatBRL(c.sinalCents)})`}
                     </Button>
                   ) : null}
@@ -419,14 +509,14 @@ export function AppointmentDetailSheet({
                   Abrir ficha técnica
                 </Link>
               ) : null}
-              {manutServico && (ativo || c.status === "CONCLUIDO") ? (
+              {manutServico && !proForaDaEquipe && (ativo || c.status === "CONCLUIDO") ? (
                 <Button
                   size="lg"
                   variant="secondary"
                   onClick={abrirManutencao}
                   disabled={pendente}
                 >
-                  💗 Programar manutenção
+                  Programar manutenção
                 </Button>
               ) : null}
               {c.status === "FALTOU" ? (
@@ -476,8 +566,9 @@ export function AppointmentDetailSheet({
                 </p>
               ) : (
                 <p className="text-sm text-ink-soft bg-surface-sunken/70 rounded-xl px-3.5 py-3">
-                  O horário será liberado na agenda. Se houver clientes na lista de
-                  espera para esse período, você poderá chamá-las em seguida.
+                  {viewer.isOwner
+                    ? "O horário será liberado na agenda. Se houver clientes na lista de espera para esse período, você poderá chamá-las em seguida."
+                    : "O horário será liberado na sua agenda."}
                 </p>
               )}
               <Button
@@ -487,6 +578,54 @@ export function AppointmentDetailSheet({
                 disabled={pendente}
               >
                 {pendente ? "Cancelando..." : "Confirmar cancelamento"}
+              </Button>
+              <Button size="lg" variant="ghost" onClick={() => setModo("detalhe")}>
+                Voltar
+              </Button>
+            </div>
+          ) : null}
+
+          {/* Trocar a profissional (só a dona com equipe) */}
+          {modo === "profissional" && podeTrocarPro ? (
+            <div className="space-y-4">
+              <div>
+                <p id="troca-pro-rotulo" className="mb-2 text-[13px] font-semibold text-ink">
+                  Passar o atendimento para
+                </p>
+                <div role="group" aria-labelledby="troca-pro-rotulo" className="flex flex-wrap gap-2">
+                  {destinosPro.map((p) => {
+                    const marcada = p.key === novaPro;
+                    return (
+                      <Chip
+                        key={p.key}
+                        size="sm"
+                        selected={marcada}
+                        onClick={() => setNovaPro(p.key)}
+                        className="h-9 px-3.5 text-[13.5px]"
+                      >
+                        <ProDot
+                          cor={p.cor}
+                          className={cn("ring-[1.5px]", marcada ? "ring-accent-ink" : "ring-surface")}
+                        />
+                        {p.rotulo}
+                      </Chip>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                  O mesmo horário é conferido na agenda dela, e a comissão passa a ser a dela.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                onClick={confirmarTrocaPro}
+                disabled={!proDestino || pendente}
+              >
+                {pendente
+                  ? "Trocando..."
+                  : proDestino
+                    ? `Passar para ${proDestino.rotulo === "Você" ? "você" : proDestino.rotulo}`
+                    : "Escolha a profissional"}
               </Button>
               <Button size="lg" variant="ghost" onClick={() => setModo("detalhe")}>
                 Voltar

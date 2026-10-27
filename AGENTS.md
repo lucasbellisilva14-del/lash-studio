@@ -57,6 +57,20 @@ Web app de gestão para lash designers autônomas no Brasil. **Tudo em pt-BR** (
 - Fotos: chave `newStorageKey(professionalId, "fotos", contentType)`, gravar `Photo` no banco, exibir com `<img src={"/api/uploads/" + storageKey}>`.
 - Mensagem enviada = criar `MessageLog` (kind, clientId, appointmentId?, templateId?, body, refDate, status ENVIADA, sentAt).
 
+## Equipe (multi-profissional) — contratos
+
+O estúdio (`Professional`) pode ter funcionárias (`TeamMember`) com **login próprio**. Em todo o app, **`memberId` nulo = a dona**.
+
+- **Quem está logada**: `requireViewer()` → `{ professionalId, memberId, isOwner, name }`. `requireProfessionalId()`/`requireProfessional()` continuam devolvendo o **estúdio** (para a dona e para a equipe) — multi-tenant intacto.
+- **Só da dona**: páginas e server actions de configurações, equipe, serviços, estoque, despesas/metas, relatórios do estúdio, conquistas, ferramentas, modelos de mensagem, lista de espera, exportação, calendário e assinatura chamam `requireOwner()` (funcionária volta para `/`).
+- **Escopos** (`@/lib/team`, server): `appointmentScope(viewer)` (funcionária só vê os agendamentos dela), `clientScope(viewer)` (as clientes que cadastrou ou com quem tem/teve horário), `canActOnAppointment(viewer, appt)`, `blockScopeFor(memberId)`, `getTeam(professionalId)` (dona primeiro + equipe ativa), `hasTeam`, `commissionSnapshot(team, memberId)`, `isEmailTaken`, `newToken`/`hashToken`/`INVITE_TTL_MS`.
+- **Tipos e regras puras** (`@/lib/team-shared`, serve no client): `TeamPro`, `OWNER_KEY` ("dona"), `ALL_KEY` ("todas"), `OWNER_COLOR`, `TEAM_COLORS`, `proLabel` ("Você" para quem está logada), `firstName`, `initials`, `parseProFilter` (filtro `?prof=` nas URLs).
+- **Schema**: `TeamMember` (convite, senha, cor, `commissionPct`, `bookableOnline`, `active`), `Appointment.memberId` + `commissionPct` (congelado ao criar ou trocar de profissional — use `commissionSnapshot`), `ScheduleBlock.memberId` + `allTeam` (estúdio inteiro), `Client.createdByMemberId`, `MessageLog.sentByMemberId` (quem registrou o envio), `Professional.ownerBookable`.
+- **Agenda por profissional**: conflito e buffer valem **por profissional** — passe a `validateSlot`/`freeSlotsForDay` só os agendamentos daquela `memberId` e os bloqueios de `blockScopeFor(memberId)`. O horário de funcionamento é o do estúdio.
+- **Financeiro por profissional**: a receita de uma profissional vem das transações com `appointment: { is: { memberId } }`. A comissão é `netCents × appointment.commissionPct / 100`. Receitas sem agendamento e despesas são do estúdio e só aparecem em "Estúdio todo".
+- **Sem equipe nada muda**: se `hasTeam` é falso, nenhuma tela mostra seletor, filtro ou nome de profissional.
+- **Rotas**: `/config/equipe` (dona), `/convite/[token]` (pública: a funcionária cria a senha), `/sair` (encerra a sessão; `requireViewer` manda para cá quem foi desativada), `/agenda?prof=<todas|dona|memberId>` (filtro da dona), `/agendar/[slug]?com=<dona|memberId>` (link público já com a profissional escolhida), `/financeiro?aba=<visao|lancamentos|comissoes>&prof=…`.
+
 ## Regras de trabalho
 
 - Não modifique arquivos compartilhados (`src/lib/**`, `src/components/ui/**` exceto `icons.tsx`, layouts, proxy, schema) — se faltar algo, crie no SEU módulo em `src/components/<modulo>/` ou relate no resultado final.

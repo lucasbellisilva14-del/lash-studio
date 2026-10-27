@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireProfessional, requireViewer } from "@/lib/session";
+import { canActOnAppointment } from "@/lib/team";
 import { formatBRL } from "@/lib/money";
 import { formatDate, formatDateLong, formatDateTime, formatTime, localDayKey } from "@/lib/dates";
 import {
@@ -37,7 +38,7 @@ const clampMm = (v: number) =>
 export default async function AtendimentoPage(
   props: PageProps<"/atendimentos/[appointmentId]">,
 ) {
-  const professional = await requireProfessional();
+  const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
   const { appointmentId } = await props.params;
   const tz = professional.timezone;
 
@@ -51,7 +52,8 @@ export default async function AtendimentoPage(
       },
     },
   });
-  if (!appointment) notFound();
+  // Funcionária: só a ficha dos horários dela (as anteriores ela lê no perfil da cliente).
+  if (!appointment || !canActOnAppointment(viewer, appointment)) notFound();
 
   const [lastRecord, glueRows, transaction, fees] = await Promise.all([
     prisma.attendanceRecord.findFirst({

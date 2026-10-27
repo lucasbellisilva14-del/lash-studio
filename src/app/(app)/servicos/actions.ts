@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { parseBRL } from "@/lib/money";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
 import {
@@ -55,7 +55,7 @@ export async function saveService(
   _prev: ServiceActionState,
   formData: FormData,
 ): Promise<ServiceActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = serviceSchema.safeParse({
     id: (formData.get("id") as string | null) || null,
@@ -171,7 +171,7 @@ export async function deactivateService(
   _prev: ServiceActionState,
   formData: FormData,
 ): Promise<ServiceActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Serviço inválido." };
@@ -206,7 +206,7 @@ export async function reactivateService(
   _prev: ServiceActionState,
   formData: FormData,
 ): Promise<ServiceActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Serviço inválido." };

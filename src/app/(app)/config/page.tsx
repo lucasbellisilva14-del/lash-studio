@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireProfessional } from "@/lib/session";
+import { requireProfessional, requireViewer } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
 import { SupportButton } from "@/components/shell/support";
+import { sairDaConta } from "@/components/shell/sign-out-action";
 import {
   IconBell,
   IconCalendar,
@@ -16,8 +17,10 @@ import {
   IconChevronRight,
   IconClock,
   IconLock,
+  IconLogout,
   IconMoney,
   IconNote,
+  IconTeam,
 } from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
@@ -56,11 +59,52 @@ function Grupo({ titulo, itens }: { titulo: string; itens: Item[] }) {
   );
 }
 
+/** Funcionária: só a senha dela, o suporte e sair. O resto é do estúdio (da dona). */
+function ConfigDaEquipe() {
+  return (
+    <div>
+      <PageHeader
+        title="Configurações"
+        subtitle="Sua senha de acesso e ajuda com o app."
+        backHref="/mais"
+      />
+      <div className="space-y-6">
+        <Grupo
+          titulo="Sua conta"
+          itens={[
+            {
+              href: "/config/senha",
+              label: "Sua senha",
+              description: "Troque a senha do seu login",
+              icon: IconLock,
+            },
+          ]}
+        />
+        <Card className="overflow-hidden">
+          <SupportButton variant="row" />
+        </Card>
+        <form action={sairDaConta}>
+          <button
+            type="submit"
+            className="mx-auto flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold text-ink-soft hover:bg-danger-soft hover:text-danger transition-colors"
+          >
+            <IconLogout width={18} height={18} />
+            Sair da conta
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default async function ConfigPage() {
+  const viewer = await requireViewer();
+  if (!viewer.isOwner) return <ConfigDaEquipe />;
+
   const professional = await requireProfessional();
   const tz = professional.timezone;
 
-  const [activeDays, feeCount, pushDeviceCount] = await Promise.all([
+  const [activeDays, feeCount, pushDeviceCount, equipeAtiva, convitesPendentes] = await Promise.all([
     prisma.workingHour.count({
       where: { professionalId: professional.id, active: true },
     }),
@@ -70,7 +114,21 @@ export default async function ConfigPage() {
     prisma.pushSubscription.count({
       where: { professionalId: professional.id },
     }),
+    prisma.teamMember.count({
+      where: { professionalId: professional.id, active: true },
+    }),
+    prisma.teamMember.count({
+      where: { professionalId: professional.id, active: true, passwordHash: null },
+    }),
   ]);
+
+  const equipeLabel =
+    equipeAtiva === 0
+      ? "Convide quem atende com você"
+      : `${equipeAtiva} ${equipeAtiva === 1 ? "profissional" : "profissionais"} na equipe` +
+        (convitesPendentes > 0
+          ? ` · ${convitesPendentes} ${convitesPendentes === 1 ? "convite pendente" : "convites pendentes"}`
+          : "");
 
   const depositLabel =
     professional.depositType === "NONE"
@@ -96,6 +154,12 @@ export default async function ConfigPage() {
         ? `${professional.studioName} · ${formatPhone(professional.whatsapp)}`
         : "Nome, logo, contatos e as cores do seu link",
       icon: IconUser,
+    },
+    {
+      href: "/config/equipe",
+      label: "Equipe",
+      description: equipeLabel,
+      icon: IconTeam,
     },
     {
       href: "/assinatura",

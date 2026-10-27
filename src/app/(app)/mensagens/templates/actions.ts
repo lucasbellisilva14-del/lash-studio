@@ -1,10 +1,13 @@
 "use server";
 
-/** Server actions dos templates de mensagem (upsert por [professionalId, kind]). */
+/**
+ * Server actions dos templates de mensagem (upsert por [professionalId, kind]).
+ * Só a dona: requireOwner() manda a funcionária de volta para o início.
+ */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { TEMPLATE_KINDS, type TemplateKind } from "@/lib/constants";
 
 const kindEnum = z.enum(
@@ -33,7 +36,7 @@ export async function salvarTemplate(
   _prev: SalvarTemplateState,
   formData: FormData,
 ): Promise<SalvarTemplateState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = saveSchema.safeParse({
     kind: formData.get("kind"),
@@ -66,7 +69,7 @@ const toggleSchema = z.object({ kind: kindEnum, active: z.boolean() });
 export async function alternarTemplate(
   input: unknown,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = toggleSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Dados inválidos." };

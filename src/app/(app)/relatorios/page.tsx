@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { PeriodoSwitch } from "@/components/relatorios/periodo-switch";
@@ -24,6 +24,7 @@ function primeiro(v: string | string[] | undefined): string | undefined {
 }
 
 export default async function RelatoriosPage(props: PageProps<"/relatorios">) {
+  await requireOwner();
   const professional = await requireProfessional();
   const sp = await props.searchParams;
   const raw = primeiro(sp.periodo);

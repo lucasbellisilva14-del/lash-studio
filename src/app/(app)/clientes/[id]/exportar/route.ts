@@ -1,9 +1,10 @@
 /**
  * LGPD — portabilidade: exporta todos os dados da cliente em JSON
- * (download com Content-Disposition: attachment). Só a dona da conta acessa.
+ * (download com Content-Disposition: attachment). Só a dona da conta acessa:
+ * requireOwner() manda a funcionária de volta para o início.
  */
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { formatDate, formatDateTime, localDayKey } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { formatBRL } from "@/lib/money";
@@ -48,6 +49,7 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/clientes/[id]/exportar">,
 ) {
+  await requireOwner();
   const professional = await requireProfessional();
   const tz = professional.timezone;
   const { id } = await ctx.params;

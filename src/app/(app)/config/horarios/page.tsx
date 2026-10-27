@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui/page-header";
 import { HorariosForm, type DayDefaults } from "./horarios-form";
@@ -6,6 +6,7 @@ import { HorariosForm, type DayDefaults } from "./horarios-form";
 export const metadata = { title: "Horários de atendimento" };
 
 export default async function HorariosPage() {
+  await requireOwner();
   const professional = await requireProfessional();
 
   const hours = await prisma.workingHour.findMany({

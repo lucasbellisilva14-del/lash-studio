@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { IconChevronLeft, IconChevronRight } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { agendaHref } from "./pro";
 import type { VisaoAgenda } from "./types";
 
 export const DIAS_SEMANA_SEG = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
@@ -21,6 +22,7 @@ export function MiniCalendar({
   mesLabel,
   mesAnteriorKey,
   mesSeguinteKey,
+  prof = null,
   size = "sm",
 }: {
   chaves: string[];
@@ -31,6 +33,8 @@ export function MiniCalendar({
   mesLabel: string;
   mesAnteriorKey: string;
   mesSeguinteKey: string;
+  /** Filtro de profissional (?prof=) que os links preservam. */
+  prof?: string | null;
   size?: "sm" | "lg";
 }) {
   const mesPrefixo = diaKey.slice(0, 7);
@@ -45,7 +49,7 @@ export function MiniCalendar({
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <Link
-          href={`/agenda?visao=${visao}&dia=${mesAnteriorKey}`}
+          href={agendaHref(visao, mesAnteriorKey, prof)}
           scroll={false}
           aria-label="Mês anterior"
           className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken hover:text-ink"
@@ -56,7 +60,7 @@ export function MiniCalendar({
           {mesLabel}
         </p>
         <Link
-          href={`/agenda?visao=${visao}&dia=${mesSeguinteKey}`}
+          href={agendaHref(visao, mesSeguinteKey, prof)}
           scroll={false}
           aria-label="Próximo mês"
           className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken hover:text-ink"
@@ -83,7 +87,7 @@ export function MiniCalendar({
           return (
             <Link
               key={chave}
-              href={`/agenda?visao=${visao}&dia=${chave}`}
+              href={agendaHref(visao, chave, prof)}
               scroll={false}
               aria-label={`${Number(chave.slice(8))}/${chave.slice(5, 7)}${total ? `, ${total} horário${total === 1 ? "" : "s"}` : ""}`}
               aria-current={chave === diaKey ? "date" : undefined}

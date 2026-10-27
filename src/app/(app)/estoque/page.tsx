@@ -1,6 +1,6 @@
 import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { PRODUCT_CATEGORIES } from "@/lib/constants";
 import { diffLocalDays, formatDate, formatWithPattern, localDayKey } from "@/lib/dates";
@@ -33,6 +33,7 @@ function parseSpec(json: string | null): ProductSpec | null {
 }
 
 export default async function EstoquePage() {
+  await requireOwner();
   const professional = await requireProfessional();
   const professionalId = professional.id;
   const tz = professional.timezone;

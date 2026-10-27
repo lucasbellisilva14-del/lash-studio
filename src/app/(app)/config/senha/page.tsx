@@ -1,9 +1,13 @@
+import { requireViewer } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { SenhaForm } from "./senha-form";
 
 export const metadata = { title: "Senha de acesso" };
 
-export default function SenhaPage() {
+/** A dona e a funcionária trocam aqui a própria senha. */
+export default async function SenhaPage() {
+  await requireViewer();
+
   return (
     <div>
       <PageHeader

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatPhone, waLink } from "@/lib/phone";
 import type { ServiceCategory } from "@/lib/constants";
+import { getTeam } from "@/lib/team";
 import { BookingFlow } from "@/components/agendar/booking-flow";
 import { StudioLogo } from "@/components/agendar/studio-logo";
 import { IconInstagram, IconMapPin } from "@/components/agendar/icons";
@@ -14,6 +15,8 @@ import {
   getEstudioPorSlug,
   getGradePublica,
   montarDiasDisponiveis,
+  profissionaisDoLink,
+  toAgendarProfissional,
 } from "./data";
 
 export async function generateMetadata(
@@ -35,16 +38,24 @@ const CHIP_LINK =
 export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
   await connection(); // página sempre fresca: horários, serviços e token anti-spam
   const { slug } = await props.params;
+  const sp = await props.searchParams;
   const estudio = await getEstudioPorSlug(slug);
   if (!estudio) notFound();
 
-  const [servicosDb, { workingHours }] = await Promise.all([
+  const [servicosDb, { workingHours }, team] = await Promise.all([
     prisma.service.findMany({
       where: { professionalId: estudio.id, active: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     getGradePublica(estudio.id),
+    getTeam(estudio.id),
   ]);
+
+  // Quem atende pelo link. Com 2+, a cliente escolhe (ou "primeira
+  // disponível"); ?com=<dona|id> já chega com a profissional escolhida.
+  const profissionais = profissionaisDoLink(team).map(toAgendarProfissional);
+  const com = Array.isArray(sp.com) ? sp.com[0] : sp.com;
+  const proInicial = com && profissionais.some((p) => p.key === com) ? com : null;
 
   const servicos: AgendarServico[] = servicosDb.map((s) => ({
     id: s.id,
@@ -86,7 +97,11 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
           <h1 className="font-display mt-5 text-[30px] font-bold leading-[1.1] tracking-[-0.035em] text-ink">
             {estudio.studioName}
           </h1>
-          <p className="mt-1.5 text-[14px] text-ink-soft">Escolha o serviço, o dia e o horário.</p>
+          <p className="mt-1.5 text-[14px] text-ink-soft">
+            {profissionais.length > 1
+              ? "Escolha o serviço, a profissional, o dia e o horário."
+              : "Escolha o serviço, o dia e o horário."}
+          </p>
           {estudio.addressLine || estudio.instagram || estudio.whatsapp ? (
             <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
               {estudio.addressLine ? (
@@ -143,6 +158,8 @@ export default async function AgendarPage(props: PageProps<"/agendar/[slug]">) {
           servicos={servicos}
           dias={dias}
           token={token}
+          profissionais={profissionais}
+          proInicial={proInicial}
         />
 
         <footer className="mt-12 text-center text-xs text-ink-faint">

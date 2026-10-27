@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { sendPushToProfessional } from "@/components/push/send";
 
 /** Resultado das ações de push (consumido direto pelo client component). */
@@ -11,7 +11,7 @@ export type PushActionResult = { ok: true } | { ok: false; error: string };
 
 /** Salva o horário do resumo diário (HH:mm). */
 export async function salvarHorarioResumoAction(hora: string): Promise<PushActionResult> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
     return { ok: false, error: "Horário inválido — use o formato HH:mm." };
   }
@@ -26,7 +26,7 @@ export async function salvarHorarioResumoAction(hora: string): Promise<PushActio
 
 /** Liga/desliga o envio automático da fila via API de WhatsApp. */
 export async function salvarEnvioAutomaticoAction(ativo: boolean): Promise<PushActionResult> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
   await prisma.professional.update({
     where: { id: professionalId },
     data: { autoSendMessages: ativo, autoSendSentDay: null },
@@ -47,7 +47,7 @@ export async function salvarInscricaoAction(input: {
   p256dh: string;
   auth: string;
 }): Promise<PushActionResult> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = inscricaoSchema.safeParse(input);
   if (!parsed.success) {
@@ -74,7 +74,7 @@ export async function salvarInscricaoAction(input: {
 
 /** Remove do banco a inscrição deste aparelho (após o unsubscribe no navegador). */
 export async function removerInscricaoAction(endpoint: string): Promise<PushActionResult> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   if (!endpoint || typeof endpoint !== "string") {
     return { ok: false, error: "Inscrição não encontrada." };
@@ -95,7 +95,7 @@ export async function removerInscricaoAction(endpoint: string): Promise<PushActi
 
 /** Envia uma notificação de teste para todos os aparelhos da profissional. */
 export async function enviarTesteAction(): Promise<PushActionResult> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   try {
     const result = await sendPushToProfessional(professionalId, {

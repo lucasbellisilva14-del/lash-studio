@@ -3,13 +3,16 @@
 /**
  * Server actions da anamnese digital (dados sensíveis de saúde).
  * Multi-tenant: toda consulta filtra por professionalId.
+ * Equipe: a funcionária preenche a anamnese das clientes do escopo dela; o
+ * termo de consentimento vale para o estúdio todo e só a dona edita.
  */
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional, requireProfessionalId } from "@/lib/session";
+import { requireOwner, requireProfessional, requireViewer } from "@/lib/session";
+import { clientScope } from "@/lib/team";
 import { getStorageProvider, newStorageKey } from "@/lib/providers/storage";
 import { NATURAL_LASH_CONDITIONS } from "@/lib/constants";
 import {
@@ -75,7 +78,7 @@ export async function saveAnamnesisAction(
   _prev: AnamnesisState,
   formData: FormData,
 ): Promise<AnamnesisState> {
-  const professional = await requireProfessional();
+  const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
   const L = ANAMNESIS_LIMITS;
 
   // ── Perguntas e respostas ──
@@ -132,7 +135,7 @@ export async function saveAnamnesisAction(
   const { clientId, naturalLashCondition } = parsed.data;
 
   const client = await prisma.client.findFirst({
-    where: { id: clientId, professionalId: professional.id },
+    where: { id: clientId, professionalId: professional.id, ...clientScope(viewer) },
     select: { id: true },
   });
   if (!client) return { error: "Cliente não encontrada." };
@@ -204,12 +207,12 @@ const consentSchema = z.object({
   texto: z.string().max(4000, "Termo muito longo (máximo 4.000 caracteres)."),
 });
 
-/** Salva o termo de consentimento personalizado (vazio volta ao padrão). */
+/** Salva o termo de consentimento personalizado (vazio volta ao padrão). Só a dona. */
 export async function saveConsentTextAction(
   _prev: ConsentTextState,
   formData: FormData,
 ): Promise<ConsentTextState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = consentSchema.safeParse({
     clientId: fieldText(formData, "clientId"),

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { parseBRL } from "@/lib/money";
 import { type ConfigFormState, fieldErrorsFrom } from "../form-state";
 import { TIME_RE, intField } from "../validation";
@@ -25,7 +25,7 @@ export async function salvarPoliticasAction(
   _prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = schema.safeParse({
     depositType: String(formData.get("depositType") ?? ""),

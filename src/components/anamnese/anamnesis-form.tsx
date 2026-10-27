@@ -105,6 +105,7 @@ export function AnamnesisForm({
   hasExistingSignature,
   lastSignedAtLabel,
   limits,
+  canEditModel = true,
 }: {
   clientId: string;
   clientName: string;
@@ -119,6 +120,8 @@ export function AnamnesisForm({
   hasExistingSignature: boolean;
   lastSignedAtLabel: string | null;
   limits: AnswerLimits;
+  /** Perguntas e termo são do estúdio: só a dona tem os atalhos para editar. */
+  canEditModel?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(saveAnamnesisAction, initialState);
 
@@ -201,9 +204,11 @@ export function AnamnesisForm({
             title="Saúde e histórico"
             description="Responda com a cliente, uma pergunta por vez."
             action={
-              <Link href="/config/anamnese" className={buttonClasses("ghost", "sm")}>
-                Editar perguntas
-              </Link>
+              canEditModel ? (
+                <Link href="/config/anamnese" className={buttonClasses("ghost", "sm")}>
+                  Editar perguntas
+                </Link>
+              ) : undefined
             }
           />
           <ol className="divide-y divide-line px-4 sm:px-5">
@@ -247,9 +252,11 @@ export function AnamnesisForm({
             title="Termo de consentimento"
             description="A cliente lê, autoriza e assina."
             action={
-              <Button type="button" variant="ghost" size="sm" onClick={() => setConsentOpen(true)}>
-                <IconEdit width={15} height={15} /> Editar termo
-              </Button>
+              canEditModel ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setConsentOpen(true)}>
+                  <IconEdit width={15} height={15} /> Editar termo
+                </Button>
+              ) : undefined
             }
           />
           <CardBody className="space-y-4">
@@ -318,7 +325,7 @@ export function AnamnesisForm({
       </form>
 
       {/* Fora do <form>: o Sheet do termo tem o próprio formulário. */}
-      {consentOpen ? (
+      {canEditModel && consentOpen ? (
         <ConsentEditorSheet clientId={clientId} currentText={consentText} onClose={closeConsent} />
       ) : null}
     </>

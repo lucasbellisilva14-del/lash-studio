@@ -2,26 +2,23 @@
 
 /**
  * Meta do mês: barra de progresso quando definida, convite quando não.
- * O Sheet "Definir meta" faz upsert via server action (saveGoal).
+ * O Sheet "Meta do mês" faz upsert via server action (saveGoal) e também
+ * abre pelo botão do cabeçalho.
  */
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
-import { IconAlert } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatBRL, parseBRL } from "@/lib/money";
 import { saveGoal, type FinanceiroActionState } from "@/app/(app)/financeiro/actions";
+import { centsToInput, ErrorBox } from "./expense-sheet";
 import { IconTarget } from "./icons";
 
 const initialState: FinanceiroActionState = { ok: false, error: null };
 
-function centsToInput(cents: number): string {
-  return (cents / 100).toFixed(2).replace(".", ",");
-}
-
-function GoalSheet({
+export function GoalSheet({
   monthKey,
   monthLabel,
   targetCents,
@@ -32,6 +29,7 @@ function GoalSheet({
   targetCents: number | null;
   onClose: () => void;
 }) {
+  const formId = useId();
   const [state, formAction, pending] = useActionState(saveGoal, initialState);
   const [target, setTarget] = useState(targetCents ? centsToInput(targetCents) : "");
 
@@ -42,33 +40,37 @@ function GoalSheet({
   const previewCents = parseBRL(target);
 
   return (
-    <Sheet open onClose={onClose} title="Definir meta">
-      <form action={formAction} className="grid gap-4 pt-1">
+    <Sheet
+      open
+      onClose={onClose}
+      title="Meta do mês"
+      description={`Quanto você quer receber, já sem as taxas, em ${monthLabel.toLowerCase()}.`}
+      footer={
+        <Button type="submit" form={formId} size="lg" disabled={pending}>
+          {pending ? "Salvando..." : "Salvar meta"}
+        </Button>
+      }
+    >
+      <form id={formId} action={formAction} className="grid gap-4">
         <input type="hidden" name="month" value={monthKey} />
 
-        {state.error ? (
-          <div className="flex items-start gap-2.5 rounded-xl bg-danger-soft px-3.5 py-3 text-sm text-danger">
-            <IconAlert width={18} height={18} className="mt-0.5 shrink-0" />
-            <p>{state.error}</p>
-          </div>
-        ) : null}
-
-        <p className="text-sm text-ink-soft">
-          Quanto você quer faturar (líquido) em{" "}
-          <span className="font-medium text-ink">{monthLabel}</span>?
-        </p>
+        {state.error ? <ErrorBox message={state.error} /> : null}
 
         <Field
-          label="Meta de faturamento"
-          htmlFor="goal-target"
-          hint={previewCents > 0 ? `Prévia: ${formatBRL(previewCents)}` : "Ex.: 5.000"}
+          label="Meta de recebimento"
+          htmlFor={`${formId}-target`}
+          hint={
+            previewCents > 0
+              ? `Prévia: ${formatBRL(previewCents)}`
+              : "Ex.: 5.000. A barra do mês compara com o que já entrou."
+          }
         >
           <div className="relative">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-ink-faint">
               R$
             </span>
             <Input
-              id="goal-target"
+              id={`${formId}-target`}
               name="target"
               inputMode="decimal"
               autoComplete="off"
@@ -80,10 +82,6 @@ function GoalSheet({
             />
           </div>
         </Field>
-
-        <Button size="lg" disabled={pending}>
-          {pending ? "Salvando..." : "Salvar meta"}
-        </Button>
       </form>
     </Sheet>
   );
@@ -98,12 +96,13 @@ export function GoalCard({
   monthKey: string;
   monthLabel: string;
   targetCents: number | null;
+  /** O que já entrou no mês (líquido). */
   netCents: number;
 }) {
   const [open, setOpen] = useState(false);
 
   const hasGoal = targetCents != null && targetCents > 0;
-  const pct = hasGoal ? Math.round((netCents / targetCents) * 100) : 0;
+  const pct = hasGoal ? Math.max(0, Math.round((netCents / targetCents) * 100)) : 0;
   const faltamCents = hasGoal ? Math.max(0, targetCents - netCents) : 0;
   const alcancada = hasGoal && faltamCents === 0;
 
@@ -114,13 +113,13 @@ export function GoalCard({
           {hasGoal ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
                     <IconTarget width={16} height={16} />
                   </span>
                   <div className="min-w-0">
                     <h2 className="text-[15px] font-semibold text-ink">Meta do mês</h2>
-                    <p className="truncate text-xs text-ink-soft">
+                    <p className="truncate text-[12.5px] tabular-nums text-ink-soft">
                       {formatBRL(netCents)} de {formatBRL(targetCents)}
                     </p>
                   </div>
@@ -154,11 +153,9 @@ export function GoalCard({
                     alcancada ? "font-medium text-success" : "text-ink-soft",
                   )}
                 >
-                  {alcancada
-                    ? "Meta alcançada. Arrasou!"
-                    : `Faltam ${formatBRL(faltamCents)}`}
+                  {alcancada ? "Meta alcançada. Arrasou!" : `Faltam ${formatBRL(faltamCents)}`}
                 </p>
-                <p className="text-[13px] font-semibold text-accent-strong">{pct}%</p>
+                <p className="text-[13px] font-semibold tabular-nums text-accent-strong">{pct}%</p>
               </div>
             </>
           ) : (
@@ -167,11 +164,9 @@ export function GoalCard({
                 <IconTarget width={20} height={20} />
               </span>
               <div className="min-w-0 grow">
-                <h2 className="text-[15px] font-semibold text-ink">
-                  Defina a meta do mês
-                </h2>
-                <p className="mt-0.5 text-xs text-ink-soft">
-                  Acompanhe quanto falta para bater seu objetivo de faturamento.
+                <h2 className="text-[15px] font-semibold text-ink">Defina a meta do mês</h2>
+                <p className="mt-0.5 text-[12.5px] leading-snug text-ink-soft">
+                  Acompanhe quanto falta para bater seu objetivo de recebimento.
                 </p>
               </div>
               <Button size="sm" className="shrink-0" onClick={() => setOpen(true)}>

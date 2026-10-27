@@ -5,7 +5,7 @@ import {
   type TemplateRow,
 } from "@/components/mensagens/templates-manager";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { localDayKey, localToUtc } from "@/lib/dates";
 import { TEMPLATE_KINDS, type TemplateKind } from "@/lib/constants";
 import { getBookingUrl } from "@/lib/domain/queue";
@@ -13,6 +13,8 @@ import { getBookingUrl } from "@/lib/domain/queue";
 export const metadata = { title: "Modelos de mensagem" };
 
 export default async function TemplatesPage() {
+  // Modelos de mensagem são do estúdio: só a dona edita (funcionária volta para o início).
+  await requireOwner();
   const professional = await requireProfessional();
   const tz = professional.timezone;
 

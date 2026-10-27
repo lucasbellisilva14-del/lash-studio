@@ -6,6 +6,7 @@ import { IconAlert } from "@/components/ui/icons";
 import { formatTime } from "@/lib/dates";
 import type { AppointmentStatus } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import { ProTag, type ProView } from "./pro-avatar";
 
 export type TodayAgendaItem = {
   id: string;
@@ -15,6 +16,8 @@ export type TodayAgendaItem = {
   clientName: string;
   serviceName: string;
   hasContraindication: boolean;
+  /** Quem atende (só com equipe, na visão da dona). */
+  pro?: ProView | null;
 };
 
 /** Agenda de hoje: uma lista limpa em ordem de horário; o próximo ganha um ponto. */
@@ -23,27 +26,34 @@ export function TodayAgenda({
   nextId,
   tz,
   agendaHref,
+  showWaitlist = true,
 }: {
   items: TodayAgendaItem[];
   nextId: string | null;
   nextLabel?: string | null;
   tz: string;
   agendaHref: string;
+  /** Lista de espera é da dona; a funcionária só vê o atalho da agenda. */
+  showWaitlist?: boolean;
 }) {
   if (items.length === 0) {
     return (
       <Card className="px-6 py-8">
         <p className="text-[20px] font-bold tracking-[-0.03em] text-ink">Sua agenda está livre hoje.</p>
         <p className="mt-1.5 max-w-sm text-[14px] text-ink-soft">
-          Veja os próximos dias na agenda ou encaixe alguém da lista de espera.
+          {showWaitlist
+            ? "Veja os próximos dias na agenda ou encaixe alguém da lista de espera."
+            : "Veja os próximos dias na agenda."}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href={agendaHref} className={buttonClasses("primary", "sm")}>
             Abrir agenda
           </Link>
-          <Link href="/agenda/espera" className={buttonClasses("secondary", "sm")}>
-            Lista de espera
-          </Link>
+          {showWaitlist ? (
+            <Link href="/agenda/espera" className={buttonClasses("secondary", "sm")}>
+              Lista de espera
+            </Link>
+          ) : null}
         </div>
       </Card>
     );
@@ -87,7 +97,15 @@ export function TodayAgenda({
                   </span>
                 ) : null}
               </p>
-              <p className="mt-0.5 truncate text-[13px] text-ink-soft">{item.serviceName}</p>
+              {item.pro ? (
+                <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-soft">
+                  <ProTag pro={item.pro} className="shrink-0 font-semibold text-ink" />
+                  <span aria-hidden className="text-ink-faint">·</span>
+                  <span className="truncate">{item.serviceName}</span>
+                </p>
+              ) : (
+                <p className="mt-0.5 truncate text-[13px] text-ink-soft">{item.serviceName}</p>
+              )}
             </div>
             <AppointmentStatusBadge status={item.status} />
           </Link>

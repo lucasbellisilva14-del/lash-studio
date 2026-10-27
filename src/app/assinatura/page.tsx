@@ -4,7 +4,7 @@
  * do checkout. Fora do grupo (app) de propósito — sem o gate, sem shell.
  */
 import Link from "next/link";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { acessoBloqueado, STATUS_ASSINATURA_LABEL } from "@/lib/domain/subscription";
 import { formatBRL } from "@/lib/money";
 import { diffLocalDays, formatDate } from "@/lib/dates";
@@ -29,6 +29,7 @@ const GARANTIAS = [
 ];
 
 export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
+  await requireOwner();
   const professional = await requireProfessional();
   const sp = await props.searchParams;
   const voltouDoCheckout = (Array.isArray(sp.volta) ? sp.volta[0] : sp.volta) === "1";

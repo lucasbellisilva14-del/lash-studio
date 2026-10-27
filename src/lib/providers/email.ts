@@ -74,19 +74,19 @@ export function getEmailProvider(): EmailProvider {
 /** Casca padrão dos e-mails do LashOS (inline CSS — clientes de e-mail). */
 export function emailLayout(titulo: string, corpoHtml: string): string {
   return `<!doctype html>
-<html lang="pt-BR"><body style="margin:0;padding:0;background:#faf5f0;font-family:'Segoe UI',system-ui,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf5f0;padding:32px 16px;">
+<html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f3f6;font-family:Inter,'Segoe UI',system-ui,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f6;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eee2d6;">
-        <tr><td style="background:#D6336C;padding:20px 28px;">
-          <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">LashOS 💗</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e8e8ed;">
+        <tr><td style="background:#2a2240;padding:20px 28px;">
+          <p style="margin:0;color:#ffffff;font-size:19px;font-weight:700;letter-spacing:-0.02em;">LashOS</p>
         </td></tr>
         <tr><td style="padding:28px;">
-          <h1 style="margin:0 0 14px;font-size:19px;color:#2b2118;">${titulo}</h1>
+          <h1 style="margin:0 0 14px;font-size:19px;color:#17151e;letter-spacing:-0.02em;">${titulo}</h1>
           ${corpoHtml}
         </td></tr>
-        <tr><td style="padding:16px 28px;border-top:1px solid #f2e8dc;">
-          <p style="margin:0;font-size:12px;color:#9a8a74;">Seu estúdio inteiro, no seu celular.</p>
+        <tr><td style="padding:16px 28px;border-top:1px solid #e8e8ed;">
+          <p style="margin:0;font-size:12px;color:#77747f;">Seu estúdio inteiro, no seu celular.</p>
         </td></tr>
       </table>
     </td></tr>

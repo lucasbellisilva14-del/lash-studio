@@ -3,11 +3,17 @@ import "server-only";
 /**
  * Coluna direita do PC (lg+): resumo do dia, próximas clientes, meta do mês
  * e atalhos. Some na agenda, que usa a largura toda.
+ *
+ * Equipe: a dona vê o estúdio (como sempre; com equipe, cada próxima cliente
+ * mostra quem atende). A funcionária vê só os números e as clientes dela, sem
+ * meta e com um atalho só, a fila.
  */
 import Link from "next/link";
 import type { Professional } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getMessageQueueCached } from "@/lib/domain/queue";
+import { requireViewer } from "@/lib/session";
+import { appointmentScope } from "@/lib/team";
+import { getMessageQueueForViewer } from "@/lib/domain/queue";
 import {
   dayKeyToUtcStart,
   formatTime,
@@ -23,9 +29,14 @@ import {
   IconChat,
   IconChevronRight,
 } from "@/components/ui/icons";
+import { ProAvatar } from "@/components/home/pro-avatar";
+import { getProDirectory, proView, type ProDirectory } from "@/components/home/pros";
 import { HideOnRoutes } from "./content-frame";
 
 export async function DesktopRail({ professional }: { professional: Professional }) {
+  const viewer = await requireViewer();
+  const isOwner = viewer.isOwner;
+  const scope = appointmentScope(viewer);
   const professionalId = professional.id;
   const tz = professional.timezone;
   const now = new Date();
@@ -38,10 +49,11 @@ export async function DesktopRail({ professional }: { professional: Professional
   const monthStart = dayKeyToUtcStart(`${monthKey}-01`, tz);
   const monthEnd = dayKeyToUtcStart(`${nextMonthKey}-01`, tz);
 
-  const [hojeCount, proximos, queue, sinaisPendentes, receita, goal] = await Promise.all([
+  const [hojeCount, proximos, queue, sinaisPendentes, receita, goal, pros] = await Promise.all([
     prisma.appointment.count({
       where: {
         professionalId,
+        ...scope,
         startAt: { gte: todayStart, lt: todayEnd },
         status: { in: ["PRE_AGENDADO", "CONFIRMADO", "CONCLUIDO"] },
       },
@@ -49,6 +61,7 @@ export async function DesktopRail({ professional }: { professional: Professional
     prisma.appointment.findMany({
       where: {
         professionalId,
+        ...scope,
         startAt: { gte: now, lt: addDays(now, 7) },
         status: { in: ["PRE_AGENDADO", "CONFIRMADO"] },
       },
@@ -59,28 +72,37 @@ export async function DesktopRail({ professional }: { professional: Professional
         service: { select: { name: true } },
       },
     }),
-    getMessageQueueCached(professionalId),
+    getMessageQueueForViewer(viewer),
     prisma.appointment.count({
       where: {
         professionalId,
+        ...scope,
         status: "PRE_AGENDADO",
         depositPaidAt: null,
         startAt: { gte: now, lte: addHours(now, 48) },
       },
     }),
-    prisma.transaction.aggregate({
-      where: { professionalId, type: "RECEITA", date: { gte: monthStart, lt: monthEnd } },
-      _sum: { netCents: true },
-    }),
-    prisma.goal.findUnique({
-      where: { professionalId_month: { professionalId, month: monthKey } },
-    }),
+    // Faturamento e meta são do estúdio: só a dona vê.
+    isOwner
+      ? prisma.transaction.aggregate({
+          where: { professionalId, type: "RECEITA", date: { gte: monthStart, lt: monthEnd } },
+          _sum: { netCents: true },
+        })
+      : Promise.resolve(null),
+    isOwner
+      ? prisma.goal.findUnique({
+          where: { professionalId_month: { professionalId, month: monthKey } },
+        })
+      : Promise.resolve(null),
+    isOwner ? getProDirectory(professionalId) : Promise.resolve<ProDirectory | null>(null),
   ]);
 
-  const netCents = receita._sum.netCents ?? 0;
+  const netCents = receita?._sum.netCents ?? 0;
   const metaPct = goal
     ? Math.min(100, Math.round((netCents / goal.revenueTargetCents) * 100))
     : null;
+  // Com equipe, a dona vê quem atende cada próxima cliente.
+  const showPros = pros?.hasTeam ?? false;
 
   return (
     <div className="hidden lg:flex flex-col gap-4 w-72 xl:w-80 shrink-0 no-print">
@@ -106,76 +128,91 @@ export async function DesktopRail({ professional }: { professional: Professional
           <p className="mt-3 text-[13.5px] text-ink-soft">Nenhum horário nos próximos 7 dias.</p>
         ) : (
           <ul className="mt-2 divide-y divide-line">
-            {proximos.map((a) => (
-              <li key={a.id} className="flex items-center gap-3 py-3">
-                <span className="w-12 shrink-0 text-center">
-                  <span className="block text-[14px] font-bold tabular-nums tracking-[-0.02em] text-ink">
-                    {formatTime(a.startAt, tz)}
+            {proximos.map((a) => {
+              const pro = showPros && pros ? proView(pros.of(a.memberId), viewer.memberId) : null;
+              return (
+                <li key={a.id} className="flex items-center gap-3 py-3">
+                  <span className="w-12 shrink-0 text-center">
+                    <span className="block text-[14px] font-bold tabular-nums tracking-[-0.02em] text-ink">
+                      {formatTime(a.startAt, tz)}
+                    </span>
+                    <span className="block text-[11.5px] tabular-nums text-ink-faint">
+                      {formatWithPattern(a.startAt, "dd/MM", tz)}
+                    </span>
                   </span>
-                  <span className="block text-[11.5px] tabular-nums text-ink-faint">
-                    {formatWithPattern(a.startAt, "dd/MM", tz)}
+                  <span className="min-w-0 grow">
+                    <span className="block truncate text-[14px] font-semibold text-ink">
+                      {a.client.name}
+                    </span>
+                    <span className="block truncate text-[12.5px] text-ink-soft">{a.service.name}</span>
                   </span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[14px] font-semibold text-ink">
-                    {a.client.name}
-                  </span>
-                  <span className="block truncate text-[12.5px] text-ink-soft">{a.service.name}</span>
-                </span>
-              </li>
-            ))}
+                  {pro ? (
+                    <span title={pro.label} className="shrink-0">
+                      <ProAvatar name={pro.name} color={pro.color} size={22} />
+                      <span className="sr-only">{pro.label}</span>
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>
       </HideOnRoutes>
 
-      <HideOnRoutes routes={["/financeiro"]}>
-      <Card className="p-5">
-        <h2 className="text-[15px] font-bold tracking-[-0.015em] text-ink">
-          Meta de {formatWithPattern(now, "MMMM", tz)}
-        </h2>
-        {goal ? (
-          <>
-            <div className="mt-3 flex items-baseline justify-between gap-2">
-              <p className="text-[20px] font-bold tabular-nums tracking-[-0.03em] text-ink">
-                {formatBRL(netCents)}
-              </p>
-              <p className="text-[12.5px] tabular-nums text-ink-soft">
-                de {formatBRL(goal.revenueTargetCents)}
-              </p>
-            </div>
-            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
-              <div
-                className="h-full rounded-full bg-accent transition-[width] duration-700"
-                style={{ width: `${metaPct}%` }}
-              />
-            </div>
-            <p className="mt-2 text-[12.5px] text-ink-soft">{metaPct}% da meta</p>
-          </>
-        ) : (
-          <p className="mt-2 text-[13.5px] text-ink-soft">
-            Sem meta para este mês.{" "}
-            <Link href="/financeiro" className="font-semibold text-ink underline underline-offset-2">
-              Definir meta
-            </Link>
-          </p>
-        )}
-      </Card>
-      </HideOnRoutes>
+      {isOwner ? (
+        <HideOnRoutes routes={["/financeiro"]}>
+        <Card className="p-5">
+          <h2 className="text-[15px] font-bold tracking-[-0.015em] text-ink">
+            Meta de {formatWithPattern(now, "MMMM", tz)}
+          </h2>
+          {goal ? (
+            <>
+              <div className="mt-3 flex items-baseline justify-between gap-2">
+                <p className="text-[20px] font-bold tabular-nums tracking-[-0.03em] text-ink">
+                  {formatBRL(netCents)}
+                </p>
+                <p className="text-[12.5px] tabular-nums text-ink-soft">
+                  de {formatBRL(goal.revenueTargetCents)}
+                </p>
+              </div>
+              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-700"
+                  style={{ width: `${metaPct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[12.5px] text-ink-soft">{metaPct}% da meta</p>
+            </>
+          ) : (
+            <p className="mt-2 text-[13.5px] text-ink-soft">
+              Sem meta para este mês.{" "}
+              <Link href="/financeiro" className="font-semibold text-ink underline underline-offset-2">
+                Definir meta
+              </Link>
+            </p>
+          )}
+        </Card>
+        </HideOnRoutes>
+      ) : null}
 
       <Card className="overflow-hidden">
         <RailAction href="/mensagens" icon={<IconChat width={17} height={17} />}>
           Abrir a fila
         </RailAction>
-        {/* Financeiro já tem o atalho no cabeçalho; Ferramentas é a própria tela */}
-        <HideOnRoutes routes={["/financeiro", "/ferramentas"]}>
-          <RailAction href="/ferramentas" icon={<IconCalculator width={17} height={17} />}>
-            Calculadora de cobrança
-          </RailAction>
-        </HideOnRoutes>
-        <RailAction href="/agenda/espera" icon={<IconCalendar width={17} height={17} />}>
-          Lista de espera
-        </RailAction>
+        {isOwner ? (
+          <>
+            {/* Em Ferramentas, a calculadora já é a própria tela */}
+            <HideOnRoutes routes={["/ferramentas"]}>
+              <RailAction href="/ferramentas" icon={<IconCalculator width={17} height={17} />}>
+                Calculadora de cobrança
+              </RailAction>
+            </HideOnRoutes>
+            <RailAction href="/agenda/espera" icon={<IconCalendar width={17} height={17} />}>
+              Lista de espera
+            </RailAction>
+          </>
+        ) : null}
       </Card>
     </div>
   );

@@ -1,7 +1,10 @@
 import { addDays, addHours } from "date-fns";
-import { requireProfessional } from "@/lib/session";
+import type { Product } from "@prisma/client";
+import { requireProfessional, requireViewer, type Viewer } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { getMessageQueueCached } from "@/lib/domain/queue";
+import { appointmentScope, clientScope } from "@/lib/team";
+import { firstName as firstNameOf } from "@/lib/team-shared";
+import { getMessageQueueForViewer } from "@/lib/domain/queue";
 import {
   dayKeyToUtcStart,
   diffLocalDays,
@@ -28,6 +31,13 @@ import { TodayAgenda, type TodayAgendaItem } from "@/components/home/today-agend
 import { MessageQueueCard } from "@/components/home/message-queue-card";
 import { AlertsCard, type HomeAlert } from "@/components/home/alerts-card";
 import { MonthSummary } from "@/components/home/month-summary";
+import { MyMonth } from "@/components/home/my-month";
+import {
+  getProDirectory,
+  proView,
+  withProView,
+  type ProDirectory,
+} from "@/components/home/pros";
 import { getGamification } from "@/lib/domain/gamification";
 import { GamificationHomeCard } from "@/components/gamificacao/home-card";
 
@@ -45,11 +55,71 @@ function formatQty(quantity: number): string {
   return Number.isInteger(quantity) ? String(quantity) : quantity.toLocaleString("pt-BR");
 }
 
+type MonthNumbers = {
+  /** Receita líquida do mês: do estúdio (dona) ou dos atendimentos dela (funcionária). */
+  netCents: number;
+  doneCount: number;
+  /** Só da funcionária: líquido × % de comissão congelado em cada agendamento. */
+  commissionCents: number;
+};
+
+async function monthNumbers(
+  viewer: Viewer,
+  professionalId: string,
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<MonthNumbers> {
+  const date = { gte: monthStart, lt: monthEnd };
+  if (viewer.isOwner) {
+    const [revenue, doneCount] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: { professionalId, type: "RECEITA", date },
+        _sum: { netCents: true },
+      }),
+      prisma.appointment.count({
+        where: { professionalId, status: "CONCLUIDO", startAt: date },
+      }),
+    ]);
+    return { netCents: revenue._sum.netCents ?? 0, doneCount, commissionCents: 0 };
+  }
+
+  // Receita dela = transações dos agendamentos dela (sinal + atendimento).
+  const [received, doneCount] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        professionalId,
+        type: "RECEITA",
+        date,
+        appointment: { is: { memberId: viewer.memberId } },
+      },
+      select: { netCents: true, appointment: { select: { commissionPct: true } } },
+    }),
+    prisma.appointment.count({
+      where: { professionalId, memberId: viewer.memberId, status: "CONCLUIDO", startAt: date },
+    }),
+  ]);
+  let netCents = 0;
+  let commissionCents = 0;
+  for (const t of received) {
+    netCents += t.netCents;
+    commissionCents += Math.round((t.netCents * (t.appointment?.commissionPct ?? 0)) / 100);
+  }
+  return { netCents, doneCount, commissionCents };
+}
+
+/**
+ * Meu dia. A dona vê o estúdio inteiro (como sempre; com equipe, a agenda de
+ * hoje diz quem atende cada horário). A funcionária vê só o dia dela: agenda,
+ * fila, alertas dos horários dela e "Meu mês" — nada de números do estúdio,
+ * onboarding, gamificação, resumo semanal ou estoque.
+ */
 export default async function HomePage() {
-  const professional = await requireProfessional();
+  const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
+  const isOwner = viewer.isOwner;
   const professionalId = professional.id;
   const tz = professional.timezone;
   const now = new Date();
+  const scope = appointmentScope(viewer);
 
   const { start: todayStart, end: todayEnd } = localDayRange(now, tz);
   const todayKey = localDayKey(now, tz);
@@ -67,14 +137,15 @@ export default async function HomePage() {
     pendingDeposits,
     clientsForAlerts,
     products,
-    monthRevenue,
-    monthDoneCount,
+    monthData,
     goal,
+    pros,
   ] = await Promise.all([
-    // Agenda de hoje (cancelados ficam de fora)
+    // Agenda de hoje (cancelados ficam de fora); funcionária: só os horários dela
     prisma.appointment.findMany({
       where: {
         professionalId,
+        ...scope,
         startAt: { gte: todayStart, lt: todayEnd },
         status: { in: ["PRE_AGENDADO", "CONFIRMADO", "CONCLUIDO", "FALTOU"] },
       },
@@ -90,12 +161,13 @@ export default async function HomePage() {
         service: { select: { name: true } },
       },
     }),
-    // Fila de mensagens do dia (memoizada por request)
-    getMessageQueueCached(professionalId),
+    // Fila de mensagens do dia de quem está logada (memoizada por request)
+    getMessageQueueForViewer(viewer),
     // Sinais pendentes nas próximas 48h
     prisma.appointment.findMany({
       where: {
         professionalId,
+        ...scope,
         status: "PRE_AGENDADO",
         depositPaidAt: null,
         startAt: { gte: now, lte: addHours(now, 48) },
@@ -106,7 +178,7 @@ export default async function HomePage() {
     }),
     // Clientes p/ aniversários da semana + janela de manutenção
     prisma.client.findMany({
-      where: { professionalId },
+      where: { professionalId, ...clientScope(viewer) },
       select: {
         id: true,
         name: true,
@@ -122,46 +194,39 @@ export default async function HomePage() {
             ],
           },
           orderBy: { startAt: "desc" },
-          select: { status: true, startAt: true },
+          select: { status: true, startAt: true, memberId: true },
         },
       },
     }),
-    // Estoque ativo (mínimos e validade de colas calculados abaixo)
-    prisma.product.findMany({ where: { professionalId, active: true } }),
-    // Faturamento líquido do mês
-    prisma.transaction.aggregate({
-      where: {
-        professionalId,
-        type: "RECEITA",
-        date: { gte: monthStart, lt: monthEnd },
-      },
-      _sum: { netCents: true },
-    }),
-    // Atendimentos concluídos no mês
-    prisma.appointment.count({
-      where: {
-        professionalId,
-        status: "CONCLUIDO",
-        startAt: { gte: monthStart, lt: monthEnd },
-      },
-    }),
-    // Meta do mês, se cadastrada
-    prisma.goal.findUnique({
-      where: { professionalId_month: { professionalId, month: monthKey } },
-    }),
+    // Estoque ativo (mínimos e validade de colas calculados abaixo) — só da dona
+    isOwner
+      ? prisma.product.findMany({ where: { professionalId, active: true } })
+      : Promise.resolve<Product[]>([]),
+    // Faturamento líquido + concluídos do mês (do estúdio ou dela)
+    monthNumbers(viewer, professionalId, monthStart, monthEnd),
+    // Meta do mês, se cadastrada — só da dona
+    isOwner
+      ? prisma.goal.findUnique({
+          where: { professionalId_month: { professionalId, month: monthKey } },
+        })
+      : Promise.resolve(null),
+    // Quem atende cada horário (só aparece com equipe, para a dona)
+    isOwner ? getProDirectory(professionalId) : Promise.resolve<ProDirectory | null>(null),
   ]);
 
   // Fora da rajada paralela: pool serverless tem poucas conexões e a
-  // gamificação reaproveita a fila memoizada acima.
-  const game = await getGamification(professionalId, now);
+  // gamificação reaproveita a fila memoizada acima. Só a dona tem gamificação.
+  const game = isOwner ? await getGamification(professionalId, now) : null;
 
   // ── Saudação ──
   const hour = Number(formatWithPattern(now, "HH", tz));
   const greeting = hour >= 5 && hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-  const firstName = professional.name.trim().split(/\s+/)[0];
+  const firstName = firstNameOf(isOwner ? professional.name : viewer.name);
   const dateLabel = capitalize(formatDateLong(now, tz));
 
   // ── Agenda de hoje + próximo compromisso ──
+  // Com equipe, a dona vê quem atende cada horário; a funcionária só vê os dela.
+  const team = pros?.hasTeam ? pros : null;
   const agendaHref = `/agenda?dia=${todayKey}`;
   const agendaItems: TodayAgendaItem[] = todayAppointments.map((appt) => ({
     id: appt.id,
@@ -171,6 +236,7 @@ export default async function HomePage() {
     clientName: appt.client.name,
     serviceName: appt.service.name,
     hasContraindication: appt.client.anamnesisForm?.hasContraindication ?? false,
+    pro: team ? proView(team.of(appt.memberId), viewer.memberId) : null,
   }));
 
   const next = todayAppointments.find(
@@ -181,6 +247,10 @@ export default async function HomePage() {
     const minutes = Math.ceil((next.startAt.getTime() - now.getTime()) / 60000);
     nextLabel = minutes <= 0 ? "Agora" : minutes <= 90 ? `Em ${minutes} min` : "Próximo";
   }
+  const nextProLabel =
+    team && next && next.memberId !== viewer.memberId
+      ? withProView(team.of(next.memberId), viewer.memberId).label
+      : null;
 
   // ── Alertas ──
   const alerts: HomeAlert[] = [];
@@ -199,38 +269,43 @@ export default async function HomePage() {
     });
   }
 
-  // 2. Aniversariantes dos próximos 7 dias (a mensagem sai pela fila)
-  const weekDayKeys = Array.from({ length: 7 }, (_, i) => localDayKey(addDays(now, i), tz));
-  const birthdayAlerts: { idx: number; alert: HomeAlert }[] = [];
-  for (const client of clientsForAlerts) {
-    if (!client.birthDate) continue;
-    const monthDay = localDayKey(client.birthDate, "UTC").slice(5); // "MM-dd"
-    const idx = weekDayKeys.findIndex((key) => key.slice(5) === monthDay);
-    if (idx < 0) continue;
-    const when =
-      idx === 0 ? "Hoje" : idx === 1 ? "Amanhã" : capitalize(formatDateShort(addDays(now, idx), tz));
-    birthdayAlerts.push({
-      idx,
-      alert: {
-        key: `aniversario:${client.id}`,
-        icon: "birthday",
-        tone: "accent",
-        title: `Aniversário de ${client.name}`,
-        description: `${when} — parabenize pela fila de mensagens`,
-        href: "/mensagens",
-      },
-    });
+  // 2. Aniversariantes dos próximos 7 dias (a mensagem sai pela fila da dona)
+  if (isOwner) {
+    const weekDayKeys = Array.from({ length: 7 }, (_, i) => localDayKey(addDays(now, i), tz));
+    const birthdayAlerts: { idx: number; alert: HomeAlert }[] = [];
+    for (const client of clientsForAlerts) {
+      if (!client.birthDate) continue;
+      const monthDay = localDayKey(client.birthDate, "UTC").slice(5); // "MM-dd"
+      const idx = weekDayKeys.findIndex((key) => key.slice(5) === monthDay);
+      if (idx < 0) continue;
+      const when =
+        idx === 0 ? "Hoje" : idx === 1 ? "Amanhã" : capitalize(formatDateShort(addDays(now, idx), tz));
+      birthdayAlerts.push({
+        idx,
+        alert: {
+          key: `aniversario:${client.id}`,
+          icon: "birthday",
+          tone: "accent",
+          title: `Aniversário de ${client.name}`,
+          description: `${when} — parabenize pela fila de mensagens`,
+          href: "/mensagens",
+        },
+      });
+    }
+    birthdayAlerts.sort((a, b) => a.idx - b.idx);
+    alerts.push(...birthdayAlerts.map((b) => b.alert));
   }
-  birthdayAlerts.sort((a, b) => a.idx - b.idx);
-  alerts.push(...birthdayAlerts.map((b) => b.alert));
 
-  // 3. Clientes chegando ao dia de manutenção (sem retorno agendado)
+  // 3. Clientes chegando ao dia de manutenção (sem retorno agendado).
+  // Funcionária: só quando o último atendimento de cílios foi com ela (o
+  // aviso de manutenção cai na fila de quem fez o atendimento).
   for (const client of clientsForAlerts) {
     const lastLash = client.appointments.find((a) => a.status === "CONCLUIDO");
     const hasFuture = client.appointments.some(
       (a) => a.status !== "CONCLUIDO" && a.startAt >= now,
     );
     if (!lastLash || hasFuture) continue;
+    if (!isOwner && lastLash.memberId !== viewer.memberId) continue;
     const daysSince = diffLocalDays(lastLash.startAt, now, tz);
     if (
       daysSince >= professional.maintenanceNoticeDay &&
@@ -247,7 +322,7 @@ export default async function HomePage() {
     }
   }
 
-  // 4. Estoque: colas vencendo/vencidas e produtos abaixo do mínimo
+  // 4. Estoque: colas vencendo/vencidas e produtos abaixo do mínimo (só a dona)
   for (const product of products) {
     if (!product.openedAt || product.shelfLifeDaysAfterOpen == null) continue;
     const expiresAt = addDays(product.openedAt, product.shelfLifeDaysAfterOpen);
@@ -292,7 +367,6 @@ export default async function HomePage() {
   }
 
   // ── Resumo do mês ──
-  const netCents = monthRevenue._sum.netCents ?? 0;
   const monthLabel = formatWithPattern(now, "MMMM", tz);
 
   return (
@@ -316,6 +390,7 @@ export default async function HomePage() {
           label={nextLabel}
           tz={tz}
           agendaHref={agendaHref}
+          proLabel={nextProLabel}
         />
       ) : null}
 
@@ -323,7 +398,7 @@ export default async function HomePage() {
 
       <InstallPrompt />
 
-      {!professional.onboardingDone ? <OnboardingCard /> : null}
+      {isOwner && !professional.onboardingDone ? <OnboardingCard /> : null}
 
       {/* O trabalho do dia primeiro; resumo, recap e nível depois. */}
       <HomeSection title="Agenda de hoje" actionHref={agendaHref} actionLabel="Ver agenda">
@@ -333,6 +408,7 @@ export default async function HomePage() {
           nextLabel={nextLabel}
           tz={tz}
           agendaHref={agendaHref}
+          showWaitlist={isOwner}
         />
       </HomeSection>
 
@@ -353,20 +429,31 @@ export default async function HomePage() {
         </HomeSection>
       ) : null}
 
-      <HomeSection title={`Resumo de ${monthLabel}`}>
-        <MonthSummary
-          netCents={netCents}
-          doneCount={monthDoneCount}
-          goal={goal ? { targetCents: goal.revenueTargetCents } : null}
-        />
-      </HomeSection>
+      {isOwner ? (
+        <HomeSection title={`Resumo de ${monthLabel}`}>
+          <MonthSummary
+            netCents={monthData.netCents}
+            doneCount={monthData.doneCount}
+            goal={goal ? { targetCents: goal.revenueTargetCents } : null}
+          />
+        </HomeSection>
+      ) : (
+        <HomeSection title="Meu mês" actionHref="/financeiro" actionLabel="Ver meus números">
+          <MyMonth
+            receivedCents={monthData.netCents}
+            doneCount={monthData.doneCount}
+            commissionCents={monthData.commissionCents}
+            monthLabel={monthLabel}
+          />
+        </HomeSection>
+      )}
 
-      {/* Dom/seg: convite pro resumo comemorativo da semana */}
-      {[0, 1].includes(localWeekday(now, tz)) ? <WeeklyRecapBanner /> : null}
+      {/* Dom/seg: convite pro resumo comemorativo da semana (resumo do estúdio) */}
+      {isOwner && [0, 1].includes(localWeekday(now, tz)) ? <WeeklyRecapBanner /> : null}
 
-      <GamificationHomeCard game={game} />
+      {game ? <GamificationHomeCard game={game} /> : null}
 
-      <HomeFab />
+      <HomeFab showExpense={isOwner} />
     </div>
   );
 }

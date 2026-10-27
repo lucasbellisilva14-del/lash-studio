@@ -1,10 +1,17 @@
 import "server-only";
 
-/** Consultas compartilhadas do módulo Agenda (página + server actions). */
+/**
+ * Consultas compartilhadas do módulo Agenda (página + server actions).
+ * Equipe: conflito, buffer e bloqueios valem POR PROFISSIONAL (memberId nulo
+ * = a dona); o horário de funcionamento é o do estúdio.
+ */
 import { addDays } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { BLOCKING_STATUSES } from "@/lib/constants";
 import { dayKeyToUtcStart } from "@/lib/dates";
+import { blockScopeFor } from "@/lib/team";
+import { OWNER_COLOR, OWNER_KEY } from "@/lib/team-shared";
 import type {
   BlockRule,
   ExistingAppointment,
@@ -18,29 +25,49 @@ import type {
   HorarioFuncionamento,
 } from "@/components/agenda/types";
 
-/** Horários de funcionamento + bloqueios, no formato das funções de domínio. */
-export async function getGradeAgenda(professionalId: string): Promise<{
-  workingHours: WorkingHourRule[];
-  blocks: Array<BlockRule & { id: string }>;
-}> {
+export type BloqueioRow = BlockRule & {
+  id: string;
+  memberId: string | null;
+  allTeam: boolean;
+};
+
+/**
+ * Horários de funcionamento + bloqueios, no formato das funções de domínio.
+ * `{ memberId }`: só os bloqueios que valem para essa profissional (os dela +
+ * os do estúdio inteiro). `"todas"`: todos os bloqueios do estúdio.
+ */
+export async function getGradeAgenda(
+  professionalId: string,
+  para: { memberId: string | null } | "todas",
+): Promise<{ workingHours: WorkingHourRule[]; blocks: BloqueioRow[] }> {
   const [workingHours, blocks] = await Promise.all([
     prisma.workingHour.findMany({ where: { professionalId } }),
-    prisma.scheduleBlock.findMany({ where: { professionalId } }),
+    prisma.scheduleBlock.findMany({
+      where:
+        para === "todas"
+          ? { professionalId }
+          : { professionalId, AND: [blockScopeFor(para.memberId)] },
+    }),
   ]);
   return { workingHours, blocks };
 }
 
-/** Agendamentos que ocupam horário num dia local (p/ validateSlot/freeSlotsForDay). */
+/**
+ * Agendamentos que ocupam horário num dia local, de UMA profissional
+ * (memberId nulo = a dona), para validateSlot/freeSlotsForDay.
+ */
 export async function getOcupacoesDoDia(
   professionalId: string,
   dayKey: string,
   tz: string,
+  memberId: string | null,
 ): Promise<ExistingAppointment[]> {
   const start = dayKeyToUtcStart(dayKey, tz);
   const end = addDays(start, 1);
   const appts = await prisma.appointment.findMany({
     where: {
       professionalId,
+      memberId,
       startAt: { gte: start, lt: end },
       status: { in: [...BLOCKING_STATUSES] },
     },
@@ -77,6 +104,16 @@ type ClientRow = {
   anamnesisForm: { hasContraindication: boolean; contraindicationFlags: string } | null;
 };
 
+export const CLIENTE_AGENDA_SELECT = {
+  id: true,
+  name: true,
+  phone: true,
+  noShowCount: true,
+  anamnesisForm: {
+    select: { hasContraindication: true, contraindicationFlags: true },
+  },
+} satisfies Prisma.ClientSelect;
+
 export function toAgendaCliente(c: ClientRow): AgendaCliente {
   return {
     id: c.id,
@@ -88,19 +125,15 @@ export function toAgendaCliente(c: ClientRow): AgendaCliente {
   };
 }
 
-export async function getClientesAgenda(professionalId: string): Promise<AgendaCliente[]> {
+/** Clientes para o agendamento, dentro do escopo de quem está logada (clientScope). */
+export async function getClientesAgenda(
+  professionalId: string,
+  escopo: Prisma.ClientWhereInput,
+): Promise<AgendaCliente[]> {
   const clients = await prisma.client.findMany({
-    where: { professionalId },
+    where: { professionalId, AND: [escopo] },
     orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      noShowCount: true,
-      anamnesisForm: {
-        select: { hasContraindication: true, contraindicationFlags: true },
-      },
-    },
+    select: CLIENTE_AGENDA_SELECT,
   });
   return clients.map(toAgendaCliente);
 }
@@ -121,32 +154,30 @@ export async function getServicosAtivos(professionalId: string): Promise<AgendaS
   }));
 }
 
-/** Compromissos exibíveis (tudo menos cancelados) num intervalo UTC [start, end). */
+/**
+ * Compromissos exibíveis (tudo menos cancelados) num intervalo UTC [start, end),
+ * dentro do escopo (filtro de profissional ou appointmentScope da funcionária).
+ * `donaNome` identifica os agendamentos da dona (memberId nulo).
+ */
 export async function getCompromissosNoIntervalo(
   professionalId: string,
   start: Date,
   end: Date,
+  escopo: Prisma.AppointmentWhereInput,
+  donaNome: string,
 ): Promise<AgendaCompromisso[]> {
   const appts = await prisma.appointment.findMany({
     where: {
       professionalId,
+      AND: [escopo],
       startAt: { gte: start, lt: end },
       status: { notIn: ["CANCELADO", "CANCELADO_TARDE"] },
     },
     orderBy: { startAt: "asc" },
     include: {
-      client: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          noShowCount: true,
-          anamnesisForm: {
-            select: { hasContraindication: true, contraindicationFlags: true },
-          },
-        },
-      },
+      client: { select: CLIENTE_AGENDA_SELECT },
       service: { select: { id: true, name: true, category: true } },
+      member: { select: { id: true, name: true, color: true } },
     },
   });
   return appts.map((a) => ({
@@ -165,19 +196,26 @@ export async function getCompromissosNoIntervalo(
       nome: a.service.name,
       categoria: a.service.category as AgendaCompromisso["servico"]["categoria"],
     },
+    profissional: a.member
+      ? { key: a.member.id, memberId: a.member.id, nome: a.member.name, cor: a.member.color }
+      : { key: OWNER_KEY, memberId: null, nome: donaNome, cor: OWNER_COLOR },
   }));
 }
 
-export function toAgendaBloqueio(b: {
-  id: string;
-  title: string;
-  type: string;
-  startAt: Date | null;
-  endAt: Date | null;
-  weekday: number | null;
-  startTime: string | null;
-  endTime: string | null;
-}): AgendaBloqueio {
+export function toAgendaBloqueio(
+  b: {
+    id: string;
+    title: string;
+    type: string;
+    startAt: Date | null;
+    endAt: Date | null;
+    weekday: number | null;
+    startTime: string | null;
+    endTime: string | null;
+    allTeam: boolean;
+  },
+  para: string | null = null,
+): AgendaBloqueio {
   return {
     id: b.id,
     titulo: b.title,
@@ -187,6 +225,8 @@ export function toAgendaBloqueio(b: {
     diaSemana: b.weekday,
     horaInicio: b.startTime,
     horaFim: b.endTime,
+    estudioInteiro: b.allTeam,
+    para,
   };
 }
 

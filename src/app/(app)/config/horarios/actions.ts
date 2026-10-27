@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { timeToMinutes } from "@/lib/dates";
 import { type ConfigFormState, fieldErrorsFrom } from "../form-state";
 import { TIME_RE, intField } from "../validation";
@@ -17,7 +17,7 @@ export async function salvarHorariosAction(
   _prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const fieldErrors: Record<string, string> = {};
 

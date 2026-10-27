@@ -1,9 +1,13 @@
 "use server";
 
+/**
+ * Financeiro — despesas e meta são só da dona: toda ação começa com
+ * requireOwner() (a funcionária volta para o início) e filtra pelo estúdio.
+ */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional, requireProfessionalId } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { parseBRL } from "@/lib/money";
 import { dayKeyToUtcStart } from "@/lib/dates";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
@@ -42,6 +46,7 @@ export async function saveExpense(
   _prev: FinanceiroActionState,
   formData: FormData,
 ): Promise<FinanceiroActionState> {
+  await requireOwner();
   const professional = await requireProfessional();
 
   const parsed = expenseSchema.safeParse({
@@ -103,7 +108,7 @@ export async function deleteExpense(
   _prev: FinanceiroActionState,
   formData: FormData,
 ): Promise<FinanceiroActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Despesa inválida." };
@@ -125,7 +130,7 @@ export async function saveGoal(
   _prev: FinanceiroActionState,
   formData: FormData,
 ): Promise<FinanceiroActionState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const month = String(formData.get("month") ?? "");
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {

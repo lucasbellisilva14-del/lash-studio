@@ -1,6 +1,6 @@
 "use client";
 
-/** FAB da home: "+" abre um menu com as 3 criações principais. */
+/** FAB da home: "+" abre um menu com as criações principais. */
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -11,13 +11,17 @@ import {
   IconUsers,
 } from "@/components/ui/icons";
 
-const OPCOES = [
+const TODAS = [
   { href: "/agenda?novo=1", label: "Agendar horário", icon: IconCalendar },
   { href: "/clientes?nova=1", label: "Nova cliente", icon: IconUsers },
   { href: "/financeiro?despesa=1", label: "Nova despesa", icon: IconMoney },
 ] as const;
 
-export function HomeFab() {
+/** Despesa é da dona: a funcionária só agenda e cadastra cliente. */
+const SEM_DESPESA = TODAS.filter((opcao) => opcao.href !== "/financeiro?despesa=1");
+
+export function HomeFab({ showExpense = true }: { showExpense?: boolean }) {
+  const opcoes = showExpense ? TODAS : SEM_DESPESA;
   const [aberto, setAberto] = useState(false);
 
   return (
@@ -32,12 +36,12 @@ export function HomeFab() {
 
       <div className="fixed z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2.5 lg:hidden">
         {aberto
-          ? OPCOES.map(({ href, label, icon: Icon }, i) => (
+          ? opcoes.map(({ href, label, icon: Icon }, i) => (
               <Link
                 key={href}
                 href={href}
                 className="flex items-center gap-2.5 rounded-full bg-surface pl-4 pr-1.5 py-1.5 text-[14px] font-semibold text-ink shadow-[var(--shadow-pop)] ring-1 ring-[rgb(23_21_30/0.05)] pop-in"
-                style={{ animationDelay: `${(OPCOES.length - 1 - i) * 40}ms` }}
+                style={{ animationDelay: `${(opcoes.length - 1 - i) * 40}ms` }}
                 onClick={() => setAberto(false)}
               >
                 {label}

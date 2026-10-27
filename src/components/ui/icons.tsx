@@ -64,6 +64,7 @@ import {
   Upload01Icon,
   UserAdd01Icon,
   UserGroupIcon,
+  UserMultiple02Icon,
   ViewIcon,
   ViewOffIcon,
   Wallet01Icon,
@@ -107,6 +108,7 @@ export const IconHelp = makeIcon(HelpCircleIcon, "IconHelp");
 export const IconSupport = makeIcon(CustomerSupportIcon, "IconSupport");
 export const IconNote = makeIcon(Note01Icon, "IconNote");
 export const IconStore = makeIcon(Store01Icon, "IconStore");
+export const IconTeam = makeIcon(UserMultiple02Icon, "IconTeam");
 
 // Ações
 export const IconPlus = makeIcon(PlusSignIcon, "IconPlus");

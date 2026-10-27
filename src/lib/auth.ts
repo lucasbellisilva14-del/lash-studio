@@ -73,30 +73,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (await isThrottled(email)) return null;
 
         const professional = await prisma.professional.findUnique({ where: { email } });
-        if (!professional) {
+        if (professional) {
+          const valid = await bcrypt.compare(password, professional.passwordHash);
+          if (!valid) {
+            await registerFailure(email);
+            return null;
+          }
+          await clearFailures(email);
+          return { id: professional.id, email: professional.email, name: professional.name };
+        }
+
+        // Equipe: funcionária ativa que já aceitou o convite. A sessão leva o
+        // id do ESTÚDIO (multi-tenant intacto) + o memberId de quem entrou.
+        const member = await prisma.teamMember.findUnique({ where: { email } });
+        if (!member?.passwordHash || !member.active) {
           await registerFailure(email);
           return null;
         }
-
-        const valid = await bcrypt.compare(password, professional.passwordHash);
+        const valid = await bcrypt.compare(password, member.passwordHash);
         if (!valid) {
           await registerFailure(email);
           return null;
         }
-
         await clearFailures(email);
-        return { id: professional.id, email: professional.email, name: professional.name };
+        await prisma.teamMember
+          .update({ where: { id: member.id }, data: { lastLoginAt: new Date() } })
+          .catch(() => {});
+        return {
+          id: member.professionalId,
+          email: member.email,
+          name: member.name,
+          memberId: member.id,
+        } as { id: string; email: string; name: string };
       },
     }),
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user?.id) token.professionalId = user.id;
+      if (user?.id) {
+        token.professionalId = user.id;
+        token.memberId = (user as { memberId?: string }).memberId ?? null;
+      }
       return token;
     },
     session({ session, token }) {
       if (token.professionalId && session.user) {
         session.user.id = token.professionalId as string;
+        (session.user as { memberId?: string | null }).memberId =
+          (token.memberId as string | null | undefined) ?? null;
       }
       return session;
     },

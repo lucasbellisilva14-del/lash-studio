@@ -3,6 +3,7 @@
  * a chave começa com o professionalId — só a dona da conta acessa.
  */
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getStorageProvider, storageKeyOwner } from "@/lib/providers/storage";
 
 export async function GET(
@@ -13,6 +14,12 @@ export async function GET(
   const professionalId = session?.user?.id;
   if (!professionalId) {
     return new Response("Não autorizado", { status: 401 });
+  }
+  // Funcionária desativada perde o acesso também aos arquivos do estúdio.
+  const memberId = (session.user as { memberId?: string | null }).memberId;
+  if (memberId) {
+    const ativa = await prisma.teamMember.count({ where: { id: memberId, professionalId, active: true } });
+    if (!ativa) return new Response("Não autorizado", { status: 403 });
   }
 
   const { key } = await ctx.params;

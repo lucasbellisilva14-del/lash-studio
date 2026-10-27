@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import {
   getStorageProvider,
@@ -54,7 +54,7 @@ export async function salvarPerfilAction(
   _prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = schema.safeParse({
     name: String(formData.get("name") ?? ""),

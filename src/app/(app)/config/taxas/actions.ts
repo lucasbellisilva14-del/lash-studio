@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/constants";
 import { type ConfigFormState, fieldErrorsFrom } from "../form-state";
 import { pctField } from "../validation";
@@ -23,7 +23,7 @@ export async function salvarTaxasAction(
   _prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const parsed = schema.safeParse(
     Object.fromEntries(

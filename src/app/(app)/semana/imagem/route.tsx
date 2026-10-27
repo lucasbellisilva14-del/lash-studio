@@ -3,13 +3,14 @@
  * gerada na hora pra profissional logada.
  */
 import { ImageResponse } from "next/og";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { formatBRL } from "@/lib/money";
 import { getResumoSemana } from "../dados";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await requireOwner();
   const professional = await requireProfessional();
   const resumo = await getResumoSemana(professional.id, professional.timezone);
 

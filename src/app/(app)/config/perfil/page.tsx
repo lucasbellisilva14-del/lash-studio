@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { formatPhone } from "@/lib/phone";
 import { PageHeader } from "@/components/ui/page-header";
 import { PerfilForm } from "./perfil-form";
@@ -6,6 +6,7 @@ import { PerfilForm } from "./perfil-form";
 export const metadata = { title: "Perfil do estúdio" };
 
 export default async function PerfilPage() {
+  await requireOwner();
   const p = await requireProfessional();
 
   return (

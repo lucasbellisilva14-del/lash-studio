@@ -21,18 +21,38 @@ const items = [
   { href: "/mais", label: "Mais", icon: IconMore },
 ] as const;
 
+/** Funcionária: os números dela ficam no Mais (com a senha e o suporte). */
+const itemsEquipe = [
+  { href: "/", label: "Hoje", icon: IconHome },
+  { href: "/agenda", label: "Agenda", icon: IconCalendar },
+  { href: "/clientes", label: "Clientes", icon: IconUsers },
+  { href: "/mensagens", label: "Fila", icon: IconChat },
+  { href: "/mais", label: "Mais", icon: IconMore },
+] as const;
+
 /** Barra inferior do celular: branca, com indicador escuro no item ativo. */
-export function BottomNav() {
+export function BottomNav({ isOwner = true }: { isOwner?: boolean }) {
   const pathname = usePathname();
+  const lista = isOwner ? items : itemsEquipe;
 
   return (
     <nav
       aria-label="Navegação principal"
       className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] inset-x-3 z-40 no-print"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-6 rounded-[24px] bg-surface p-1.5 shadow-[var(--shadow-pop)] ring-1 ring-[rgb(23_21_30/0.06)]">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+      <div
+        className={cn(
+          "mx-auto grid max-w-lg rounded-[24px] bg-surface p-1.5 shadow-[var(--shadow-pop)] ring-1 ring-[rgb(23_21_30/0.06)]",
+          isOwner ? "grid-cols-6" : "grid-cols-5",
+        )}
+      >
+        {lista.map(({ href, label, icon: Icon }) => {
+          // Na equipe, "Meus números" e "Sua senha" moram no Mais.
+          const active =
+            href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(href) ||
+                (!isOwner && href === "/mais" && (pathname.startsWith("/financeiro") || pathname.startsWith("/config")));
           return (
             <Link
               key={href}

@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * Sheet de criação/edição de despesa — o mesmo formulário atende os dois casos
- * (com `expense` preenchido = edição, com hidden input `id`).
- * Exclusão em duas etapas (confirmação inline), em formulário separado.
+ * Sheet de despesa — o mesmo formulário cria (sem `expense`), cria já
+ * preenchida (`preset`, ex.: pagamento de comissão) e edita (`expense`, com
+ * hidden input `id`). A ação principal fica no rodapé fixo; a exclusão, em
+ * duas etapas, num formulário separado.
  */
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
+import { Segmented } from "@/components/ui/segmented";
 import { Sheet } from "@/components/ui/sheet";
 import { IconAlert } from "@/components/ui/icons";
-import { cn } from "@/lib/cn";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { formatBRL, parseBRL } from "@/lib/money";
 import {
@@ -18,17 +19,25 @@ import {
   saveExpense,
   type FinanceiroActionState,
 } from "@/app/(app)/financeiro/actions";
-import type { ExpenseCategory, ExpenseDraft, Recurrence } from "./types";
+import type { ExpenseCategory, ExpenseDraft, ExpensePreset, Recurrence } from "./types";
 
 const initialState: FinanceiroActionState = { ok: false, error: null };
 
-function centsToInput(cents: number): string {
+const RECORRENCIAS = [
+  { value: "AVULSA", label: "Avulsa" },
+  { value: "FIXA_MENSAL", label: "Fixa mensal" },
+] as const satisfies readonly { value: Recurrence; label: string }[];
+
+export function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
-function ErrorBox({ message }: { message: string }) {
+export function ErrorBox({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2.5 rounded-xl bg-danger-soft px-3.5 py-3 text-sm text-danger">
+    <div
+      role="alert"
+      className="flex items-start gap-2.5 rounded-[14px] bg-danger-soft px-3.5 py-3 text-sm text-danger"
+    >
       <IconAlert width={18} height={18} className="mt-0.5 shrink-0" />
       <p>{message}</p>
     </div>
@@ -37,23 +46,26 @@ function ErrorBox({ message }: { message: string }) {
 
 export function ExpenseSheet({
   expense,
+  preset = null,
   defaultDateKey,
   onClose,
 }: {
   /** null = nova despesa; preenchido = edição. */
   expense: ExpenseDraft | null;
+  /** Nova despesa já preenchida (ignorado na edição). */
+  preset?: ExpensePreset | null;
   /** "yyyy-MM-dd" de hoje (data padrão da nova despesa). */
   defaultDateKey: string;
   onClose: () => void;
 }) {
+  const formId = useId();
   const editing = expense !== null;
+  const inicial = expense ?? preset;
   const [state, formAction, pending] = useActionState(saveExpense, initialState);
   const [deleteState, deleteAction, deleting] = useActionState(deleteExpense, initialState);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [amount, setAmount] = useState(expense ? centsToInput(expense.amountCents) : "");
-  const [recurrence, setRecurrence] = useState<Recurrence>(
-    expense?.recurrence ?? "AVULSA",
-  );
+  const [amount, setAmount] = useState(inicial ? centsToInput(inicial.amountCents) : "");
+  const [recurrence, setRecurrence] = useState<Recurrence>(expense?.recurrence ?? "AVULSA");
 
   useEffect(() => {
     if (state.ok || deleteState.ok) onClose();
@@ -63,28 +75,43 @@ export function ExpenseSheet({
   const busy = pending || deleting;
 
   return (
-    <Sheet open onClose={onClose} title={editing ? "Editar despesa" : "Nova despesa"} tall>
-      <form action={formAction} className="grid gap-4 pt-1">
+    <Sheet
+      open
+      onClose={onClose}
+      title={editing ? "Editar despesa" : "Nova despesa"}
+      description={
+        editing
+          ? "As mudanças valem para o mês da data escolhida."
+          : (preset?.note ?? "Entra nas despesas pagas do mês da data escolhida.")
+      }
+      tall
+      footer={
+        <Button type="submit" form={formId} size="lg" disabled={busy}>
+          {pending ? "Salvando..." : editing ? "Salvar alterações" : "Lançar despesa"}
+        </Button>
+      }
+    >
+      <form id={formId} action={formAction} className="grid gap-4">
         {expense ? <input type="hidden" name="id" value={expense.id} /> : null}
 
         {state.error ? <ErrorBox message={state.error} /> : null}
 
-        <Field label="Descrição" htmlFor="expense-description">
+        <Field label="Descrição" htmlFor={`${formId}-description`}>
           <Input
-            id="expense-description"
+            id={`${formId}-description`}
             name="description"
-            defaultValue={expense?.description ?? ""}
+            defaultValue={inicial?.description ?? ""}
             placeholder="Ex.: Cola nova, aluguel do estúdio"
             maxLength={80}
             required
           />
         </Field>
 
-        <Field label="Categoria" htmlFor="expense-category">
+        <Field label="Categoria" htmlFor={`${formId}-category`}>
           <Select
-            id="expense-category"
+            id={`${formId}-category`}
             name="category"
-            defaultValue={expense?.category ?? "MATERIAL"}
+            defaultValue={inicial?.category ?? "MATERIAL"}
           >
             {(Object.keys(EXPENSE_CATEGORIES) as ExpenseCategory[]).map((key) => (
               <option key={key} value={key}>
@@ -96,7 +123,7 @@ export function ExpenseSheet({
 
         <Field
           label="Valor"
-          htmlFor="expense-amount"
+          htmlFor={`${formId}-amount`}
           hint={amountCents > 0 ? `Prévia: ${formatBRL(amountCents)}` : "Ex.: 89,90"}
         >
           <div className="relative">
@@ -104,7 +131,7 @@ export function ExpenseSheet({
               R$
             </span>
             <Input
-              id="expense-amount"
+              id={`${formId}-amount`}
               name="amount"
               inputMode="decimal"
               autoComplete="off"
@@ -117,9 +144,9 @@ export function ExpenseSheet({
           </div>
         </Field>
 
-        <Field label="Data" htmlFor="expense-date">
+        <Field label="Data" htmlFor={`${formId}-date`} hint="O dia em que o dinheiro saiu.">
           <Input
-            id="expense-date"
+            id={`${formId}-date`}
             name="date"
             type="date"
             defaultValue={expense?.dateKey ?? defaultDateKey}
@@ -128,51 +155,23 @@ export function ExpenseSheet({
         </Field>
 
         <div>
-          <p className="mb-1.5 block text-[13px] font-medium text-ink-soft">
-            Recorrência
-          </p>
-          <input type="hidden" name="recurrence" value={recurrence} />
-          <div className="grid grid-cols-2 gap-2">
-            {(
-              [
-                ["AVULSA", "Avulsa"],
-                ["FIXA_MENSAL", "Fixa mensal"],
-              ] as [Recurrence, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={recurrence === key}
-                onClick={() => setRecurrence(key)}
-                className={cn(
-                  "h-11 rounded-xl border text-[15px] font-medium transition-colors select-none",
-                  recurrence === key
-                    ? "border-accent bg-accent text-accent-ink shadow-sm"
-                    : "border-line bg-surface text-ink-soft active:bg-surface-sunken",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-xs text-ink-faint">
+          <p className="mb-1.5 text-[13px] font-semibold text-ink">Recorrência</p>
+          <Segmented
+            options={RECORRENCIAS}
+            value={recurrence}
+            onChange={setRecurrence}
+            name="recurrence"
+          />
+          <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
             {recurrence === "FIXA_MENSAL"
               ? "Entra sozinha todo mês, no mesmo dia."
               : "Fixa mensal entra sozinha todo mês (ex.: aluguel)."}
           </p>
         </div>
-
-        <Button size="lg" disabled={busy}>
-          {pending
-            ? "Salvando..."
-            : editing
-              ? "Salvar alterações"
-              : "Lançar despesa"}
-        </Button>
       </form>
 
       {editing && expense ? (
-        <div className="mt-4 border-t border-line pt-4 pb-1">
+        <div className="mt-5 border-t border-line pt-4">
           {deleteState.error ? (
             <div className="mb-3">
               <ErrorBox message={deleteState.error} />

@@ -1,33 +1,49 @@
 "use client";
 
-/** Gestão de bloqueios: lista (semanais + avulsos), criação em Sheet e exclusão. */
+/**
+ * Gestão de bloqueios: lista (semanais + avulsos), criação em Sheet e exclusão.
+ * Com equipe, a dona escolhe para quem o bloqueio vale e a lista diz de quem
+ * é cada um; a funcionária vê e cria só os da própria agenda.
+ */
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Field, Input, Select } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconCalendarX, IconPlus, IconTrash } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { WEEKDAYS_PT } from "@/lib/constants";
 import { formatDateTime } from "@/lib/dates";
+import { OWNER_KEY } from "@/lib/team-shared";
 import {
   criarBloqueioAction,
   excluirBloqueio,
   type BloqueioFormState,
 } from "@/app/(app)/agenda/bloqueios/actions";
 import type { AgendaBloqueio } from "./types";
+import { ESTUDIO_KEY, ProDot } from "./pro";
 
 const estadoInicial: BloqueioFormState = {};
+
+/** Opção de "Para quem" (estúdio inteiro, a dona ou uma funcionária). */
+export type OpcaoPara = { key: string; rotulo: string; cor: string | null };
+
+type BloqueioItem = AgendaBloqueio & { paraCor?: string | null };
 
 export function BlocksManager({
   bloqueios,
   tz,
+  opcoesPara = [],
 }: {
-  bloqueios: AgendaBloqueio[];
+  bloqueios: BloqueioItem[];
   tz: string;
+  /** Só a dona com equipe recebe; vazio = sem campo "Para quem". */
+  opcoesPara?: OpcaoPara[];
 }) {
   const [aberto, setAberto] = useState(false);
   const [tipo, setTipo] = useState<"AVULSO" | "SEMANAL">("AVULSO");
+  const [para, setPara] = useState(ESTUDIO_KEY);
   const [state, formAction, pendente] = useActionState(criarBloqueioAction, estadoInicial);
 
   useEffect(() => {
@@ -69,6 +85,7 @@ export function BlocksManager({
                     Toda {WEEKDAYS_PT[b.diaSemana ?? 0].toLowerCase()} · {b.horaInicio}–
                     {b.horaFim}
                   </p>
+                  <ParaQuem bloqueio={b} />
                 </div>
                 <BotaoExcluir id={b.id} />
               </li>
@@ -99,6 +116,7 @@ export function BlocksManager({
                       {b.inicio ? formatDateTime(new Date(b.inicio), tz) : ""} até{" "}
                       {b.fim ? formatDateTime(new Date(b.fim), tz) : ""}
                     </p>
+                    <ParaQuem bloqueio={b} />
                   </div>
                   <BotaoExcluir id={b.id} />
                 </li>
@@ -126,6 +144,44 @@ export function BlocksManager({
             ))}
           </div>
           <input type="hidden" name="tipo" value={tipo} />
+
+          {opcoesPara.length > 0 ? (
+            <div>
+              <p id="bloq-para-rotulo" className="mb-2 text-[13px] font-semibold text-ink">
+                Para quem
+              </p>
+              <input type="hidden" name="para" value={para} />
+              <div role="group" aria-labelledby="bloq-para-rotulo" className="flex flex-wrap gap-2">
+                {opcoesPara.map((o) => {
+                  const marcada = o.key === para;
+                  return (
+                    <Chip
+                      key={o.key}
+                      size="sm"
+                      selected={marcada}
+                      onClick={() => setPara(o.key)}
+                      className="h-9 px-3.5 text-[13.5px]"
+                    >
+                      {o.cor ? (
+                        <ProDot
+                          cor={o.cor}
+                          className={cn("ring-[1.5px]", marcada ? "ring-accent-ink" : "ring-surface")}
+                        />
+                      ) : null}
+                      {o.rotulo}
+                    </Chip>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                {para === ESTUDIO_KEY
+                  ? "Fecha esse horário na agenda de toda a equipe."
+                  : para === OWNER_KEY
+                    ? "Fecha esse horário só na sua agenda; a equipe continua livre."
+                    : "Fecha esse horário só na agenda dela; as outras continuam livres."}
+              </p>
+            </div>
+          ) : null}
 
           <Field
             label="Título"
@@ -188,6 +244,19 @@ export function BlocksManager({
         </form>
       </Sheet>
     </div>
+  );
+}
+
+/** A quem o bloqueio vale (só aparece com equipe, para a dona). */
+function ParaQuem({ bloqueio }: { bloqueio: BloqueioItem }) {
+  if (!bloqueio.para) return null;
+  return (
+    <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
+      {bloqueio.paraCor ? <ProDot cor={bloqueio.paraCor} className="h-2 w-2" /> : null}
+      {bloqueio.estudioInteiro
+        ? "Estúdio inteiro"
+        : `Só para ${bloqueio.para === "Você" ? "você" : bloqueio.para}`}
+    </p>
   );
 }
 

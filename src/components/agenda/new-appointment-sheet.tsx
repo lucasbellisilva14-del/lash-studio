@@ -2,7 +2,9 @@
 
 /**
  * Fluxo de criação de agendamento em Sheet:
- * 1. cliente (busca ou cadastro rápido) → 2. serviço → 3. data/hora + confirmação.
+ * 1. cliente (busca ou cadastro rápido) → 2. serviço → 3. profissional (só a
+ * dona com equipe), data/hora + confirmação. Os horários sugeridos são os da
+ * agenda da profissional escolhida; a funcionária agenda sempre para ela.
  */
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Sheet } from "@/components/ui/sheet";
@@ -17,6 +19,7 @@ import { formatPhone, isValidPhone } from "@/lib/phone";
 import { dayKeyToUtcStart, formatDateShort, localToUtc } from "@/lib/dates";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
 import { computeDeposit } from "@/lib/domain/deposit";
+import { OWNER_KEY } from "@/lib/team-shared";
 import {
   criarAgendamento,
   criarClienteRapido,
@@ -24,8 +27,9 @@ import {
   verificarManutencao,
   type AvisoManutencao,
 } from "@/app/(app)/agenda/actions";
-import type { AgendaCliente, AgendaConfig, AgendaServico } from "./types";
+import type { AgendaCliente, AgendaConfig, AgendaPro, AgendaServico } from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
+import { ProDot } from "./pro";
 
 /** Soma dias a uma chave "yyyy-MM-dd" (meio-dia local evita pulo de fuso). */
 export function somarDiasKey(dayKey: string, dias: number): string {
@@ -45,6 +49,8 @@ export function NewAppointmentSheet({
   diaInicial,
   horaInicial = null,
   clienteInicialId,
+  equipe = [],
+  proInicialKey = OWNER_KEY,
   onCriado,
 }: {
   open: boolean;
@@ -56,8 +62,13 @@ export function NewAppointmentSheet({
   /** Pré-preenche o horário (toque num espaço vazio da timeline). */
   horaInicial?: string | null;
   clienteInicialId: string | null;
-  onCriado: (resultado: { dia: string; aviso: string | null }) => void;
+  /** Equipe ativa (só a dona recebe). O campo "Profissional" aparece com 2+. */
+  equipe?: AgendaPro[];
+  /** Profissional já escolhida ao abrir (a do filtro da agenda ou a dona). */
+  proInicialKey?: string;
+  onCriado: (resultado: { dia: string; aviso: string | null; proKey: string | null }) => void;
 }) {
+  const escolhePro = equipe.length > 1;
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
   const [cliente, setCliente] = useState<AgendaCliente | null>(null);
   const [servico, setServico] = useState<AgendaServico | null>(null);
@@ -68,6 +79,10 @@ export function NewAppointmentSheet({
   const [manut, setManut] = useState<AvisoManutencao>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
+  const [proKey, setProKey] = useState(proInicialKey);
+  /** O que vai para o servidor (só a dona com equipe escolhe). */
+  const profissional = escolhePro ? proKey : undefined;
+  const proEscolhida = escolhePro ? (equipe.find((p) => p.key === proKey) ?? null) : null;
 
   // Programar a manutenção do ciclo junto com a aplicação
   const [manutAtiva, setManutAtiva] = useState(false);
@@ -82,6 +97,7 @@ export function NewAppointmentSheet({
   const [novoNome, setNovoNome] = useState("");
   const [novoZap, setNovoZap] = useState("");
   const [erroCadastro, setErroCadastro] = useState<string | null>(null);
+  const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
   const [salvandoCliente, startCadastro] = useTransition();
 
   // Reset ao abrir
@@ -93,6 +109,7 @@ export function NewAppointmentSheet({
     setCliente(inicial);
     setEtapa(inicial ? 2 : 1);
     setServico(null);
+    setProKey(equipe.some((p) => p.key === proInicialKey) ? proInicialKey : OWNER_KEY);
     setDia(diaInicial);
     setHora(horaInicial ?? "");
     setObservacoes("");
@@ -108,22 +125,23 @@ export function NewAppointmentSheet({
     setNovoNome("");
     setNovoZap("");
     setErroCadastro(null);
+    setAvisoCliente(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Horários livres do dia escolhido
+  // Horários livres do dia escolhido, na agenda da profissional escolhida
   const servicoId = servico?.id ?? null;
   useEffect(() => {
     if (!open || etapa !== 3 || !servicoId || !dia) return;
     let ativo = true;
     setSlots(null);
-    horariosLivres({ dia, servicoId })
+    horariosLivres({ dia, servicoId, profissional })
       .then((r) => ativo && setSlots(r.slots))
       .catch(() => ativo && setSlots([]));
     return () => {
       ativo = false;
     };
-  }, [open, etapa, dia, servicoId]);
+  }, [open, etapa, dia, servicoId, profissional]);
 
   // Regra de ouro: manutenção dentro do prazo?
   const categoriaServico = servico?.categoria ?? null;
@@ -151,19 +169,19 @@ export function NewAppointmentSheet({
     [servico, servicos],
   );
 
-  // Horários livres para a manutenção programada
+  // Horários livres para a manutenção programada (mesma profissional da aplicação)
   const manutServicoId = manutServico?.id ?? null;
   useEffect(() => {
     if (!open || !manutAtiva || !manutServicoId || !diaManut) return;
     let ativo = true;
     setSlotsManut(null);
-    horariosLivres({ dia: diaManut, servicoId: manutServicoId })
+    horariosLivres({ dia: diaManut, servicoId: manutServicoId, profissional })
       .then((r) => ativo && setSlotsManut(r.slots))
       .catch(() => ativo && setSlotsManut([]));
     return () => {
       ativo = false;
     };
-  }, [open, manutAtiva, diaManut, manutServicoId]);
+  }, [open, manutAtiva, diaManut, manutServicoId, profissional]);
 
   function alternarManutencao() {
     setManutAtiva((atual) => {
@@ -229,7 +247,16 @@ export function NewAppointmentSheet({
 
   function selecionarCliente(c: AgendaCliente) {
     setCliente(c);
+    setAvisoCliente(null);
     setEtapa((e) => (e < 2 ? 2 : e));
+  }
+
+  /** Abre o cadastro rápido já com o que foi digitado na busca (nome ou WhatsApp). */
+  function abrirCadastro() {
+    const termo = busca.trim();
+    if (termo.replace(/\D/g, "").length >= 8) setNovoZap(termo);
+    else if (termo) setNovoNome(termo);
+    setCadastroAberto(true);
   }
 
   function salvarClienteRapido() {
@@ -253,6 +280,15 @@ export function NewAppointmentSheet({
       setNovoNome("");
       setNovoZap("");
       selecionarCliente(res.cliente);
+      // Mesmo WhatsApp de uma cliente do estúdio: o cadastro dela é reaproveitado.
+      // Fora do escopo da funcionária, nada da cliente aparece antes de agendar.
+      if (res.jaExistia) {
+        setAvisoCliente(
+          res.oculta
+            ? "Esse WhatsApp já tem cadastro no estúdio. O horário fica nesse cadastro, sem duplicar."
+            : `Esse WhatsApp já era de ${res.cliente.nome}. Usamos o cadastro dela, sem duplicar.`,
+        );
+      }
     });
   }
 
@@ -292,12 +328,14 @@ export function NewAppointmentSheet({
           manutAtiva && diaManut && horaManut
             ? { dia: diaManut, hora: horaManut }
             : undefined,
+        profissional,
+        clienteTelefone: cliente.telefone,
       });
       if (!res.ok) {
         setErro(res.erro);
         return;
       }
-      onCriado({ dia, aviso: res.aviso });
+      onCriado({ dia, aviso: res.aviso, proKey: profissional ?? null });
     });
   }
 
@@ -312,6 +350,9 @@ export function NewAppointmentSheet({
   const resumoLinha2 = servico
     ? [
         quando ?? `${servico.duracaoMin} min`,
+        proEscolhida && etapa === 3
+          ? `com ${proEscolhida.rotulo === "Você" ? "você" : proEscolhida.rotulo}`
+          : null,
         formatBRL(servico.precoCents),
         sinal?.required ? `sinal ${formatBRL(sinal.depositCents)}` : null,
         manutAtiva && horaManut ? "+ manutenção" : null,
@@ -376,6 +417,11 @@ export function NewAppointmentSheet({
                 }}
               />
             ) : null}
+            {avisoCliente ? (
+              <p className="rounded-[16px] bg-surface-sunken px-4 py-2.5 text-[13.5px] text-ink">
+                {avisoCliente}
+              </p>
+            ) : null}
             {cliente.temContraindicacao ? (
               <ContraindicacaoAlert flags={cliente.flags} />
             ) : null}
@@ -402,7 +448,7 @@ export function NewAppointmentSheet({
 
             {!cadastroAberto ? (
               <button
-                onClick={() => setCadastroAberto(true)}
+                onClick={abrirCadastro}
                 className="w-full flex items-center gap-2 px-4 py-3 rounded-[14px] border border-dashed border-line-strong text-[14px] font-semibold text-ink hover:bg-surface-muted"
               >
                 <IconPlus width={18} height={18} />
@@ -454,7 +500,8 @@ export function NewAppointmentSheet({
             <ul className="divide-y divide-line/70 rounded-xl border border-line overflow-hidden">
               {filtrados.length === 0 ? (
                 <li className="px-4 py-6 text-center text-sm text-ink-faint">
-                  Nenhuma cliente encontrada.
+                  Nenhuma cliente encontrada. Cadastre com o WhatsApp dela: se ela já é
+                  cliente do estúdio, o cadastro é reaproveitado.
                 </li>
               ) : (
                 filtrados.slice(0, 30).map((c) => (
@@ -538,6 +585,37 @@ export function NewAppointmentSheet({
         {/* Etapa 3 — data, hora e confirmação */}
         {etapa === 3 && servico && cliente ? (
           <div className="space-y-4">
+            {escolhePro ? (
+              <div>
+                <p id="ag-pro-rotulo" className="mb-2 text-[13px] font-semibold text-ink">
+                  Profissional
+                </p>
+                <div role="group" aria-labelledby="ag-pro-rotulo" className="flex flex-wrap gap-2">
+                  {equipe.map((p) => {
+                    const marcada = p.key === proKey;
+                    return (
+                      <Chip
+                        key={p.key}
+                        size="sm"
+                        selected={marcada}
+                        onClick={() => setProKey(p.key)}
+                        className="h-9 px-3.5 text-[13.5px]"
+                      >
+                        <ProDot
+                          cor={p.cor}
+                          className={cn("ring-[1.5px]", marcada ? "ring-accent-ink" : "ring-surface")}
+                        />
+                        {p.rotulo}
+                      </Chip>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                  Os horários livres abaixo são os da agenda de quem vai atender.
+                </p>
+              </div>
+            ) : null}
+
             <Field label="Data" htmlFor="ag-dia">
               <Input
                 id="ag-dia"

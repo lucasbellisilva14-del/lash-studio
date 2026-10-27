@@ -98,6 +98,7 @@ export const EXPENSE_CATEGORIES = {
   ALUGUEL: "Aluguel",
   MARKETING: "Marketing",
   CURSOS: "Cursos",
+  COMISSOES: "Comissões da equipe",
   OUTROS: "Outros",
 } as const;
 

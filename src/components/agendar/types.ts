@@ -20,6 +20,19 @@ export type AgendarDia = {
   dataCurta: string;
 };
 
+/** Escolha "Primeira disponível" no link (qualquer profissional livre no horário). */
+export const PRIMEIRA_DISPONIVEL = "primeira";
+
+/** Profissional que a cliente pode escolher no link (só o que é público). */
+export type AgendarProfissional = {
+  /** "dona" ou o id da funcionária — o mesmo valor do ?com= do link. */
+  key: string;
+  /** Primeiro nome. */
+  nome: string;
+  iniciais: string;
+  cor: string;
+};
+
 export type AgendarEstudio = {
   slug: string;
   nome: string;
@@ -41,6 +54,8 @@ export type SolicitacaoSucesso = {
   /** HH:mm */
   hora: string;
   valorCents: number;
+  /** Primeiro nome de quem vai atender (só quando o estúdio tem equipe). */
+  profissional: string | null;
   sinal: {
     valorCents: number;
     /** Pix copia-e-cola com valor travado (null se o estúdio não tem chave Pix) */
@@ -55,8 +70,11 @@ export type SolicitacaoResult =
   | {
       ok: false;
       erro: string;
-      /** HORARIO: slot indisponível (voltar e escolher outro) · LIMITE: agenda cheia · DADOS: entrada inválida */
-      codigo: "HORARIO" | "LIMITE" | "DADOS";
+      /**
+       * HORARIO: slot indisponível (voltar e escolher outro) · LIMITE: agenda cheia ·
+       * DADOS: entrada inválida · PROFISSIONAL: quem ela escolheu não atende mais pelo link
+       */
+      codigo: "HORARIO" | "LIMITE" | "DADOS" | "PROFISSIONAL";
     };
 
 export type HorariosPublicosResult = { slots: string[] };

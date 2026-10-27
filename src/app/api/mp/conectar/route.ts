@@ -3,11 +3,11 @@
  * OAuth do MP, com state assinado (anti-CSRF).
  */
 import { redirect } from "next/navigation";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { gerarState, mpOauthDisponivel, urlAutorizacao } from "@/lib/mp-oauth";
 
 export async function GET(request: Request) {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
   if (!mpOauthDisponivel()) {
     redirect("/config/pagamentos?erro=indisponivel");
   }

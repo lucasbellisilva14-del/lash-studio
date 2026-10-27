@@ -2,10 +2,19 @@
 
 /**
  * Fluxo público de agendamento em etapas:
- * 1. serviço → 2. dia + horário → 3. dados da cliente → sucesso.
+ * 1. serviço → 2. com quem (só se 2+ profissionais atendem pelo link) →
+ * 3. dia + horário → 4. dados da cliente → sucesso.
  * Sem login: as actions resolvem o estúdio pelo slug e revalidam tudo.
  */
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/money";
 import { isValidPhone, waLink } from "@/lib/phone";
@@ -13,33 +22,45 @@ import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { IconCheck, IconWhatsApp } from "@/components/ui/icons";
+import { IconCheck, IconChevronRight, IconUsers, IconWhatsApp } from "@/components/ui/icons";
 import { IconLock } from "./icons";
 import { criarSolicitacao, horariosPublicos } from "@/app/agendar/[slug]/actions";
-import type {
-  AgendarDia,
-  AgendarEstudio,
-  AgendarServico,
-  SolicitacaoSucesso,
-  TokenFormulario,
+import {
+  PRIMEIRA_DISPONIVEL,
+  type AgendarDia,
+  type AgendarEstudio,
+  type AgendarProfissional,
+  type AgendarServico,
+  type SolicitacaoSucesso,
+  type TokenFormulario,
 } from "./types";
 import { SuccessScreen } from "./success-screen";
 
-type Erro = { mensagem: string; codigo: "HORARIO" | "LIMITE" | "DADOS" };
+type Erro = { mensagem: string; codigo: "HORARIO" | "LIMITE" | "DADOS" | "PROFISSIONAL" };
+type Etapa = "servico" | "profissional" | "horario" | "dados";
 
 export function BookingFlow({
   estudio,
   servicos,
   dias,
   token,
+  profissionais,
+  proInicial = null,
 }: {
   estudio: AgendarEstudio;
   servicos: AgendarServico[];
   dias: AgendarDia[];
   token: TokenFormulario;
+  /** Quem atende pelo link. Com 2+, a cliente escolhe (ou "primeira disponível"). */
+  profissionais: AgendarProfissional[];
+  /** ?com= do link: profissional já escolhida (pula o passo). */
+  proInicial?: string | null;
 }) {
-  const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
+  const temPasso = profissionais.length > 1;
+  const [etapa, setEtapa] = useState<Etapa>("servico");
   const [servico, setServico] = useState<AgendarServico | null>(null);
+  /** Chave da profissional, PRIMEIRA_DISPONIVEL, ou nulo enquanto ela não escolheu. */
+  const [proEscolhida, setProEscolhida] = useState<string | null>(proInicial);
   const [dia, setDia] = useState<string | null>(null);
   const [hora, setHora] = useState("");
   const [slots, setSlots] = useState<string[] | null>(null);
@@ -48,23 +69,30 @@ export function BookingFlow({
   const [whatsapp, setWhatsapp] = useState("");
   const [erro, setErro] = useState<Erro | null>(null);
   const [sucesso, setSucesso] = useState<SolicitacaoSucesso | null>(null);
+  /** Profissionais que o servidor disse que saíram do link enquanto a página estava aberta. */
+  const [foraDoLink, setForaDoLink] = useState<string[]>([]);
   const [enviando, startEnvio] = useTransition();
   const siteRef = useRef<HTMLInputElement>(null);
 
-  // Horários livres do dia escolhido (com a antecedência mínima do estúdio).
+  /** O que vai para o servidor: sem passo, o servidor usa quem atende pelo link. */
+  const escolhaPro = temPasso ? (proEscolhida ?? PRIMEIRA_DISPONIVEL) : undefined;
+  const pro = temPasso ? (profissionais.find((p) => p.key === proEscolhida) ?? null) : null;
+
+  // Horários livres do dia escolhido (com a antecedência mínima do estúdio),
+  // na agenda da profissional escolhida — ou de todas, na primeira disponível.
   const servicoId = servico?.id ?? null;
   useEffect(() => {
-    if (etapa !== 2 || !servicoId || !dia) return;
+    if (etapa !== "horario" || !servicoId || !dia) return;
     void recarga; // dependência proposital: refaz a busca após conflito de horário
     let ativo = true;
     setSlots(null);
-    horariosPublicos({ slug: estudio.slug, dia, servicoId })
+    horariosPublicos({ slug: estudio.slug, dia, servicoId, profissional: escolhaPro })
       .then((r) => ativo && setSlots(r.slots))
       .catch(() => ativo && setSlots([]));
     return () => {
       ativo = false;
     };
-  }, [etapa, dia, servicoId, estudio.slug, recarga]);
+  }, [etapa, dia, servicoId, escolhaPro, estudio.slug, recarga]);
 
   const gruposServicos = useMemo(() => {
     const grupos = new Map<ServiceCategory, AgendarServico[]>();
@@ -83,18 +111,41 @@ export function BookingFlow({
     [dia, dias],
   );
 
+  const passos: Array<{ etapa: Etapa; rotulo: string }> = temPasso
+    ? [
+        { etapa: "servico", rotulo: "Serviço" },
+        { etapa: "profissional", rotulo: "Com quem" },
+        { etapa: "horario", rotulo: "Horário" },
+        { etapa: "dados", rotulo: "Seus dados" },
+      ]
+    : [
+        { etapa: "servico", rotulo: "Serviço" },
+        { etapa: "horario", rotulo: "Horário" },
+        { etapa: "dados", rotulo: "Seus dados" },
+      ];
+  const passoAtual = passos.findIndex((p) => p.etapa === etapa);
+  const passouDe = (e: Etapa) => passoAtual > passos.findIndex((p) => p.etapa === e);
+
   function escolherServico(s: AgendarServico) {
     setServico(s);
     setHora("");
     setErro(null);
     if (!dia && dias.length > 0) setDia(dias[0].dia);
-    setEtapa(2);
+    setEtapa(temPasso && proEscolhida === null ? "profissional" : "horario");
+  }
+
+  function escolherProfissional(key: string) {
+    setProEscolhida(key);
+    setHora("");
+    setErro(null);
+    if (!dia && dias.length > 0) setDia(dias[0].dia);
+    setEtapa("horario");
   }
 
   function escolherHorario(h: string) {
     setHora(h);
     setErro(null);
-    setEtapa(3);
+    setEtapa("dados");
   }
 
   function enviar(e: FormEvent) {
@@ -120,6 +171,7 @@ export function BookingFlow({
         hora,
         nome: nome.trim(),
         whatsapp,
+        profissional: escolhaPro,
         site: siteRef.current?.value ?? "",
         ts: token.ts,
         assinatura: token.assinatura,
@@ -129,7 +181,14 @@ export function BookingFlow({
         if (res.codigo === "HORARIO") {
           // O horário foi ocupado enquanto ela preenchia — volta e recarrega.
           setHora("");
-          setEtapa(2);
+          setEtapa("horario");
+          setRecarga((r) => r + 1);
+        } else if (res.codigo === "PROFISSIONAL") {
+          // Quem ela escolheu saiu do link — escolhe de novo.
+          if (escolhaPro) setForaDoLink((lista) => [...lista, escolhaPro]);
+          setProEscolhida(null);
+          setHora("");
+          setEtapa(temPasso ? "profissional" : "horario");
           setRecarga((r) => r + 1);
         }
         return;
@@ -145,15 +204,39 @@ export function BookingFlow({
     return <SuccessScreen sucesso={sucesso} whatsapp={estudio.whatsapp} />;
   }
 
+  // Ninguém atende pelo link no momento (a dona desligou o agendamento online de todas).
+  if (profissionais.length === 0) {
+    return (
+      <div className="rounded-2xl border border-line bg-surface px-4 py-8 text-center">
+        <p className="text-[15px] font-semibold text-ink">Agendamento online pausado</p>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-soft">
+          No momento o estúdio está marcando os horários pelo WhatsApp.
+        </p>
+        {estudio.whatsapp ? (
+          <a
+            href={waLink(estudio.whatsapp, "Oi! Quero agendar um horário.")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent-strong"
+          >
+            <IconWhatsApp width={16} height={16} />
+            Agendar pelo WhatsApp
+          </a>
+        ) : null}
+      </div>
+    );
+  }
+
   const bannerErro =
-    erro && (etapa !== 3 || erro.codigo !== "DADOS") ? erro : null;
+    erro && (etapa !== "dados" || erro.codigo !== "DADOS") ? erro : null;
+  const rotuloPro = pro ? pro.nome : "Primeira disponível";
 
   return (
     <div>
-      <Stepper etapa={etapa} />
+      <Stepper passos={passos.map((p) => p.rotulo)} atual={passoAtual} />
 
       {/* Resumo das escolhas já feitas */}
-      {servico && etapa > 1 ? (
+      {servico && etapa !== "servico" ? (
         <div className="mb-4 space-y-2.5">
           <ResumoEscolha
             rotulo="Serviço"
@@ -163,17 +246,29 @@ export function BookingFlow({
               setServico(null);
               setHora("");
               setErro(null);
-              setEtapa(1);
+              setEtapa("servico");
             }}
           />
-          {etapa === 3 && diaEscolhido && hora ? (
+          {temPasso && passouDe("profissional") ? (
+            <ResumoEscolha
+              rotulo="Com quem"
+              valor={rotuloPro}
+              icone={pro ? <AvatarProfissional pro={pro} size={28} /> : null}
+              onTrocar={() => {
+                setHora("");
+                setErro(null);
+                setEtapa("profissional");
+              }}
+            />
+          ) : null}
+          {etapa === "dados" && diaEscolhido && hora ? (
             <ResumoEscolha
               rotulo="Horário"
               valor={`${diaEscolhido.rotulo} ${diaEscolhido.dataCurta} às ${hora}`}
               onTrocar={() => {
                 setHora("");
                 setErro(null);
-                setEtapa(2);
+                setEtapa("horario");
               }}
             />
           ) : null}
@@ -201,7 +296,7 @@ export function BookingFlow({
       ) : null}
 
       {/* Etapa 1 — serviço */}
-      {etapa === 1 ? (
+      {etapa === "servico" ? (
         <section className="space-y-4">
           <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
             Escolha o serviço
@@ -260,8 +355,45 @@ export function BookingFlow({
         </section>
       ) : null}
 
-      {/* Etapa 2 — dia + horário */}
-      {etapa === 2 && servico ? (
+      {/* Etapa 2 — com quem (só com 2+ profissionais no link) */}
+      {etapa === "profissional" && servico && temPasso ? (
+        <section className="space-y-4">
+          <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
+            Com quem você quer agendar?
+          </h2>
+          <ul className="divide-y divide-line/70 overflow-hidden rounded-2xl border border-line bg-surface">
+            <li>
+              <OpcaoProfissional
+                marcada={(proEscolhida ?? PRIMEIRA_DISPONIVEL) === PRIMEIRA_DISPONIVEL}
+                onClick={() => escolherProfissional(PRIMEIRA_DISPONIVEL)}
+                icone={
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                    <IconUsers width={19} height={19} />
+                  </span>
+                }
+                titulo="Primeira disponível"
+                detalhe="Mostra todos os horários livres do estúdio"
+              />
+            </li>
+            {profissionais
+              .filter((p) => !foraDoLink.includes(p.key))
+              .map((p) => (
+              <li key={p.key}>
+                <OpcaoProfissional
+                  marcada={proEscolhida === p.key}
+                  onClick={() => escolherProfissional(p.key)}
+                  icone={<AvatarProfissional pro={p} size={40} />}
+                  titulo={p.nome}
+                  detalhe="Só os horários livres dela"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Etapa 3 — dia + horário */}
+      {etapa === "horario" && servico ? (
         <section className="space-y-4">
           <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">
             Escolha o dia e o horário
@@ -318,13 +450,15 @@ export function BookingFlow({
               {dia ? (
                 <div>
                   <p className="mb-1.5 text-[13px] font-medium text-ink-soft">
-                    Horários livres
+                    {pro ? `Horários livres de ${pro.nome}` : "Horários livres"}
                   </p>
                   {slots === null ? (
                     <p className="py-2 text-sm text-ink-faint">Buscando horários...</p>
                   ) : slots.length === 0 ? (
                     <p className="py-2 text-sm text-ink-faint">
-                      Nenhum horário livre nesse dia — escolha outro dia.
+                      {pro
+                        ? `Nenhum horário livre com ${pro.nome} nesse dia — escolha outro dia ou outra profissional.`
+                        : "Nenhum horário livre nesse dia — escolha outro dia."}
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -360,8 +494,8 @@ export function BookingFlow({
         </section>
       ) : null}
 
-      {/* Etapa 3 — dados da cliente */}
-      {etapa === 3 && servico && dia && hora ? (
+      {/* Etapa 4 — dados da cliente */}
+      {etapa === "dados" && servico && dia && hora ? (
         <section className="space-y-4">
           <h2 className="font-display text-xl font-bold tracking-[-0.03em] text-ink">Seus dados</h2>
 
@@ -435,16 +569,22 @@ export function BookingFlow({
                   {servico.nome}
                 </p>
                 <p className="truncate text-xs text-ink-soft">
-                  {etapa >= 3 && diaEscolhido && hora
-                    ? `${diaEscolhido.rotulo} ${diaEscolhido.dataCurta} às ${hora} · ${formatBRL(servico.precoCents)}`
+                  {etapa === "dados" && diaEscolhido && hora
+                    ? [
+                        `${diaEscolhido.rotulo} ${diaEscolhido.dataCurta} às ${hora}`,
+                        pro ? `com ${pro.nome}` : null,
+                        formatBRL(servico.precoCents),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                     : `${servico.duracaoMin} min · ${formatBRL(servico.precoCents)}`}
                 </p>
               </div>
-              {etapa === 2 ? (
+              {etapa === "profissional" || etapa === "horario" ? (
                 <span className="shrink-0 rounded-full bg-surface-sunken px-3.5 py-2 text-[13px] font-medium text-ink-faint">
-                  Escolha um horário
+                  {etapa === "profissional" ? "Escolha com quem" : "Escolha um horário"}
                 </span>
-              ) : (
+              ) : etapa === "dados" ? (
                 <Button
                   size="md"
                   type="submit"
@@ -454,7 +594,7 @@ export function BookingFlow({
                 >
                   {enviando ? "Enviando..." : "Confirmar"}
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -463,34 +603,34 @@ export function BookingFlow({
   );
 }
 
-function Stepper({ etapa }: { etapa: 1 | 2 | 3 }) {
-  const passos = ["Serviço", "Horário", "Seus dados"];
+function Stepper({ passos, atual }: { passos: string[]; atual: number }) {
   return (
     <ol className="mb-6 flex items-center gap-2">
       {passos.map((rotulo, i) => {
-        const n = i + 1;
-        const feito = etapa > n;
-        const atual = etapa === n;
+        const feito = atual > i;
+        const ehAtual = atual === i;
         return (
           <li
             key={rotulo}
+            aria-current={ehAtual ? "step" : undefined}
             className={cn("flex min-w-0 items-center gap-2", i < passos.length - 1 && "flex-1")}
           >
             <span className="flex min-w-0 items-center gap-1.5">
               <span
                 className={cn(
                   "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-                  feito || atual
+                  feito || ehAtual
                     ? "bg-accent text-accent-ink"
                     : "bg-surface-sunken text-ink-faint",
                 )}
               >
-                {feito ? <IconCheck width={12} height={12} /> : n}
+                {feito ? <IconCheck width={12} height={12} /> : i + 1}
               </span>
+              {/* No celular só a etapa atual leva o nome (4 nomes não cabem). */}
               <span
                 className={cn(
-                  "truncate text-xs font-medium",
-                  atual ? "text-ink" : "text-ink-faint",
+                  "text-xs font-medium",
+                  ehAtual ? "shrink-0 whitespace-nowrap text-ink" : "sr-only text-ink-faint sm:not-sr-only sm:truncate",
                 )}
               >
                 {rotulo}
@@ -506,29 +646,81 @@ function Stepper({ etapa }: { etapa: 1 | 2 | 3 }) {
   );
 }
 
+/** Iniciais da profissional num círculo da cor dela. */
+function AvatarProfissional({ pro, size }: { pro: AgendarProfissional; size: number }) {
+  return (
+    <span
+      aria-hidden
+      className="flex shrink-0 items-center justify-center rounded-full font-bold leading-none tracking-[-0.02em] text-white"
+      style={{ width: size, height: size, background: pro.cor, fontSize: Math.round(size * 0.38) }}
+    >
+      {pro.iniciais}
+    </span>
+  );
+}
+
+function OpcaoProfissional({
+  marcada,
+  onClick,
+  icone,
+  titulo,
+  detalhe,
+}: {
+  marcada: boolean;
+  onClick: () => void;
+  icone: ReactNode;
+  titulo: string;
+  detalhe: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={marcada}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken/60 active:bg-surface-sunken/60"
+    >
+      {icone}
+      <span className="min-w-0 grow">
+        <span className="block truncate text-[15px] font-medium text-ink">{titulo}</span>
+        <span className="mt-0.5 block truncate text-xs text-ink-soft">{detalhe}</span>
+      </span>
+      {marcada ? (
+        <IconCheck width={18} height={18} className="shrink-0 text-accent-strong" />
+      ) : (
+        <IconChevronRight width={18} height={18} className="shrink-0 text-ink-faint" />
+      )}
+    </button>
+  );
+}
+
 function ResumoEscolha({
   rotulo,
   valor,
   detalhe,
+  icone,
   onTrocar,
 }: {
   rotulo: string;
   valor: string;
   detalhe?: string;
+  icone?: ReactNode;
   onTrocar: () => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-sunken/60 px-3.5 py-2.5">
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-          {rotulo}
-        </p>
-        <p className="truncate text-[15px] font-medium text-ink">
-          {valor}
-          {detalhe ? (
-            <span className="text-sm font-normal text-ink-soft"> · {detalhe}</span>
-          ) : null}
-        </p>
+      <div className="flex min-w-0 items-center gap-2.5">
+        {icone}
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
+            {rotulo}
+          </p>
+          <p className="truncate text-[15px] font-medium text-ink">
+            {valor}
+            {detalhe ? (
+              <span className="text-sm font-normal text-ink-soft"> · {detalhe}</span>
+            ) : null}
+          </p>
+        </div>
       </div>
       <button
         onClick={onTrocar}

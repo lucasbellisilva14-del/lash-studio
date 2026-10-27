@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/constants";
 import { ServicosView } from "@/components/servicos/servicos-view";
@@ -8,7 +8,7 @@ import type { ServiceItem } from "@/components/servicos/types";
 export const metadata = { title: "Serviços" };
 
 export default async function ServicosPage() {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
 
   const services = await prisma.service.findMany({
     where: { professionalId },

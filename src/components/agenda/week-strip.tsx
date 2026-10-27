@@ -8,6 +8,7 @@ import Link from "next/link";
 import { IconChevronLeft, IconChevronRight } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { DIAS_SEMANA_SEG } from "./mini-calendar";
+import { agendaHref } from "./pro";
 
 export function WeekStrip({
   dias,
@@ -16,6 +17,7 @@ export function WeekStrip({
   hojeKey,
   semanaAnteriorKey,
   semanaSeguinteKey,
+  prof = null,
 }: {
   /** As 7 chaves yyyy-MM-dd da semana (seg → dom). */
   dias: string[];
@@ -24,11 +26,13 @@ export function WeekStrip({
   hojeKey: string;
   semanaAnteriorKey: string;
   semanaSeguinteKey: string;
+  /** Filtro de profissional (?prof=) que os links preservam. */
+  prof?: string | null;
 }) {
   return (
     <div className="flex items-center gap-1 rounded-[22px] bg-surface px-1.5 py-2 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
       <Link
-        href={`/agenda?visao=dia&dia=${semanaAnteriorKey}`}
+        href={agendaHref("dia", semanaAnteriorKey, prof)}
         scroll={false}
         aria-label="Semana anterior"
         className="flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint hover:text-ink"
@@ -43,7 +47,7 @@ export function WeekStrip({
           return (
             <Link
               key={chave}
-              href={`/agenda?visao=dia&dia=${chave}`}
+              href={agendaHref("dia", chave, prof)}
               scroll={false}
               aria-current={selecionado ? "date" : undefined}
               aria-label={`${DIAS_SEMANA_SEG[i]} ${Number(chave.slice(8))}${total ? `, ${total} horário${total === 1 ? "" : "s"}` : ""}`}
@@ -76,7 +80,7 @@ export function WeekStrip({
         })}
       </div>
       <Link
-        href={`/agenda?visao=dia&dia=${semanaSeguinteKey}`}
+        href={agendaHref("dia", semanaSeguinteKey, prof)}
         scroll={false}
         aria-label="Próxima semana"
         className="flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint hover:text-ink"

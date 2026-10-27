@@ -1,11 +1,12 @@
 import { headers } from "next/headers";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { CalendarioManager } from "./calendario-manager";
 
 export const metadata = { title: "Agenda no calendário" };
 
 export default async function CalendarioPage() {
+  await requireOwner();
   const professional = await requireProfessional();
 
   const h = await headers();

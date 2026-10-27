@@ -6,6 +6,7 @@ import { addDays } from "date-fns";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { parseBRL } from "@/lib/money";
+import { isEmailTaken } from "@/lib/team";
 import { requireAdmin } from "./guard";
 
 export type AdminState = { ok: boolean; error?: string; savedAt?: number };
@@ -56,8 +57,8 @@ export async function criarContaAction(
   if (precoCents === null || precoCents < 0) {
     return { ok: false, error: "Preço inválido — ex.: 99,00." };
   }
-  if (await prisma.professional.findUnique({ where: { email } })) {
-    return { ok: false, error: "Já existe conta com esse e-mail." };
+  if (await isEmailTaken(email)) {
+    return { ok: false, error: "Já existe conta (ou alguém de equipe) com esse e-mail." };
   }
 
   // Modelo: a conta mais antiga (Kay) — serviços/templates/horários prontos.

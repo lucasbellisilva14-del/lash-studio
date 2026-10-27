@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import {
   ANAMNESIS_LIMITS,
   LEGACY_FLAGS,
@@ -12,6 +12,7 @@ import { AnamnesisModelEditor } from "@/components/anamnese/model-editor";
 export const metadata = { title: "Anamnese" };
 
 export default async function AnamneseConfigPage() {
+  await requireOwner();
   const professional = await requireProfessional();
 
   // Nulo (ou ilegível) = a profissional segue o modelo padrão do LashOS.

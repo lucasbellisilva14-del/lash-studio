@@ -13,7 +13,8 @@ import {
   localTimeOf,
   localWeekday,
 } from "@/lib/dates";
-import type { AgendaCompromisso } from "./types";
+import type { AgendaCompromisso, AgendaPro } from "./types";
+import { ProAvatar, agendaHref, rotuloQuemAtende } from "./pro";
 
 const STATUS_PONTO: Record<string, string> = {
   PRE_AGENDADO: "bg-warning",
@@ -31,12 +32,22 @@ export function WeekList({
   hojeKey,
   tz,
   compromissos,
+  mostrarPro = false,
+  equipe = [],
+  viewerMemberId = null,
+  prof = null,
   onSelecionar,
 }: {
   diaKey: string;
   hojeKey: string;
   tz: string;
   compromissos: AgendaCompromisso[];
+  /** Com equipe em "todas": cada horário mostra quem atende. */
+  mostrarPro?: boolean;
+  equipe?: AgendaPro[];
+  viewerMemberId?: string | null;
+  /** Filtro de profissional (?prof=) que os links preservam. */
+  prof?: string | null;
   onSelecionar: (c: AgendaCompromisso) => void;
 }) {
   const dias = useMemo(() => {
@@ -67,7 +78,7 @@ export function WeekList({
             className="overflow-hidden rounded-[22px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]"
           >
             <Link
-              href={`/agenda?visao=dia&dia=${chave}`}
+              href={agendaHref("dia", chave, prof)}
               className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-surface-muted"
             >
               <span className="flex items-center gap-3">
@@ -94,31 +105,42 @@ export function WeekList({
             </Link>
             {itens.length > 0 ? (
               <ul className="divide-y divide-line border-t border-line">
-                {itens.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelecionar(c)}
-                      className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-muted"
-                    >
-                      <span
-                        className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_PONTO[c.status] ?? "bg-ink-faint")}
-                      />
-                      <span className="w-11 shrink-0 text-[13px] font-semibold tabular-nums text-ink">
-                        {localTimeOf(new Date(c.inicio), tz)}
-                      </span>
-                      <span className="min-w-0 grow">
-                        <span className="flex items-center gap-1 truncate text-[14px] font-semibold text-ink">
-                          <span className="truncate">{c.cliente.nome}</span>
-                          {c.cliente.temContraindicacao ? (
-                            <IconAlert width={13} height={13} className="shrink-0 text-danger" />
-                          ) : null}
+                {itens.map((c) => {
+                  const quem = mostrarPro
+                    ? rotuloQuemAtende(c.profissional, equipe, viewerMemberId)
+                    : null;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => onSelecionar(c)}
+                        className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-muted"
+                      >
+                        <span
+                          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_PONTO[c.status] ?? "bg-ink-faint")}
+                        />
+                        <span className="w-11 shrink-0 text-[13px] font-semibold tabular-nums text-ink">
+                          {localTimeOf(new Date(c.inicio), tz)}
                         </span>
-                        <span className="block truncate text-[12.5px] text-ink-soft">{c.servico.nome}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                        <span className="min-w-0 grow">
+                          <span className="flex items-center gap-1 truncate text-[14px] font-semibold text-ink">
+                            <span className="truncate">{c.cliente.nome}</span>
+                            {c.cliente.temContraindicacao ? (
+                              <IconAlert width={13} height={13} className="shrink-0 text-danger" />
+                            ) : null}
+                          </span>
+                          <span className="block truncate text-[12.5px] text-ink-soft">{c.servico.nome}</span>
+                        </span>
+                        {quem ? (
+                          <span className="flex max-w-[40%] shrink-0 items-center gap-1.5 text-[12.5px] font-semibold text-ink-soft">
+                            <ProAvatar nome={c.profissional.nome} cor={c.profissional.cor} size={20} />
+                            <span className="truncate">{quem}</span>
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </section>

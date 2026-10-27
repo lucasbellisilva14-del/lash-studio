@@ -1,12 +1,25 @@
 "use server";
 
-/** Server actions da Agenda — todas exigem sessão e filtram por professionalId. */
+/**
+ * Server actions da Agenda — todas exigem sessão e filtram por professionalId
+ * (o estúdio). Equipe: a funcionária só mexe nos agendamentos dela
+ * (canActOnAppointment) e agenda sempre para ela mesma; a dona escolhe a
+ * profissional, validada contra getTeam. Conflito, buffer e bloqueios são
+ * conferidos na agenda DAQUELA profissional (memberId nulo = a dona).
+ */
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional, requireViewer, type Viewer } from "@/lib/session";
+import {
+  canActOnAppointment,
+  clientScope,
+  commissionSnapshot,
+  getTeam,
+} from "@/lib/team";
+import { firstName, proByKey, proForMember, type TeamPro } from "@/lib/team-shared";
 import { formatBRL } from "@/lib/money";
 import {
   diffLocalDays,
@@ -18,12 +31,13 @@ import {
 } from "@/lib/dates";
 import { buildPixPayload } from "@/lib/pix";
 import { isValidPhone, normalizePhone, waLink } from "@/lib/phone";
-import { freeSlotsForDay, validateSlot } from "@/lib/domain/scheduling";
+import { freeSlotsForDay, validateSlot, type SlotViolation } from "@/lib/domain/scheduling";
 import { checkMaintenanceWindow } from "@/lib/domain/maintenance";
 import { computeDeposit } from "@/lib/domain/deposit";
 import { criarCobrancaSinal } from "@/lib/domain/deposit-charge";
 import { getLastLashAppointment } from "@/lib/domain/cycle";
 import {
+  CLIENTE_AGENDA_SELECT,
   getGradeAgenda,
   getOcupacoesDoDia,
   toAgendaCliente,
@@ -32,6 +46,85 @@ import type { AgendaCliente, EsperaChamada } from "@/components/agenda/types";
 
 const diaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida.");
+/** OWNER_KEY ("dona") ou o id da funcionária. Só a dona escolhe; para a funcionária é ignorado. */
+const profissionalSchema = z.string().trim().min(1).max(64).optional();
+/** WhatsApp da cliente escolhida (ver getClientePermitido). */
+const telefoneSchema = z.string().max(25).optional();
+
+/* ------------------------------------------------------------------ */
+/* Escopo de quem está logada                                          */
+/* ------------------------------------------------------------------ */
+
+type Alvo =
+  | { ok: true; memberId: string | null; team: TeamPro[] }
+  | { ok: false; erro: string };
+
+/**
+ * Para quem é o horário. Funcionária: sempre ela mesma (o formulário não
+ * decide). Dona: a profissional escolhida, validada contra a equipe ativa;
+ * sem escolha, ela mesma.
+ */
+async function profissionalDoFormulario(viewer: Viewer, key: string | undefined): Promise<Alvo> {
+  const team = await getTeam(viewer.professionalId);
+  if (!viewer.isOwner) return { ok: true, memberId: viewer.memberId, team };
+  if (!key) return { ok: true, memberId: null, team };
+  const pro = proByKey(team, key);
+  if (!pro) {
+    return { ok: false, erro: "Profissional não encontrada na equipe. Atualize a página e tente de novo." };
+  }
+  return { ok: true, memberId: pro.memberId, team };
+}
+
+/**
+ * Com equipe, quando a dona mexe na agenda de outra profissional, o erro de
+ * conflito, intervalo ou bloqueio diz de quem é a agenda ("Na agenda de Ana:
+ * conflito com..."). Horário de funcionamento é do estúdio: vai sem prefixo.
+ */
+function naAgendaDe(
+  team: TeamPro[],
+  memberId: string | null,
+  viewer: Viewer,
+  violacao: SlotViolation,
+): string {
+  const { code, message } = violacao;
+  const daAgendaDela = code === "CONFLITO" || code === "BUFFER" || code === "BLOQUEIO";
+  if (!daAgendaDela || team.length < 2 || memberId === viewer.memberId) return message;
+  const pro = proForMember(team, memberId);
+  if (!pro) return message;
+  return `Na agenda de ${firstName(pro.name)}: ${message.charAt(0).toLowerCase()}${message.slice(1)}`;
+}
+
+/**
+ * Cliente que quem está logada pode agendar. Funcionária: as do clientScope
+ * dela — ou a que ela identificou pelo WhatsApp (o cadastro rápido reaproveita
+ * a cliente do estúdio com o mesmo telefone em vez de duplicar).
+ */
+async function getClientePermitido(viewer: Viewer, clienteId: string, telefone?: string) {
+  const escopo: Prisma.ClientWhereInput = viewer.isOwner
+    ? {}
+    : {
+        OR: [
+          clientScope(viewer),
+          ...(telefone && isValidPhone(telefone) ? [{ phone: normalizePhone(telefone) }] : []),
+        ],
+      };
+  return prisma.client.findFirst({
+    where: { id: clienteId, professionalId: viewer.professionalId, AND: [escopo] },
+  });
+}
+
+/** Agendamento do estúdio em que quem está logada pode mexer (funcionária: só os dela). */
+async function getAgendamentoPermitido(viewer: Viewer, id: string) {
+  const appt = await prisma.appointment.findFirst({
+    where: { id, professionalId: viewer.professionalId },
+    include: {
+      client: { select: { id: true, name: true, phone: true } },
+      service: { select: { id: true, name: true } },
+    },
+  });
+  if (!appt || !canActOnAppointment(viewer, appt)) return null;
+  return appt;
+}
 
 /* ------------------------------------------------------------------ */
 /* Consultas (chamadas pelo fluxo de criação/reagendamento)            */
@@ -40,16 +133,33 @@ const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida
 const horariosLivresSchema = z.object({
   dia: diaSchema,
   servicoId: z.string().min(1),
+  /** Reagendamento: ignora o próprio horário e procura na agenda de quem já atende. */
   ignorarId: z.string().optional(),
+  profissional: profissionalSchema,
 });
 
 export async function horariosLivres(
   input: z.infer<typeof horariosLivresSchema>,
 ): Promise<{ slots: string[] }> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const parsed = horariosLivresSchema.safeParse(input);
   if (!parsed.success) return { slots: [] };
-  const { dia, servicoId, ignorarId } = parsed.data;
+  const { dia, servicoId, ignorarId, profissional } = parsed.data;
+
+  let memberId: string | null;
+  if (ignorarId) {
+    const appt = await prisma.appointment.findFirst({
+      where: { id: ignorarId, professionalId: professional.id },
+      select: { memberId: true },
+    });
+    if (!appt || !canActOnAppointment(viewer, appt)) return { slots: [] };
+    memberId = appt.memberId;
+  } else {
+    const alvo = await profissionalDoFormulario(viewer, profissional);
+    if (!alvo.ok) return { slots: [] };
+    memberId = alvo.memberId;
+  }
 
   const service = await prisma.service.findFirst({
     where: { id: servicoId, professionalId: professional.id },
@@ -58,8 +168,8 @@ export async function horariosLivres(
 
   const tz = professional.timezone;
   const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
-    getGradeAgenda(professional.id),
-    getOcupacoesDoDia(professional.id, dia, tz),
+    getGradeAgenda(professional.id, { memberId }),
+    getOcupacoesDoDia(professional.id, dia, tz, memberId),
   ]);
 
   const slots = freeSlotsForDay({
@@ -97,17 +207,22 @@ const verificarManutencaoSchema = z.object({
   dia: diaSchema,
 });
 
-/** Regra de ouro: manutenção fora do prazo (ou sem aplicação) vira aplicação nova. */
+/**
+ * Regra de ouro: manutenção fora do prazo (ou sem aplicação) vira aplicação nova.
+ * Lê o histórico da cliente, então só vale para clientes do escopo de quem está
+ * logada (a reaproveitada pelo WhatsApp recebe o aviso depois de agendar).
+ */
 export async function verificarManutencao(
   input: z.infer<typeof verificarManutencaoSchema>,
 ): Promise<AvisoManutencao> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const parsed = verificarManutencaoSchema.safeParse(input);
   if (!parsed.success) return null;
   const { clienteId, servicoId, dia } = parsed.data;
 
   const [client, service] = await Promise.all([
-    prisma.client.findFirst({ where: { id: clienteId, professionalId: professional.id } }),
+    getClientePermitido(viewer, clienteId),
     prisma.service.findFirst({ where: { id: servicoId, professionalId: professional.id } }),
   ]);
   if (!client || !service || service.category !== "MANUTENCAO") return null;
@@ -150,14 +265,29 @@ const clienteRapidoSchema = z.object({
 });
 
 export type ClienteRapidoResult =
-  | { ok: true; cliente: AgendaCliente }
+  | {
+      ok: true;
+      cliente: AgendaCliente;
+      /** O WhatsApp já era de uma cliente do estúdio: o cadastro dela foi reaproveitado. */
+      jaExistia: boolean;
+      /**
+       * Cliente do estúdio fora do escopo da funcionária: só o id vem (com o
+       * nome e o WhatsApp que ela digitou); os dados aparecem depois de agendar.
+       */
+      oculta: boolean;
+    }
   | { ok: false; erro: string };
 
+/**
+ * Cadastro rápido no agendamento. Mesmo WhatsApp = mesma cliente: se o estúdio
+ * já tem alguém com esse telefone, reaproveita o cadastro (não duplica). Cliente
+ * nova fica marcada com quem cadastrou (createdByMemberId; nulo = a dona).
+ */
 export async function criarClienteRapido(input: {
   nome: string;
   whatsapp: string;
 }): Promise<ClienteRapidoResult> {
-  const professional = await requireProfessional();
+  const viewer = await requireViewer();
   const parsed = clienteRapidoSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -167,27 +297,53 @@ export async function criarClienteRapido(input: {
   }
   const phone = normalizePhone(parsed.data.whatsapp);
 
-  const existente = await prisma.client.findFirst({
-    where: { professionalId: professional.id, phone },
+  // Primeiro uma que quem está logada já pode ver (a dona vê todas).
+  const visivel = await prisma.client.findFirst({
+    where: { professionalId: viewer.professionalId, phone, AND: [clientScope(viewer)] },
+    orderBy: { createdAt: "asc" },
+    select: CLIENTE_AGENDA_SELECT,
   });
-  if (existente) {
-    return { ok: false, erro: `Já existe uma cliente com esse WhatsApp: ${existente.name}.` };
+  if (visivel) {
+    return { ok: true, cliente: toAgendaCliente(visivel), jaExistia: true, oculta: false };
+  }
+  if (!viewer.isOwner) {
+    // Cliente do estúdio fora do escopo da funcionária: reaproveita o cadastro
+    // sem mostrar nada dela antes de agendar. O horário passa pela prova do
+    // WhatsApp (getClientePermitido) e, agendado, ela entra no escopo.
+    const doEstudio = await prisma.client.findFirst({
+      where: { professionalId: viewer.professionalId, phone },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (doEstudio) {
+      return {
+        ok: true,
+        cliente: {
+          id: doEstudio.id,
+          nome: parsed.data.nome,
+          telefone: phone,
+          faltas: 0,
+          temContraindicacao: false,
+          flags: [],
+        },
+        jaExistia: true,
+        oculta: true,
+      };
+    }
   }
 
   const created = await prisma.client.create({
-    data: { professionalId: professional.id, name: parsed.data.nome, phone },
+    data: {
+      professionalId: viewer.professionalId,
+      name: parsed.data.nome,
+      phone,
+      createdByMemberId: viewer.memberId,
+    },
+    select: CLIENTE_AGENDA_SELECT,
   });
   revalidatePath("/agenda");
-  return {
-    ok: true,
-    cliente: toAgendaCliente({
-      id: created.id,
-      name: created.name,
-      phone: created.phone,
-      noShowCount: created.noShowCount,
-      anamnesisForm: null,
-    }),
-  };
+  revalidatePath("/clientes");
+  return { ok: true, cliente: toAgendaCliente(created), jaExistia: false, oculta: false };
 }
 
 /* ------------------------------------------------------------------ */
@@ -202,6 +358,8 @@ const criarAgendamentoSchema = z.object({
   observacoes: z.string().trim().max(500).optional(),
   /** Opcional: já deixa a manutenção do ciclo agendada junto com a aplicação. */
   manutencao: z.object({ dia: diaSchema, hora: horaSchema }).optional(),
+  profissional: profissionalSchema,
+  clienteTelefone: telefoneSchema,
 });
 
 type ProfessionalRow = NonNullable<
@@ -210,10 +368,14 @@ type ProfessionalRow = NonNullable<
 
 /**
  * Cria a manutenção vinculada a uma aplicação (usada no fluxo de criação e no
- * detalhe do agendamento). Valida a janela do ciclo, conflitos e sinal.
+ * detalhe do agendamento), com a MESMA profissional da aplicação. Valida a
+ * janela do ciclo, conflitos na agenda dela e sinal.
  */
 async function criarManutencaoVinculada(params: {
   professional: ProfessionalRow;
+  viewer: Viewer;
+  team: TeamPro[];
+  memberId: string | null;
   clientId: string;
   clientNoShowCount: number;
   aplicacaoServiceId: string;
@@ -221,8 +383,18 @@ async function criarManutencaoVinculada(params: {
   dia: string;
   hora: string;
 }): Promise<{ ok: boolean; aviso: string }> {
-  const { professional, clientId, clientNoShowCount, aplicacaoServiceId, aplicacaoStartAt, dia, hora } =
-    params;
+  const {
+    professional,
+    viewer,
+    team,
+    memberId,
+    clientId,
+    clientNoShowCount,
+    aplicacaoServiceId,
+    aplicacaoStartAt,
+    dia,
+    hora,
+  } = params;
   const tz = professional.timezone;
 
   const manutServico = await prisma.service.findFirst({
@@ -250,8 +422,8 @@ async function criarManutencaoVinculada(params: {
 
   const endAt = new Date(startAt.getTime() + manutServico.durationMin * 60_000);
   const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
-    getGradeAgenda(professional.id),
-    getOcupacoesDoDia(professional.id, dia, tz),
+    getGradeAgenda(professional.id, { memberId }),
+    getOcupacoesDoDia(professional.id, dia, tz, memberId),
   ]);
   const bloqueantes = validateSlot({
     startAt,
@@ -265,7 +437,10 @@ async function criarManutencaoVinculada(params: {
     skipAdvanceCheck: true,
   }).filter((v) => v.code !== "ANTECEDENCIA");
   if (bloqueantes.length > 0) {
-    return { ok: false, aviso: `Manutenção não agendada: ${bloqueantes[0].message}` };
+    return {
+      ok: false,
+      aviso: `Manutenção não agendada: ${naAgendaDe(team, memberId, viewer, bloqueantes[0])}`,
+    };
   }
 
   const sinal = computeDeposit({
@@ -291,6 +466,8 @@ async function criarManutencaoVinculada(params: {
       depositRequired: sinal.required,
       depositCents: sinal.required ? sinal.depositCents : null,
       source: "INTERNO",
+      memberId,
+      commissionPct: commissionSnapshot(team, memberId),
     },
   });
   if (sinal.required) await criarCobrancaSinal(manutCriada.id);
@@ -301,7 +478,7 @@ async function criarManutencaoVinculada(params: {
     : "";
   return {
     ok: true,
-    aviso: `Manutenção já garantida para ${quando}, dia ${diasDepois} do ciclo${extraSinal}. 💗`,
+    aviso: `Manutenção já garantida para ${quando}, dia ${diasDepois} do ciclo${extraSinal}.`,
   };
 }
 
@@ -312,16 +489,22 @@ export type CriarAgendamentoResult =
 export async function criarAgendamento(
   input: z.infer<typeof criarAgendamentoSchema>,
 ): Promise<CriarAgendamentoResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const parsed = criarAgendamentoSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { clienteId, servicoId, dia, hora, observacoes, manutencao } = parsed.data;
+  const { clienteId, servicoId, dia, hora, observacoes, manutencao, profissional, clienteTelefone } =
+    parsed.data;
   const tz = professional.timezone;
 
+  const alvo = await profissionalDoFormulario(viewer, profissional);
+  if (!alvo.ok) return { ok: false, erro: alvo.erro };
+  const { memberId, team } = alvo;
+
   const [client, service] = await Promise.all([
-    prisma.client.findFirst({ where: { id: clienteId, professionalId: professional.id } }),
+    getClientePermitido(viewer, clienteId, clienteTelefone),
     prisma.service.findFirst({
       where: { id: servicoId, professionalId: professional.id, active: true },
     }),
@@ -332,9 +515,20 @@ export async function criarAgendamento(
   const startAt = localToUtc(dia, hora, tz);
   const endAt = new Date(startAt.getTime() + service.durationMin * 60_000);
 
+  // Cliente do estúdio reconhecida só pelo telefone (fora do escopo dela): a
+  // funcionária só agenda dali para frente — horário no passado não abre a ficha.
+  if (!viewer.isOwner && startAt < new Date()) {
+    const noEscopo = await prisma.client.count({
+      where: { id: client.id, professionalId: professional.id, ...clientScope(viewer) },
+    });
+    if (!noEscopo) {
+      return { ok: false, erro: "Para essa cliente, escolha um horário de agora em diante." };
+    }
+  }
+
   const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
-    getGradeAgenda(professional.id),
-    getOcupacoesDoDia(professional.id, dia, tz),
+    getGradeAgenda(professional.id, { memberId }),
+    getOcupacoesDoDia(professional.id, dia, tz, memberId),
   ]);
 
   const violations = validateSlot({
@@ -349,7 +543,7 @@ export async function criarAgendamento(
   });
   const bloqueantes = violations.filter((v) => v.code !== "ANTECEDENCIA");
   if (bloqueantes.length > 0) {
-    return { ok: false, erro: bloqueantes[0].message };
+    return { ok: false, erro: naAgendaDe(team, memberId, viewer, bloqueantes[0]) };
   }
   const avisos: string[] = violations
     .filter((v) => v.code === "ANTECEDENCIA")
@@ -393,6 +587,8 @@ export async function criarAgendamento(
       depositCents: sinal.required ? sinal.depositCents : null,
       notes: observacoes || null,
       source: "INTERNO",
+      memberId,
+      commissionPct: commissionSnapshot(team, memberId),
     },
   });
 
@@ -408,10 +604,13 @@ export async function criarAgendamento(
     );
   }
 
-  // Opcional: já deixa a manutenção do ciclo agendada junto.
+  // Opcional: já deixa a manutenção do ciclo agendada junto (mesma profissional).
   if (manutencao) {
     const r = await criarManutencaoVinculada({
       professional,
+      viewer,
+      team,
+      memberId,
       clientId: client.id,
       clientNoShowCount: client.noShowCount,
       aplicacaoServiceId: service.id,
@@ -442,6 +641,7 @@ export type ManutencaoResult = { ok: true; aviso: string } | { ok: false; erro: 
 export async function agendarManutencaoDe(
   input: z.infer<typeof agendarManutencaoSchema>,
 ): Promise<ManutencaoResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const parsed = agendarManutencaoSchema.safeParse(input);
   if (!parsed.success) {
@@ -456,9 +656,20 @@ export async function agendarManutencaoDe(
       service: { select: { id: true, category: true } },
     },
   });
-  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+  if (!appt || !canActOnAppointment(viewer, appt)) {
+    return { ok: false, erro: "Agendamento não encontrado." };
+  }
   if (appt.service.category !== "APLICACAO") {
     return { ok: false, erro: "Só dá para programar manutenção a partir de uma aplicação." };
+  }
+
+  // A manutenção fica com quem fez a aplicação — se ela ainda está na equipe.
+  const team = await getTeam(professional.id);
+  if (appt.memberId && !proForMember(team, appt.memberId)) {
+    return {
+      ok: false,
+      erro: "Quem fez essa aplicação não está mais na equipe. Agende a manutenção pela agenda, escolhendo a profissional.",
+    };
   }
 
   // Evita duplicar: cliente já tem manutenção futura marcada?
@@ -474,12 +685,15 @@ export async function agendarManutencaoDe(
   if (jaTem) {
     return {
       ok: false,
-      erro: `${appt.client.name.split(" ")[0]} já tem manutenção marcada para ${formatDate(jaTem.startAt, professional.timezone)}.`,
+      erro: `${firstName(appt.client.name)} já tem manutenção marcada para ${formatDate(jaTem.startAt, professional.timezone)}.`,
     };
   }
 
   const r = await criarManutencaoVinculada({
     professional,
+    viewer,
+    team,
+    memberId: appt.memberId,
     clientId: appt.client.id,
     clientNoShowCount: appt.client.noShowCount,
     aplicacaoServiceId: appt.service.id,
@@ -500,19 +714,9 @@ export async function agendarManutencaoDe(
 
 export type AcaoResult = { ok: true } | { ok: false; erro: string };
 
-async function getAgendamentoDaProfissional(id: string, professionalId: string) {
-  return prisma.appointment.findFirst({
-    where: { id, professionalId },
-    include: {
-      client: { select: { id: true, name: true, phone: true } },
-      service: { select: { id: true, name: true } },
-    },
-  });
-}
-
 export async function sinalRecebido(id: string): Promise<AcaoResult> {
-  const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const viewer = await requireViewer();
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (appt.status !== "PRE_AGENDADO") {
     return { ok: false, erro: "Só agendamentos pré-agendados aguardam sinal." };
@@ -529,13 +733,13 @@ export async function sinalRecebido(id: string): Promise<AcaoResult> {
   // Sinal vira lançamento financeiro próprio (a ficha depois cobra só o restante).
   if (appt.depositCents && appt.depositCents > 0) {
     const jaLancado = await prisma.transaction.findFirst({
-      where: { professionalId: professional.id, appointmentId: appt.id, kind: "SINAL" },
+      where: { professionalId: viewer.professionalId, appointmentId: appt.id, kind: "SINAL" },
     });
     if (!jaLancado) {
       escritas.push(
         prisma.transaction.create({
           data: {
-            professionalId: professional.id,
+            professionalId: viewer.professionalId,
             type: "RECEITA",
             kind: "SINAL",
             appointmentId: appt.id,
@@ -562,12 +766,13 @@ export async function sinalRecebido(id: string): Promise<AcaoResult> {
 
 /**
  * Desfaz uma marcação errada: FALTOU / CANCELADO / CANCELADO_TARDE voltam
- * para o status anterior (revalidando conflito de horário) e os contadores
- * da cliente são corrigidos.
+ * para o status anterior (revalidando conflito na agenda de quem atende) e os
+ * contadores da cliente são corrigidos.
  */
 export async function reverterStatus(id: string): Promise<AcaoResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
 
   const reversiveis = ["FALTOU", "CANCELADO", "CANCELADO_TARDE"];
@@ -580,8 +785,8 @@ export async function reverterStatus(id: string): Promise<AcaoResult> {
     const tz = professional.timezone;
     const dia = localDayKey(appt.startAt, tz);
     const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
-      getGradeAgenda(professional.id),
-      getOcupacoesDoDia(professional.id, dia, tz),
+      getGradeAgenda(professional.id, { memberId: appt.memberId }),
+      getOcupacoesDoDia(professional.id, dia, tz, appt.memberId),
     ]);
     const conflitos = validateSlot({
       startAt: appt.startAt,
@@ -628,8 +833,8 @@ export async function reverterStatus(id: string): Promise<AcaoResult> {
 }
 
 export async function concluirAgendamento(id: string): Promise<AcaoResult> {
-  const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const viewer = await requireViewer();
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (appt.status !== "PRE_AGENDADO" && appt.status !== "CONFIRMADO") {
     return { ok: false, erro: "Esse agendamento não pode ser concluído." };
@@ -644,8 +849,8 @@ export async function concluirAgendamento(id: string): Promise<AcaoResult> {
 }
 
 export async function marcarFalta(id: string): Promise<AcaoResult> {
-  const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const viewer = await requireViewer();
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (appt.status !== "PRE_AGENDADO" && appt.status !== "CONFIRMADO") {
     return { ok: false, erro: "Esse agendamento não pode ser marcado como falta." };
@@ -685,7 +890,7 @@ async function buscarEsperaParaHorario(
 
   const quando = `${formatDateLong(horario, tz)} às ${formatTime(horario, tz)}`;
   return entries.map((e) => {
-    const primeiroNome = e.client.name.split(" ")[0];
+    const primeiroNome = firstName(e.client.name);
     const servico = servicoNome ? ` para ${servicoNome}` : "";
     const msg = `Oi, ${primeiroNome}! Abriu um horário aqui no estúdio${servico}: ${quando}. Quer aproveitar? Me confirma que eu já reservo pra você.`;
     let periodo: string | null = e.periodNote;
@@ -709,8 +914,9 @@ export type CancelamentoResult =
   | { ok: false; erro: string };
 
 export async function cancelarAgendamento(id: string): Promise<CancelamentoResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (appt.status !== "PRE_AGENDADO" && appt.status !== "CONFIRMADO") {
     return { ok: false, erro: "Esse agendamento não pode ser cancelado." };
@@ -738,12 +944,15 @@ export async function cancelarAgendamento(id: string): Promise<CancelamentoResul
     });
   }
 
-  const espera = await buscarEsperaParaHorario(
-    professional.id,
-    appt.startAt,
-    professional.timezone,
-    appt.service.name,
-  );
+  // A lista de espera é só da dona.
+  const espera = viewer.isOwner
+    ? await buscarEsperaParaHorario(
+        professional.id,
+        appt.startAt,
+        professional.timezone,
+        appt.service.name,
+      )
+    : [];
 
   revalidatePath("/agenda");
   revalidatePath("/");
@@ -756,8 +965,9 @@ export type PixCodigoResult =
 
 /** Pix copia-e-cola do sinal (MP com confirmação automática, senão BR Code). */
 export async function pixDoSinal(id: string): Promise<PixCodigoResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
-  const appt = await getAgendamentoDaProfissional(id, professional.id);
+  const appt = await getAgendamentoPermitido(viewer, id);
   if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
   if (!appt.depositCents || appt.depositCents <= 0) {
     return { ok: false, erro: "Esse agendamento não tem sinal definido." };
@@ -767,7 +977,12 @@ export async function pixDoSinal(id: string): Promise<PixCodigoResult> {
     return { ok: true, codigo: appt.pixCopiaCola, valorCents: appt.depositCents };
   }
   if (!professional.pixKey) {
-    return { ok: false, erro: "Cadastre sua chave Pix em Configurações → Perfil." };
+    return {
+      ok: false,
+      erro: viewer.isOwner
+        ? "Cadastre sua chave Pix em Configurações → Perfil."
+        : "O estúdio ainda não cadastrou a chave Pix. Fale com a responsável pelo estúdio.",
+    };
   }
   const codigo = buildPixPayload({
     pixKey: professional.pixKey,
@@ -787,9 +1002,11 @@ export type ReagendarResult =
   | { ok: true; espera: EsperaChamada[] }
   | { ok: false; erro: string };
 
+/** Novo horário na agenda de quem já atende (a profissional não muda aqui). */
 export async function reagendarAgendamento(
   input: z.infer<typeof reagendarSchema>,
 ): Promise<ReagendarResult> {
+  const viewer = await requireViewer();
   const professional = await requireProfessional();
   const parsed = reagendarSchema.safeParse(input);
   if (!parsed.success) {
@@ -802,7 +1019,9 @@ export async function reagendarAgendamento(
     where: { id, professionalId: professional.id },
     include: { service: { select: { name: true, durationMin: true } } },
   });
-  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+  if (!appt || !canActOnAppointment(viewer, appt)) {
+    return { ok: false, erro: "Agendamento não encontrado." };
+  }
   if (appt.status !== "PRE_AGENDADO" && appt.status !== "CONFIRMADO") {
     return { ok: false, erro: "Esse agendamento não pode ser reagendado." };
   }
@@ -810,9 +1029,10 @@ export async function reagendarAgendamento(
   const startAt = localToUtc(dia, hora, tz);
   const endAt = new Date(startAt.getTime() + appt.service.durationMin * 60_000);
 
-  const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
-    getGradeAgenda(professional.id),
-    getOcupacoesDoDia(professional.id, dia, tz),
+  const [{ workingHours, blocks }, ocupacoes, team] = await Promise.all([
+    getGradeAgenda(professional.id, { memberId: appt.memberId }),
+    getOcupacoesDoDia(professional.id, dia, tz, appt.memberId),
+    getTeam(professional.id),
   ]);
 
   const violations = validateSlot({
@@ -829,7 +1049,7 @@ export async function reagendarAgendamento(
   });
   const bloqueantes = violations.filter((v) => v.code !== "ANTECEDENCIA");
   if (bloqueantes.length > 0) {
-    return { ok: false, erro: bloqueantes[0].message };
+    return { ok: false, erro: naAgendaDe(team, appt.memberId, viewer, bloqueantes[0]) };
   }
 
   const horarioLiberado = appt.startAt;
@@ -838,14 +1058,83 @@ export async function reagendarAgendamento(
     data: { startAt, endAt },
   });
 
-  const espera = await buscarEsperaParaHorario(
-    professional.id,
-    horarioLiberado,
-    tz,
-    appt.service.name,
-  );
+  // A lista de espera é só da dona.
+  const espera = viewer.isOwner
+    ? await buscarEsperaParaHorario(professional.id, horarioLiberado, tz, appt.service.name)
+    : [];
 
   revalidatePath("/agenda");
   revalidatePath("/");
   return { ok: true, espera };
+}
+
+/* ------------------------------------------------------------------ */
+/* Trocar a profissional de um agendamento (só a dona)                 */
+/* ------------------------------------------------------------------ */
+
+const trocarProfissionalSchema = z.object({
+  id: z.string().min(1),
+  profissional: z.string().trim().min(1).max(64),
+});
+
+/**
+ * Passa o atendimento para outra profissional: confere o MESMO horário na
+ * agenda dela (conflito, intervalo e bloqueios) e congela a comissão atual
+ * dela no agendamento.
+ */
+export async function trocarProfissional(
+  input: z.infer<typeof trocarProfissionalSchema>,
+): Promise<AcaoResult> {
+  const viewer = await requireOwner();
+  const professional = await requireProfessional();
+  const parsed = trocarProfissionalSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, erro: "Escolha a profissional." };
+  const { id, profissional } = parsed.data;
+
+  const team = await getTeam(professional.id);
+  const pro = proByKey(team, profissional);
+  if (!pro) {
+    return { ok: false, erro: "Profissional não encontrada na equipe. Atualize a página e tente de novo." };
+  }
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id, professionalId: professional.id },
+    select: { id: true, status: true, startAt: true, endAt: true, memberId: true },
+  });
+  if (!appt) return { ok: false, erro: "Agendamento não encontrado." };
+  if (!["PRE_AGENDADO", "CONFIRMADO", "CONCLUIDO"].includes(appt.status)) {
+    return { ok: false, erro: "Só dá para trocar a profissional de horários marcados ou concluídos." };
+  }
+  if (appt.memberId === pro.memberId) return { ok: true };
+
+  const tz = professional.timezone;
+  const dia = localDayKey(appt.startAt, tz);
+  const [{ workingHours, blocks }, ocupacoes] = await Promise.all([
+    getGradeAgenda(professional.id, { memberId: pro.memberId }),
+    getOcupacoesDoDia(professional.id, dia, tz, pro.memberId),
+  ]);
+  const impedimentos = validateSlot({
+    startAt: appt.startAt,
+    durationMin: Math.round((appt.endAt.getTime() - appt.startAt.getTime()) / 60_000),
+    bufferMinutes: professional.bufferMinutes,
+    minAdvanceHours: 0,
+    timezone: tz,
+    workingHours,
+    blocks,
+    appointments: ocupacoes,
+    ignoreAppointmentId: appt.id,
+    skipAdvanceCheck: true,
+  }).filter((v) => v.code === "CONFLITO" || v.code === "BUFFER" || v.code === "BLOQUEIO");
+  if (impedimentos.length > 0) {
+    return { ok: false, erro: naAgendaDe(team, pro.memberId, viewer, impedimentos[0]) };
+  }
+
+  await prisma.appointment.update({
+    where: { id: appt.id },
+    data: { memberId: pro.memberId, commissionPct: commissionSnapshot(team, pro.memberId) },
+  });
+  revalidatePath("/agenda");
+  revalidatePath("/");
+  revalidatePath("/financeiro");
+  return { ok: true };
 }

@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * Tela da Agenda. PC: coluna com mini calendário, visão e legenda + área
- * principal com a linha do tempo. Celular: faixa da semana, seletor de
- * visão e a linha do tempo. Sheets de criação e detalhe por cima.
+ * Tela da Agenda. PC: coluna com mini calendário, visão, filtro de
+ * profissional e legenda + área principal com a linha do tempo. Celular:
+ * faixa da semana, filtro de profissional e a linha do tempo. Sheets de
+ * criação e detalhe por cima. Sem equipe, nada de filtro nem de nomes.
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -27,15 +28,20 @@ import {
   formatWithPattern,
   localWeekday,
 } from "@/lib/dates";
+import { ALL_KEY, OWNER_KEY } from "@/lib/team-shared";
 import type {
   AgendaBloqueio,
   AgendaCliente,
   AgendaCompromisso,
   AgendaConfig,
+  AgendaPro,
   AgendaServico,
+  AgendaViewer,
   HorarioFuncionamento,
   VisaoAgenda,
 } from "./types";
+import { agendaHref } from "./pro";
+import { ProFilterChips } from "./pro-filter";
 import { DayTimeline } from "./day-timeline";
 import { WeekList } from "./week-list";
 import { MiniCalendar } from "./mini-calendar";
@@ -69,14 +75,22 @@ type Mes = {
   seguinteKey: string;
 };
 
-/** Seletor Dia/Semana/Mês (links: cada visão tem sua URL). */
-function SeletorVisao({ visao, diaKey }: { visao: VisaoAgenda; diaKey: string }) {
+/** Seletor Dia/Semana/Mês (links: cada visão tem sua URL, com o filtro junto). */
+function SeletorVisao({
+  visao,
+  diaKey,
+  prof,
+}: {
+  visao: VisaoAgenda;
+  diaKey: string;
+  prof: string | null;
+}) {
   return (
     <div className="grid grid-cols-3 gap-0.5 rounded-full bg-surface p-1 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
       {VISOES.map((v) => (
         <Link
           key={v.valor}
-          href={`/agenda?visao=${v.valor}&dia=${diaKey}`}
+          href={agendaHref(v.valor, diaKey, prof)}
           scroll={false}
           aria-current={visao === v.valor ? "page" : undefined}
           className={cn(
@@ -107,6 +121,11 @@ export function AgendaScreen({
   config,
   novoInicial,
   clienteInicialId,
+  viewer,
+  comEquipe,
+  equipe,
+  filtroKey,
+  prof,
 }: {
   visao: VisaoAgenda;
   diaKey: string;
@@ -123,6 +142,19 @@ export function AgendaScreen({
   config: AgendaConfig;
   novoInicial: boolean;
   clienteInicialId: string | null;
+  viewer: AgendaViewer;
+  /** O estúdio tem equipe ativa (mostra "Com Ana" no detalhe). */
+  comEquipe: boolean;
+  /**
+   * Equipe ativa (a dona primeiro) — só a dona recebe. Filtro e seletor de
+   * profissional só aparecem com 2+; com 1 (só ela) serve de destino do
+   * "Trocar profissional" para horários de quem foi desativada.
+   */
+  equipe: AgendaPro[];
+  /** Filtro atual: ALL_KEY ou a chave da profissional. */
+  filtroKey: string;
+  /** Valor de ?prof= que os links preservam (nulo = "todas"/sem filtro). */
+  prof: string | null;
 }) {
   const router = useRouter();
   const tz = config.timezone;
@@ -130,6 +162,18 @@ export function AgendaScreen({
   const [novaHora, setNovaHora] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<AgendaCompromisso | null>(null);
   const [avisoCriacao, setAvisoCriacao] = useState<string | null>(null);
+
+  /**
+   * Em "todas", cada horário diz quem atende quando a visão mistura
+   * profissionais: com equipe, ou quando sobraram horários de alguém que foi
+   * desativada. Sem equipe (nunca teve), nada aparece.
+   */
+  const mostrarPro =
+    viewer.isOwner &&
+    filtroKey === ALL_KEY &&
+    (equipe.length > 1 || compromissos.some((c) => c.profissional.memberId !== null));
+  /** Novo agendamento começa na profissional do filtro (ou na dona). */
+  const proPadraoKey = filtroKey === ALL_KEY ? OWNER_KEY : filtroKey;
 
   const diaLongo = useMemo(
     () => capitalizar(formatDateLong(dayKeyToUtcStart(diaKey, tz), tz)),
@@ -162,20 +206,27 @@ export function AgendaScreen({
     setNovoAberto(false);
     setNovaHora(null);
     if (novoInicial) {
-      router.replace(`/agenda?visao=${visao}&dia=${diaKey}`);
+      router.replace(agendaHref(visao, diaKey, prof));
     }
   }
 
-  function aoCriar(resultado: { dia: string; aviso: string | null }) {
+  function aoCriar(resultado: { dia: string; aviso: string | null; proKey: string | null }) {
     setNovoAberto(false);
     setAvisoCriacao(resultado.aviso);
-    router.push(`/agenda?visao=dia&dia=${resultado.dia}`);
+    // Filtrando uma profissional e agendou para outra: mostra a agenda de quem vai atender.
+    const destino = prof && resultado.proKey && resultado.proKey !== prof ? resultado.proKey : prof;
+    router.push(agendaHref("dia", resultado.dia, destino));
   }
+
+  const filtroCelular =
+    equipe.length > 1 ? (
+      <ProFilterChips equipe={equipe} filtroKey={filtroKey} visao={visao} diaKey={diaKey} rolavel />
+    ) : null;
 
   const navPeriodo = (
     <div className="flex items-center gap-1">
       <Link
-        href={`/agenda?visao=${visao}&dia=${anteriorKey}`}
+        href={agendaHref(visao, anteriorKey, prof)}
         scroll={false}
         aria-label="Período anterior"
         className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] hover:text-ink"
@@ -183,7 +234,7 @@ export function AgendaScreen({
         <IconChevronLeft width={17} height={17} />
       </Link>
       <Link
-        href={`/agenda?visao=${visao}&dia=${proximoKey}`}
+        href={agendaHref(visao, proximoKey, prof)}
         scroll={false}
         aria-label="Próximo período"
         className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] hover:text-ink"
@@ -195,7 +246,7 @@ export function AgendaScreen({
 
   const linkHoje =
     diaKey !== hojeKey ? (
-      <Link href={`/agenda?visao=${visao}&dia=${hojeKey}`} scroll={false} className={buttonClasses("secondary", "sm")}>
+      <Link href={agendaHref(visao, hojeKey, prof)} scroll={false} className={buttonClasses("secondary", "sm")}>
         Hoje
       </Link>
     ) : null;
@@ -220,8 +271,10 @@ export function AgendaScreen({
           mesLabel={mes.rotulo}
           mesAnteriorKey={mes.anteriorKey}
           mesSeguinteKey={mes.seguinteKey}
+          prof={prof}
         />
-        <SeletorVisao visao={visao} diaKey={diaKey} />
+        <SeletorVisao visao={visao} diaKey={diaKey} prof={prof} />
+        <ProFilterChips equipe={equipe} filtroKey={filtroKey} visao={visao} diaKey={diaKey} />
         <div className="rounded-[22px] bg-surface p-4 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
           <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
             {LEGENDA.map((l) => (
@@ -242,13 +295,15 @@ export function AgendaScreen({
               <IconCalendarX width={17} height={17} />
               Bloqueios
             </Link>
-            <Link
-              href="/agenda/espera"
-              className="flex items-center gap-2.5 rounded-full px-2 py-2 text-[13.5px] font-semibold text-ink-soft hover:bg-surface-sunken hover:text-ink"
-            >
-              <IconClock width={17} height={17} />
-              Lista de espera
-            </Link>
+            {viewer.isOwner ? (
+              <Link
+                href="/agenda/espera"
+                className="flex items-center gap-2.5 rounded-full px-2 py-2 text-[13.5px] font-semibold text-ink-soft hover:bg-surface-sunken hover:text-ink"
+              >
+                <IconClock width={17} height={17} />
+                Lista de espera
+              </Link>
+            ) : null}
           </div>
         </div>
       </aside>
@@ -279,18 +334,20 @@ export function AgendaScreen({
                 >
                   <IconCalendarX width={18} height={18} />
                 </Link>
-                <Link
-                  href="/agenda/espera"
-                  aria-label="Lista de espera"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]"
-                >
-                  <IconClock width={18} height={18} />
-                </Link>
+                {viewer.isOwner ? (
+                  <Link
+                    href="/agenda/espera"
+                    aria-label="Lista de espera"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]"
+                  >
+                    <IconClock width={18} height={18} />
+                  </Link>
+                ) : null}
               </div>
             }
           />
           <div className="mb-4 space-y-3">
-            <SeletorVisao visao={visao} diaKey={diaKey} />
+            <SeletorVisao visao={visao} diaKey={diaKey} prof={prof} />
             {visao === "dia" ? (
               <WeekStrip
                 dias={semana}
@@ -299,6 +356,7 @@ export function AgendaScreen({
                 hojeKey={hojeKey}
                 semanaAnteriorKey={addDaysKey(semana[0], -7)}
                 semanaSeguinteKey={addDaysKey(semana[0], 7)}
+                prof={prof}
               />
             ) : visao === "semana" ? (
               <div className="flex items-center justify-between gap-2">
@@ -306,6 +364,7 @@ export function AgendaScreen({
                 {navPeriodo}
               </div>
             ) : null}
+            {filtroCelular}
           </div>
         </div>
 
@@ -348,6 +407,10 @@ export function AgendaScreen({
             compromissos={compromissos}
             bloqueios={bloqueios}
             horarios={horarios}
+            mostrarPro={mostrarPro}
+            equipe={equipe}
+            viewerMemberId={viewer.memberId}
+            podeConfigurar={viewer.isOwner}
             onSelecionar={setDetalhe}
             onNovoHorario={(hora) => abrirNovo(hora)}
           />
@@ -358,6 +421,10 @@ export function AgendaScreen({
             hojeKey={hojeKey}
             tz={tz}
             compromissos={compromissos}
+            mostrarPro={mostrarPro}
+            equipe={equipe}
+            viewerMemberId={viewer.memberId}
+            prof={prof}
             onSelecionar={setDetalhe}
           />
         ) : null}
@@ -373,12 +440,16 @@ export function AgendaScreen({
               mesLabel={mes.rotulo}
               mesAnteriorKey={mes.anteriorKey}
               mesSeguinteKey={mes.seguinteKey}
+              prof={prof}
             />
             <MonthDayList
               diaKey={diaKey}
               hojeKey={hojeKey}
               tz={tz}
               compromissos={compromissos}
+              mostrarPro={mostrarPro}
+              equipe={equipe}
+              viewerMemberId={viewer.memberId}
               onSelecionar={setDetalhe}
             />
           </div>
@@ -396,6 +467,8 @@ export function AgendaScreen({
         diaInicial={diaKey >= hojeKey ? diaKey : hojeKey}
         horaInicial={novaHora}
         clienteInicialId={clienteInicialId}
+        equipe={equipe}
+        proInicialKey={proPadraoKey}
         onCriado={aoCriar}
       />
 
@@ -404,6 +477,9 @@ export function AgendaScreen({
         onClose={() => setDetalhe(null)}
         config={config}
         servicos={servicos}
+        viewer={viewer}
+        comEquipe={comEquipe}
+        equipe={equipe}
       />
     </div>
   );

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireProfessional } from "@/lib/session";
+import { requireProfessional, requireViewer } from "@/lib/session";
+import { canActOnAppointment, clientScope } from "@/lib/team";
 import { cn } from "@/lib/cn";
 import {
   APPOINTMENT_STATUSES,
@@ -42,6 +43,13 @@ import {
   contraindicationLabel,
   parseContraindicationFlags,
 } from "@/components/clientes/contraindications";
+import {
+  FichaResumo,
+  fichaTemConteudo,
+  type FichaResumoData,
+} from "@/components/clientes/ficha-resumo";
+import { ProTag, type ProView } from "@/components/home/pro-avatar";
+import { getProDirectory, withProView } from "@/components/home/pros";
 
 const PHOTO_KIND_LABELS: Record<string, string> = {
   ANTES: "Antes",
@@ -62,12 +70,20 @@ type TimelineEvent =
       appointmentId: string;
       serviceName: string;
       status: AppointmentStatus;
+      /** Com equipe: com quem foi. */
+      pro: ProView | null;
+      /** Abre a ficha técnica (dona sempre; funcionária só nos horários dela). */
+      canOpen: boolean;
+      /** Ficha em leitura quando não dá para abrir (atendimento de outra profissional). */
+      ficha: FichaResumoData | null;
     }
   | {
       kind: "fotos";
       key: string;
       date: Date;
       photos: { id: string; storageKey: string; photoKind: string }[];
+      /** Com equipe: com quem foi, quando todas as fotos do dia são do mesmo atendimento. */
+      pro: ProView | null;
     }
   | {
       kind: "mensagem";
@@ -79,19 +95,35 @@ type TimelineEvent =
 
 export default async function ClientProfilePage(props: PageProps<"/clientes/[id]">) {
   const { id } = await props.params;
-  const professional = await requireProfessional();
+  const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
   const tz = professional.timezone;
 
-  const client = await prisma.client.findFirst({
-    where: { id, professionalId: professional.id },
-    include: {
-      anamnesisForm: true,
-      appointments: { include: { service: true }, orderBy: { startAt: "desc" } },
-      photos: { orderBy: { createdAt: "desc" } },
-      messageLogs: { orderBy: { createdAt: "desc" } },
-    },
-  });
+  // Funcionária: só clientes do escopo dela. Dentro dele, vê o histórico
+  // completo (inclusive com outras profissionais: precisa das fichas
+  // anteriores para a manutenção).
+  const [client, pros] = await Promise.all([
+    prisma.client.findFirst({
+      where: { id, professionalId: professional.id, ...clientScope(viewer) },
+      include: {
+        anamnesisForm: true,
+        appointments: {
+          include: { service: true, attendanceRecord: true },
+          orderBy: { startAt: "desc" },
+        },
+        photos: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            attendanceRecord: { select: { appointment: { select: { memberId: true } } } },
+          },
+        },
+        messageLogs: { orderBy: { createdAt: "desc" } },
+      },
+    }),
+    getProDirectory(professional.id),
+  ]);
   if (!client) notFound();
+  const proOf = (memberId: string | null) =>
+    pros.hasTeam ? withProView(pros.of(memberId), viewer.memberId) : null;
 
   // ── Ciclo (appointments já carregados, mais recente primeiro) ──
   const lastLash = client.appointments.find(
@@ -117,6 +149,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
   const events: TimelineEvent[] = [];
 
   for (const a of client.appointments) {
+    const canOpen = canActOnAppointment(viewer, a);
     events.push({
       kind: "atendimento",
       key: `apt-${a.id}`,
@@ -126,26 +159,46 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
       status: (a.status in APPOINTMENT_STATUSES
         ? a.status
         : "CONFIRMADO") as AppointmentStatus,
+      pro: proOf(a.memberId),
+      canOpen,
+      ficha:
+        !canOpen && a.attendanceRecord && fichaTemConteudo(a.attendanceRecord)
+          ? a.attendanceRecord
+          : null,
     });
   }
 
+  // memberId do atendimento de cada foto; undefined = foto sem ficha ligada.
   const photosByDay = new Map<
     string,
-    { date: Date; photos: { id: string; storageKey: string; photoKind: string }[] }
+    {
+      date: Date;
+      photos: { id: string; storageKey: string; photoKind: string }[];
+      memberIds: Set<string | null | undefined>;
+    }
   >();
   for (const p of client.photos) {
     const dayKey = localDayKey(p.createdAt, tz);
     const group = photosByDay.get(dayKey);
     const item = { id: p.id, storageKey: p.storageKey, photoKind: p.kind };
+    const memberId = p.attendanceRecord?.appointment.memberId;
     if (group) {
       group.photos.push(item);
+      group.memberIds.add(memberId);
       if (p.createdAt > group.date) group.date = p.createdAt;
     } else {
-      photosByDay.set(dayKey, { date: p.createdAt, photos: [item] });
+      photosByDay.set(dayKey, { date: p.createdAt, photos: [item], memberIds: new Set([memberId]) });
     }
   }
   for (const [dayKey, group] of photosByDay) {
-    events.push({ kind: "fotos", key: `fotos-${dayKey}`, date: group.date, photos: group.photos });
+    const [onlyMember] = group.memberIds;
+    events.push({
+      kind: "fotos",
+      key: `fotos-${dayKey}`,
+      date: group.date,
+      photos: group.photos,
+      pro: group.memberIds.size === 1 && onlyMember !== undefined ? proOf(onlyMember) : null,
+    });
   }
 
   for (const m of client.messageLogs) {
@@ -442,17 +495,19 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
                           </p>
                           <AppointmentStatusBadge status={event.status} />
                         </div>
-                        <p className="text-xs text-ink-faint mt-0.5">
-                          {formatDateTime(event.date, tz)}
-                        </p>
+                        <HistoryDate label={formatDateTime(event.date, tz)} pro={event.pro} />
                         {event.status === "CONCLUIDO" ? (
-                          <Link
-                            href={`/atendimentos/${event.appointmentId}`}
-                            className="inline-flex items-center gap-0.5 text-xs font-medium text-accent-strong mt-1"
-                          >
-                            Ver ficha técnica
-                            <IconChevronRight width={13} height={13} />
-                          </Link>
+                          event.canOpen ? (
+                            <Link
+                              href={`/atendimentos/${event.appointmentId}`}
+                              className="inline-flex items-center gap-0.5 text-xs font-medium text-accent-strong mt-1"
+                            >
+                              Ver ficha técnica
+                              <IconChevronRight width={13} height={13} />
+                            </Link>
+                          ) : event.ficha ? (
+                            <FichaResumo ficha={event.ficha} />
+                          ) : null
                         ) : null}
                       </>
                     ) : event.kind === "fotos" ? (
@@ -460,9 +515,7 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
                         <p className="text-sm font-medium text-ink">
                           {event.photos.length === 1 ? "Foto" : "Fotos"} do atendimento
                         </p>
-                        <p className="text-xs text-ink-faint mt-0.5">
-                          {formatDate(event.date, tz)}
-                        </p>
+                        <HistoryDate label={formatDate(event.date, tz)} pro={event.pro} />
                         <div className="flex flex-wrap gap-2 mt-2">
                           {event.photos.map((photo) => (
                             <a
@@ -500,32 +553,46 @@ export default async function ClientProfilePage(props: PageProps<"/clientes/[id]
         </Card>
       </section>
 
-      {/* Privacidade (LGPD) */}
-      <Card>
-        <CardBody>
-          <div className="flex items-center gap-2">
-            <IconShield width={18} height={18} className="text-ink-soft" />
-            <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink">
-              Privacidade (LGPD)
-            </h2>
-          </div>
-          <p className="text-sm text-ink-soft mt-1">
-            A cliente pode pedir uma cópia dos dados dela ou a exclusão definitiva a
-            qualquer momento.
-          </p>
-          <div className="mt-3 space-y-2">
-            <a
-              href={`/clientes/${client.id}/exportar`}
-              download
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface text-base font-medium text-ink active:bg-background transition-colors"
-            >
-              <IconDownload width={18} height={18} /> Exportar dados (JSON)
-            </a>
-            <DeleteClientData clientId={client.id} clientName={client.name} />
-          </div>
-        </CardBody>
-      </Card>
+      {/* Privacidade (LGPD): exportar e excluir são da dona */}
+      {viewer.isOwner ? (
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-2">
+              <IconShield width={18} height={18} className="text-ink-soft" />
+              <h2 className="font-display text-base font-bold tracking-[-0.03em] text-ink">
+                Privacidade (LGPD)
+              </h2>
+            </div>
+            <p className="text-sm text-ink-soft mt-1">
+              A cliente pode pedir uma cópia dos dados dela ou a exclusão definitiva a
+              qualquer momento.
+            </p>
+            <div className="mt-3 space-y-2">
+              <a
+                href={`/clientes/${client.id}/exportar`}
+                download
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface text-base font-medium text-ink active:bg-background transition-colors"
+              >
+                <IconDownload width={18} height={18} /> Exportar dados (JSON)
+              </a>
+              <DeleteClientData clientId={client.id} clientName={client.name} />
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
+  );
+}
+
+/** Data do item do histórico; com equipe, seguida de com quem foi. */
+function HistoryDate({ label, pro }: { label: string; pro: ProView | null }) {
+  if (!pro) return <p className="text-xs text-ink-faint mt-0.5">{label}</p>;
+  return (
+    <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-ink-faint">
+      <span>{label}</span>
+      <span aria-hidden>·</span>
+      <ProTag pro={pro} size={16} className="font-medium text-ink-soft" />
+    </p>
   );
 }
 

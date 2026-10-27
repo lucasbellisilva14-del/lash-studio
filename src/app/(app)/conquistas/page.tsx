@@ -1,4 +1,4 @@
-import { requireProfessionalId } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 import { getGamification } from "@/lib/domain/gamification";
 import { PageHeader } from "@/components/ui/page-header";
 import { LevelCard } from "@/components/gamificacao/level-card";
@@ -8,7 +8,7 @@ import { WeeklyChallenges } from "@/components/gamificacao/weekly-challenges";
 export const metadata = { title: "Conquistas" };
 
 export default async function ConquistasPage() {
-  const professionalId = await requireProfessionalId();
+  const { professionalId } = await requireOwner();
   const game = await getGamification(professionalId);
 
   return (

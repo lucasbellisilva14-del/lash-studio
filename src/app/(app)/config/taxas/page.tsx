@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/constants";
 import { PageHeader } from "@/components/ui/page-header";
@@ -7,6 +7,7 @@ import { TaxasForm } from "./taxas-form";
 export const metadata = { title: "Taxas da maquininha" };
 
 export default async function TaxasPage() {
+  await requireOwner();
   const professional = await requireProfessional();
 
   const saved = await prisma.paymentMethodFee.findMany({

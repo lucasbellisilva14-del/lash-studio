@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { mpOauthDisponivel } from "@/lib/mp-oauth";
 import { formatDate } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
@@ -11,6 +11,7 @@ import { desconectarMpAction } from "./actions";
 export const metadata = { title: "Pagamentos" };
 
 export default async function PagamentosPage(props: PageProps<"/config/pagamentos">) {
+  await requireOwner();
   const professional = await requireProfessional();
   const sp = await props.searchParams;
   const ok = (Array.isArray(sp.ok) ? sp.ok[0] : sp.ok) === "1";

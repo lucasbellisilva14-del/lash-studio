@@ -1,4 +1,4 @@
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { PoliticasForm } from "./politicas-form";
 
@@ -8,6 +8,7 @@ const DEPOSIT_TYPES = ["PERCENT", "FIXED", "NONE"] as const;
 type DepositType = (typeof DEPOSIT_TYPES)[number];
 
 export default async function PoliticasPage() {
+  await requireOwner();
   const p = await requireProfessional();
 
   const depositType: DepositType = DEPOSIT_TYPES.includes(

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui/page-header";
 import { WaitlistManager, type EsperaItem } from "@/components/agenda/waitlist-manager";
@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/dates";
 export const metadata: Metadata = { title: "Lista de espera" };
 
 export default async function EsperaPage() {
+  await requireOwner(); // lista de espera é só da dona
   const professional = await requireProfessional();
   const tz = professional.timezone;
 

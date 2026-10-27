@@ -2,13 +2,14 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireProfessional } from "@/lib/session";
+import { requireOwner, requireProfessional } from "@/lib/session";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 
 export type AssinarState = { error?: string };
 
 /** Cria a assinatura no MP e manda pro checkout de cartão hospedado. */
 export async function assinarAction(): Promise<AssinarState> {
+  await requireOwner();
   const professional = await requireProfessional();
   if (!assinaturasDisponiveis()) {
     return { error: "Assinatura indisponível no momento — fale com o suporte." };

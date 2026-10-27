@@ -81,10 +81,13 @@ model Professional {
   /// Modelo de anamnese personalizado (JSON de perguntas). Nulo = modelo padrão do sistema.
   anamnesisQuestionsJson String?
   onboardingDone   Boolean @default(false)
+  /// A dona também atende pelo link público (com equipe, ela pode só gerenciar).
+  ownerBookable    Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  teamMembers       TeamMember[]
   supportMessages   SupportMessage[]
   workingHours      WorkingHour[]
   paymentFees       PaymentMethodFee[]
@@ -149,10 +152,14 @@ model Client {
   notes          String?
   noShowCount    Int       @default(0)
   lateCancelCount Int      @default(0)
+  /// Quem da equipe cadastrou (nulo = a dona). Funcionária vê as clientes que
+  /// cadastrou ou com quem tem/teve horário.
+  createdByMemberId String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   professional      Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  createdBy         TeamMember?        @relation("ClientCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
   appointments      Appointment[]
   attendanceRecords AttendanceRecord[]
   photos            Photo[]
@@ -205,17 +212,23 @@ model Appointment {
   pixCopiaCola   String?
   notes          String?
   source         String   @default("INTERNO") // INTERNO | PUBLICO
+  /// Quem atende: nulo = a dona do estúdio; senão, alguém da equipe.
+  memberId       String?
+  /// Comissão (%) de quem é da equipe, congelada ao agendar ou trocar de profissional.
+  commissionPct  Int?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   professional     Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   service          Service           @relation(fields: [serviceId], references: [id])
+  member           TeamMember?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
   attendanceRecord AttendanceRecord?
   messageLogs      MessageLog[]
   transactions     Transaction[]
 
   @@index([professionalId, startAt])
+  @@index([professionalId, memberId, startAt])
   @@index([clientId, startAt])
 }
 
@@ -326,12 +339,15 @@ model MessageLog {
   status         String    @default("ENVIADA") // ENVIADA | DESCARTADA
   refDate        DateTime? // data-âncora (ex.: dia do agendamento/aviso) p/ deduplicar a fila
   sentAt         DateTime?
+  /// Quem da equipe registrou (nulo = a dona ou o envio automático).
+  sentByMemberId String?
   createdAt      DateTime  @default(now())
 
   professional Professional     @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   client       Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   appointment  Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  sentBy       TeamMember?      @relation(fields: [sentByMemberId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, createdAt])
   @@index([clientId, createdAt])
@@ -449,11 +465,49 @@ model ScheduleBlock {
   weekday        Int?
   startTime      String? // "12:00"
   endTime        String? // "13:00"
+  /// A quem vale: allTeam = estúdio inteiro; senão memberId (nulo = a dona).
+  memberId       String?
+  allTeam        Boolean   @default(false)
   createdAt      DateTime  @default(now())
 
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  member       TeamMember?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, startAt])
+}
+
+/// Equipe do estúdio: funcionárias com login próprio. A dona é a própria
+/// Professional — em todo o app, memberId nulo significa "a dona".
+model TeamMember {
+  id             String    @id @default(cuid())
+  professionalId String
+  name           String
+  email          String    @unique
+  /// Nulo até ela aceitar o convite e criar a senha.
+  passwordHash   String?
+  color          String    @default("#6f5fa8")
+  /// % sobre o valor líquido recebido dos atendimentos dela.
+  commissionPct  Int       @default(40)
+  /// Aparece para a cliente escolher no link público.
+  bookableOnline Boolean   @default(true)
+  active         Boolean   @default(true)
+  /// Convite: hash sha256 do token + validade (link /convite/[token]).
+  inviteTokenHash     String?   @unique
+  inviteExpiresAt     DateTime?
+  /// Redefinição de senha (mesmo esquema da Professional).
+  resetTokenHash      String?   @unique
+  resetTokenExpiresAt DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional   Professional    @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+  scheduleBlocks ScheduleBlock[]
+  createdClients Client[]        @relation("ClientCreatedBy")
+  sentMessages   MessageLog[]
+
+  @@index([professionalId, active])
 }
 
 /// Mensagem enviada pela profissional pelo "Falar com o suporte" (lida no /admin).
