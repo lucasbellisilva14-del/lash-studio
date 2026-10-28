@@ -10,17 +10,20 @@ import type { OrigemItem } from "@/app/(app)/relatorios/data";
 export function OrigensChart({
   origens,
   insight,
+  vazio,
 }: {
   origens: OrigemItem[];
   insight: string | null;
+  /** Texto do estado vazio (ex.: com uma profissional filtrada). */
+  vazio?: { title: string; description: string };
 }) {
   if (origens.length === 0) {
     return (
       <Card>
         <EmptyState
           icon={<IconChat />}
-          title="Nenhuma cliente cadastrada"
-          description="Cadastre clientes informando como elas conheceram o estúdio."
+          title={vazio?.title ?? "Nenhuma cliente cadastrada"}
+          description={vazio?.description ?? "Cadastre clientes informando como elas conheceram o estúdio."}
         />
       </Card>
     );

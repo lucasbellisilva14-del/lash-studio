@@ -7,10 +7,11 @@
  * preenchida em Comissões da equipe — assim o pagamento sai do resultado.
  */
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { IconCheckCircle, IconChevronDown, IconInfo, IconPercent } from "@/components/ui/icons";
+import { IconCheckCircle, IconChevronDown, IconFile, IconInfo, IconPercent } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/money";
 import { ExpenseSheet } from "./expense-sheet";
@@ -43,17 +44,23 @@ function Pagamento({
           Pagamento lançado: {formatBRL(membro.pagoCents)}
         </p>
       ) : (
-        <>
-          <p className="min-w-0 grow text-[13px] leading-snug text-ink-soft">
-            {membro.pagoCents > 0
-              ? `Já lançado ${formatBRL(membro.pagoCents)}. Faltam ${formatBRL(restante)}.`
-              : "Pagou? Lance como despesa em Comissões da equipe."}
-          </p>
+        <p className="min-w-0 grow text-[13px] leading-snug text-ink-soft">
+          {membro.pagoCents > 0
+            ? `Já lançado ${formatBRL(membro.pagoCents)}. Faltam ${formatBRL(restante)}.`
+            : "Pagou? Lance como despesa em Comissões da equipe."}
+        </p>
+      )}
+      <span className="flex shrink-0 gap-2">
+        <Link href={membro.reciboHref} className={buttonClasses("ghost", "sm", "gap-1.5")}>
+          <IconFile width={16} height={16} />
+          Recibo
+        </Link>
+        {restante > 0 ? (
           <Button size="sm" variant="secondary" onClick={() => onLancar(preset)}>
             {membro.pagoCents > 0 ? "Lançar o restante" : "Lançar pagamento"}
           </Button>
-        </>
-      )}
+        ) : null}
+      </span>
     </div>
   );
 }

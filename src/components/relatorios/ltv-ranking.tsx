@@ -7,14 +7,23 @@ import { cn } from "@/lib/cn";
 import type { LtvItem } from "@/app/(app)/relatorios/data";
 
 /** Top 10 clientes por receita líquida (todo o histórico), com barra proporcional. */
-export function LtvRanking({ items }: { items: LtvItem[] }) {
+export function LtvRanking({
+  items,
+  vazio,
+}: {
+  items: LtvItem[];
+  /** Texto do estado vazio (ex.: com uma profissional filtrada). */
+  vazio?: { title: string; description: string };
+}) {
   if (items.length === 0) {
     return (
       <Card>
         <EmptyState
           icon={<IconTrendingUp />}
-          title="Nenhuma receita registrada"
-          description="Conclua atendimentos e registre pagamentos para ver suas melhores clientes."
+          title={vazio?.title ?? "Nenhuma receita registrada"}
+          description={
+            vazio?.description ?? "Conclua atendimentos e registre pagamentos para ver suas melhores clientes."
+          }
         />
       </Card>
     );

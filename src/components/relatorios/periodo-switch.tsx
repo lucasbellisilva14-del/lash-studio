@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import type { PeriodoRelatorio } from "@/app/(app)/relatorios/data";
+import { relatoriosHref } from "@/app/(app)/relatorios/links";
 
 const OPCOES: { valor: PeriodoRelatorio; rotulo: string }[] = [
   { valor: 30, rotulo: "30 dias" },
@@ -8,8 +9,18 @@ const OPCOES: { valor: PeriodoRelatorio; rotulo: string }[] = [
   { valor: 365, rotulo: "1 ano" },
 ];
 
-/** Segmented control por querystring (?periodo=30|90|365) — sem JS. */
-export function PeriodoSwitch({ periodo }: { periodo: PeriodoRelatorio }) {
+/**
+ * Segmented control por querystring (?periodo=30|90|365) — sem JS.
+ * Com equipe, trocar o período mantém a profissional filtrada (?prof=).
+ */
+export function PeriodoSwitch({
+  periodo,
+  prof = null,
+}: {
+  periodo: PeriodoRelatorio;
+  /** Chave da profissional filtrada (nula = estúdio todo). */
+  prof?: string | null;
+}) {
   return (
     <div
       role="group"
@@ -21,7 +32,7 @@ export function PeriodoSwitch({ periodo }: { periodo: PeriodoRelatorio }) {
         return (
           <Link
             key={o.valor}
-            href={`/relatorios?periodo=${o.valor}`}
+            href={relatoriosHref({ periodo: o.valor, prof })}
             replace
             aria-current={ativo ? "page" : undefined}
             className={cn(

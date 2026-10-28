@@ -39,7 +39,14 @@ function diasLabel(days: number | null): string {
 }
 
 /** Clientes por status do ciclo: resumo + grupos expansíveis (details/summary, sem JS). */
-export function StatusGroups({ groups }: { groups: StatusGroupData[] }) {
+export function StatusGroups({
+  groups,
+  vazio,
+}: {
+  groups: StatusGroupData[];
+  /** Texto do estado vazio (ex.: com uma profissional filtrada). */
+  vazio?: { title: string; description: string };
+}) {
   const total = groups.reduce((sum, g) => sum + g.clientes.length, 0);
 
   if (total === 0) {
@@ -47,8 +54,10 @@ export function StatusGroups({ groups }: { groups: StatusGroupData[] }) {
       <Card>
         <EmptyState
           icon={<IconUsers />}
-          title="Nenhuma cliente cadastrada"
-          description="Cadastre suas clientes para acompanhar o ciclo de cada uma por aqui."
+          title={vazio?.title ?? "Nenhuma cliente cadastrada"}
+          description={
+            vazio?.description ?? "Cadastre suas clientes para acompanhar o ciclo de cada uma por aqui."
+          }
         />
       </Card>
     );

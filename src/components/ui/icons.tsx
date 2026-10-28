@@ -31,6 +31,7 @@ import {
   DashboardCircleIcon,
   Delete02Icon,
   Download01Icon,
+  File02Icon,
   FilterHorizontalIcon,
   GiftIcon,
   HelpCircleIcon,
@@ -162,3 +163,4 @@ export const IconLocation = makeIcon(Location01Icon, "IconLocation");
 export const IconCard = makeIcon(CreditCardIcon, "IconCard");
 export const IconCoins = makeIcon(Coins01Icon, "IconCoins");
 export const IconPercent = makeIcon(PercentCircleIcon, "IconPercent");
+export const IconFile = makeIcon(File02Icon, "IconFile");

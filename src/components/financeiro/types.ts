@@ -149,6 +149,8 @@ export type ComissaoMembro = {
   pagoCents: number;
   /** Descrição padrão da despesa de pagamento. */
   descricaoPagamento: string;
+  /** Fechamento do mês dela em PDF, com o comprovante da comissão. */
+  reciboHref: string;
   linhas: ExtratoLinha[];
   aguardando: AguardandoLinha[];
 };

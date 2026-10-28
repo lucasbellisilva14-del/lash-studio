@@ -214,6 +214,7 @@ export async function PaginaDona({
         comissaoCents: extrato.comissaoCents,
         pagoCents: pagos.get(descricao) ?? 0,
         descricaoPagamento: descricao,
+        reciboHref: `/relatorios/mensal?mes=${mes}&prof=${encodeURIComponent(p.key)}`,
         linhas: extrato.linhas.map((l) => ({
           id: l.appointmentId,
           dateLabel: data(l.startAt),
