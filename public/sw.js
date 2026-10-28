@@ -1,5 +1,5 @@
 /* LashOS service worker — cache leve de estáticos + suporte a instalação PWA. */
-const CACHE = "lashos-v2";
+const CACHE = "lashos-v3";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
