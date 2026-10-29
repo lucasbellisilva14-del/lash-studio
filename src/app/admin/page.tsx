@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatBRL } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
+import { PLANS, type PlanKey } from "@/lib/domain/plans";
 import {
   acessoBloqueado,
   STATUS_ASSINATURA_LABEL,
@@ -44,6 +45,9 @@ export default async function AdminPage() {
       subscriptionPaidUntil: true,
       trialEndsAt: true,
       planPriceCents: true,
+      plan: true,
+      signupSource: true,
+      sellerCode: true,
       mpPreapprovalId: true,
       createdAt: true,
       updatedAt: true,
@@ -169,8 +173,13 @@ export default async function AdminPage() {
                             ? formatDate(c.subscriptionPaidUntil, TZ)
                             : "—"}
                       </td>
-                      <td className="px-4 py-3 font-medium text-ink tabular-nums">
-                        {formatBRL(c.planPriceCents)}
+                      <td className="px-4 py-3 tabular-nums">
+                        <span className="font-medium text-ink">{formatBRL(c.planPriceCents)}</span>
+                        <span className="block text-[11px] text-ink-faint">
+                          {PLANS[c.plan as PlanKey]?.label ?? c.plan}
+                          {c.signupSource === "SITE" ? " · site" : ""}
+                          {c.sellerCode ? ` · vend. ${c.sellerCode}` : ""}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-ink-soft">
                         {c._count.clients} clientes

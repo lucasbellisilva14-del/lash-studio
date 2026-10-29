@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { IconCheckCircle, IconMoney, IconClock, IconLock } from "@/components/ui/icons";
 
@@ -39,6 +40,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const sp = await props.searchParams;
   // Funcionária desativada pela dona: a sessão caiu em /sair?motivo=acesso.
   const acessoEncerrado = (Array.isArray(sp.acesso) ? sp.acesso[0] : sp.acesso) === "encerrado";
+  const contaCriada = (Array.isArray(sp.conta) ? sp.conta[0] : sp.conta) === "criada";
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
@@ -87,6 +89,11 @@ export default async function LoginPage(props: PageProps<"/login">) {
             </h2>
             <p className="mt-2 text-[15px] text-ink-soft">Entre para abrir o seu estúdio.</p>
           </div>
+          {contaCriada ? (
+            <p role="status" className="mb-6 rounded-[14px] bg-success-soft px-4 py-3 text-[13.5px] leading-snug text-ink">
+              Conta criada. Entre com o e-mail e a senha que você acabou de cadastrar.
+            </p>
+          ) : null}
           {acessoEncerrado ? (
             <div
               role="status"
@@ -97,6 +104,12 @@ export default async function LoginPage(props: PageProps<"/login">) {
             </div>
           ) : null}
           <LoginForm />
+          <p className="mt-8 text-center text-[14px] text-ink-soft">
+            Ainda não tem conta?{" "}
+            <Link href="/comecar" className="font-semibold text-ink underline underline-offset-4">
+              Teste grátis por 7 dias
+            </Link>
+          </p>
           <p className="mt-10 text-center text-[12.5px] text-ink-faint lg:hidden">
             Feito para lash designers brasileiras 💗
           </p>

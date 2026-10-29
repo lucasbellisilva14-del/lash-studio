@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, Select } from "@/components/ui/field";
 import { criarContaAction, type AdminState } from "./actions";
 
 const initial: AdminState = { ok: false };
@@ -26,6 +26,12 @@ export function CriarContaForm() {
       </Field>
       <Field label="Mensalidade (R$)" htmlFor="ad-preco" hint="Preço calibrado dessa cliente">
         <Input id="ad-preco" name="preco" placeholder="99,00" required inputMode="decimal" />
+      </Field>
+      <Field label="Plano" htmlFor="ad-plano" hint="Com equipe, o Lash solo sobe para Empresa sozinho">
+        <Select id="ad-plano" name="plano" defaultValue="SOLO">
+          <option value="SOLO">Lash solo (R$ 49,90)</option>
+          <option value="EMPRESA">Empresa (R$ 120,00)</option>
+        </Select>
       </Field>
       <Field label="Dias de teste grátis" htmlFor="ad-trial" hint="0 = já entra como ativa (30 dias)">
         <Input id="ad-trial" name="trialDias" type="number" defaultValue={7} min={0} max={60} />

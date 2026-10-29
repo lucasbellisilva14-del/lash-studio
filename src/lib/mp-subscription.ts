@@ -62,6 +62,20 @@ export async function criarAssinatura(params: {
   return { preapprovalId: data.id, initPoint: data.init_point };
 }
 
+/** Plano mudou (SOLO → EMPRESA): o valor novo vale a partir da próxima cobrança. */
+export async function atualizarValorAssinatura(preapprovalId: string, amountCents: number): Promise<void> {
+  const res = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(preapprovalId)}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      auto_recurring: { transaction_amount: Number((amountCents / 100).toFixed(2)), currency_id: "BRL" },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`MP atualizar valor falhou (${res.status} ${(await res.text()).slice(0, 300)})`);
+  }
+}
+
 type Preapproval = {
   id: string;
   status: string; // pending | authorized | paused | cancelled

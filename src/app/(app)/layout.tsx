@@ -3,6 +3,8 @@ import { requireProfessional, requireViewer } from "@/lib/session";
 import { getTeam } from "@/lib/team";
 import { firstName } from "@/lib/team-shared";
 import { acessoBloqueado } from "@/lib/domain/subscription";
+import { precisaCadastrarCartao } from "@/lib/domain/plans";
+import { assinaturasDisponiveis } from "@/lib/mp-subscription";
 import { diffLocalDays, formatDate } from "@/lib/dates";
 import { BottomNav } from "@/components/shell/bottom-nav";
 import { PwaRegister } from "@/components/shell/pwa-register";
@@ -30,6 +32,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (acessoBloqueado(professional)) {
     if (viewer.isOwner) redirect("/assinatura");
     return <AcessoPausado donaNome={professional.name} studioName={professional.studioName} />;
+  }
+  // Cadastro pelo site: o teste só começa com o cartão salvo (nenhuma cobrança até o fim dele).
+  if (viewer.isOwner && assinaturasDisponiveis() && precisaCadastrarCartao(professional)) {
+    redirect("/assinatura?cartao=1");
   }
 
   const banner = viewer.isOwner ? bannerDaAssinatura(professional) : null;

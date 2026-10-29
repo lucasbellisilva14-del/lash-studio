@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireOwner, requireProfessional } from "@/lib/session";
 import { formatDate } from "@/lib/dates";
+import { formatBRL } from "@/lib/money";
+import { PLANS } from "@/lib/domain/plans";
 import { PageHeader } from "@/components/ui/page-header";
 import { EquipeManager } from "@/components/equipe/equipe-manager";
 import type { MemberItem } from "@/components/equipe/types";
@@ -80,6 +82,10 @@ export default async function EquipePage() {
           name: professional.name,
           email: professional.email,
           ownerBookable: professional.ownerBookable,
+          avisoPlano:
+            professional.plan === "SOLO" && professional.subscriptionStatus !== "CORTESIA"
+              ? `Com a primeira profissional, seu plano passa para Empresa: ${formatBRL(Math.max(professional.planPriceCents, PLANS.EMPRESA.priceCents))}/mês a partir da próxima cobrança.`
+              : null,
         }}
         members={items}
       />

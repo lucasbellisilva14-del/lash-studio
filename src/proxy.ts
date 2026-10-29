@@ -19,6 +19,9 @@ const PUBLIC_PATHS = [
   "/icon.png",
   "/agendar", // link público de agendamento (/agendar/[slug])
   "/convite", // convite da equipe: a funcionária cria a senha (/convite/[token])
+  "/comecar", // cadastro pela própria cliente (teste grátis)
+  "/termos",
+  "/privacidade",
 ];
 
 export function proxy(request: NextRequest) {

@@ -1,7 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getAppOrigin } from "@/lib/domain/queue";
 import { requireOwner, requireProfessional } from "@/lib/session";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 
@@ -15,9 +15,7 @@ export async function assinarAction(): Promise<AssinarState> {
     return { error: "Assinatura indisponível no momento — fale com o suporte." };
   }
 
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
-  const proto = h.get("x-forwarded-proto") ?? "https";
+  const origem = await getAppOrigin();
 
   let initPoint: string;
   try {
@@ -26,7 +24,7 @@ export async function assinarAction(): Promise<AssinarState> {
       email: professional.email,
       studioName: professional.studioName,
       amountCents: professional.planPriceCents,
-      backUrl: `${proto}://${host}/assinatura?volta=1`,
+      backUrl: `${origem}/assinatura?volta=1`,
       // Em teste grátis, a 1ª cobrança só acontece quando o teste termina.
       startDate:
         professional.subscriptionStatus === "TRIAL" ? professional.trialEndsAt : null,

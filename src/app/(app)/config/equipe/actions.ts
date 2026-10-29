@@ -12,6 +12,9 @@ import { requireOwner, requireProfessional } from "@/lib/session";
 import { INVITE_TTL_MS, isEmailTaken, newToken } from "@/lib/team";
 import { TEAM_COLORS, firstName } from "@/lib/team-shared";
 import { getAppOrigin } from "@/lib/domain/queue";
+import { subirParaEmpresa } from "@/lib/domain/accounts";
+import { assinaturasDisponiveis, atualizarValorAssinatura } from "@/lib/mp-subscription";
+import { formatBRL } from "@/lib/money";
 import { emailLayout, getEmailProvider } from "@/lib/providers/email";
 import type { InviteInfo } from "@/components/equipe/types";
 
@@ -206,8 +209,21 @@ export async function salvarProfissionalAction(
   }
 
   const invite = await montarConvite(criada, token);
+
+  // Primeira profissional: o plano Lash solo vira Empresa (valor novo na próxima cobrança).
+  let notice: string | undefined;
+  const plano = await subirParaEmpresa(professionalId);
+  if (plano.mudou) {
+    notice = `Seu plano passou para Empresa: ${formatBRL(plano.planPriceCents)}/mês a partir da próxima cobrança.`;
+    if (plano.mpPreapprovalId && assinaturasDisponiveis()) {
+      await atualizarValorAssinatura(plano.mpPreapprovalId, plano.planPriceCents).catch((e) =>
+        console.error("[equipe] valor da assinatura no MP não atualizou:", e),
+      );
+    }
+  }
+
   revalidar();
-  return { ok: true, savedAt: Date.now(), invite };
+  return { ok: true, savedAt: Date.now(), invite, notice };
 }
 
 /** Novo link de convite para quem ainda não criou a senha (o anterior deixa de valer). */

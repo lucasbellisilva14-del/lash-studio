@@ -123,6 +123,7 @@ export function EquipeManager({ owner, members }: { owner: OwnerItem; members: M
           key={sheet.kind === "edit" ? sheet.id : "nova"}
           member={editando}
           usedColors={usedColors}
+          avisoPlano={ativas.length === 0 ? (owner.avisoPlano ?? null) : null}
           onClose={fechar}
           onDone={concluir}
         />

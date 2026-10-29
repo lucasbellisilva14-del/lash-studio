@@ -6,6 +6,8 @@
 import Link from "next/link";
 import { requireOwner, requireProfessional } from "@/lib/session";
 import { acessoBloqueado, STATUS_ASSINATURA_LABEL } from "@/lib/domain/subscription";
+import { PLANS, TRIAL_DIAS, precisaCadastrarCartao, type PlanKey } from "@/lib/domain/plans";
+import { assinaturasDisponiveis, sincronizarAssinatura } from "@/lib/mp-subscription";
 import { formatBRL } from "@/lib/money";
 import { diffLocalDays, formatDate } from "@/lib/dates";
 import { sairDaConta } from "@/components/shell/sign-out-action";
@@ -30,10 +32,20 @@ const GARANTIAS = [
 
 export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
   await requireOwner();
-  const professional = await requireProfessional();
+  let professional = await requireProfessional();
   const sp = await props.searchParams;
   const voltouDoCheckout = (Array.isArray(sp.volta) ? sp.volta[0] : sp.volta) === "1";
+
+  // Voltou do checkout: confere no MP na hora, sem depender do webhook chegar antes.
+  if (voltouDoCheckout && professional.mpPreapprovalId && assinaturasDisponiveis()) {
+    const ok = await sincronizarAssinatura(professional.mpPreapprovalId, "preapproval").catch(() => false);
+    if (ok) professional = await requireProfessional();
+  }
+
   const bloqueada = acessoBloqueado(professional);
+  // Cadastro pelo site ainda sem cartão: o teste começa quando ele é salvo.
+  const faltaCartao = assinaturasDisponiveis() && precisaCadastrarCartao(professional);
+  const plano = PLANS[professional.plan as PlanKey] ?? PLANS.SOLO;
   const tz = professional.timezone;
   const now = new Date();
 
@@ -56,20 +68,24 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
       : professional.subscriptionStatus === "SUSPENSA"
         ? "Sua conta está suspensa"
         : "Sua assinatura venceu"
-    : "Assinatura";
+    : faltaCartao
+      ? "Falta só o cartão"
+      : "Assinatura";
 
   const subtitulo = voltouDoCheckout
-    ? bloqueada
-      ? "Estamos confirmando seu pagamento com o Mercado Pago. Pode levar alguns instantes: atualize a página em seguida."
+    ? bloqueada || faltaCartao
+      ? "Estamos confirmando com o Mercado Pago. Pode levar alguns instantes: atualize a página em seguida."
       : "Assinatura confirmada. Seu estúdio está liberado."
     : bloqueada
       ? "Seus dados estão guardados: clientes, agenda, fotos e financeiro voltam exatamente como estavam assim que a assinatura for ativada."
-      : "Um plano só, com tudo do LashOS. Você vê o valor antes de confirmar.";
+      : faltaCartao
+        ? `Salve o cartão no Mercado Pago para começar seus ${TRIAL_DIAS} dias grátis. Nenhuma cobrança até o fim do teste; cancele quando quiser.`
+        : "Você vê o valor antes de confirmar. Sem fidelidade.";
 
   return (
     <div className="min-h-dvh px-4 py-8 sm:px-6 sm:py-14">
       <div className="mx-auto w-full max-w-4xl">
-        {!bloqueada ? (
+        {!bloqueada && !faltaCartao ? (
           <Link
             href="/"
             className="mb-6 inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3 text-[14px] font-semibold text-ink-soft hover:text-ink"
@@ -135,8 +151,8 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
 
           {/* Plano */}
           <section className="rounded-[22px] bg-accent p-6 text-accent-ink shadow-[var(--shadow-pop)] sm:p-7">
-            <h2 className="text-[20px] font-bold tracking-[-0.025em]">LashOS</h2>
-            <p className="mt-0.5 text-[14px] text-white/70">Tudo para o seu estúdio, num app só</p>
+            <h2 className="text-[20px] font-bold tracking-[-0.025em]">LashOS · {plano.label}</h2>
+            <p className="mt-0.5 text-[14px] text-white/70">{plano.descricao}</p>
             <p className="mt-5 flex items-baseline gap-1.5">
               <span className="text-[15px] font-medium text-white/70">R$</span>
               <span className="text-[44px] font-bold leading-none tracking-[-0.04em] tabular-nums">
@@ -158,7 +174,7 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
               </p>
             ) : professional.subscriptionStatus !== "CORTESIA" ? (
               <div className="mt-7">
-                <AssinarForm emTeste={emTeste} />
+                <AssinarForm emTeste={emTeste} faltaCartao={faltaCartao} />
               </div>
             ) : null}
           </section>

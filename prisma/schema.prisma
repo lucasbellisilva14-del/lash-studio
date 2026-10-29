@@ -59,6 +59,13 @@ model Professional {
   subscriptionPaidUntil DateTime?
   trialEndsAt           DateTime?
   planPriceCents        Int       @default(9900) // preço calibrado por cliente
+  /// SOLO (R$ 49,90, uma lash) | EMPRESA (R$ 120, estúdio com equipe).
+  plan                  String    @default("SOLO")
+  /// ADMIN (criada no painel) | SITE (a própria cliente se cadastrou em /comecar).
+  signupSource          String    @default("ADMIN")
+  /// Código da vendedora que indicou (texto, em maiúsculas). Comissão = 1ª mensalidade.
+  sellerCode            String?
+  termsAcceptedAt       DateTime?
   mpPreapprovalId       String?   @unique
 
   /// Mercado Pago conectado via OAuth (sinal cai na conta DELA).

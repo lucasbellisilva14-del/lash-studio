@@ -25,6 +25,8 @@ export type OwnerItem = {
   name: string;
   email: string;
   ownerBookable: boolean;
+  /** Plano Lash solo: ao adicionar a 1ª profissional, vira Empresa (aviso no formulário). */
+  avisoPlano?: string | null;
 };
 
 /** Convite recém-gerado: aparece uma vez, no painel do convite. */

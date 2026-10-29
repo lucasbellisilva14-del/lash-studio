@@ -29,6 +29,7 @@ const SEM_CONEXAO = "Não foi possível salvar agora. Confira a internet e tente
 export function MemberFormSheet({
   member,
   usedColors,
+  avisoPlano = null,
   onClose,
   onDone,
 }: {
@@ -36,6 +37,8 @@ export function MemberFormSheet({
   member: MemberItem | null;
   /** Cores de quem já está ativa (a nova começa na primeira livre). */
   usedColors: string[];
+  /** Primeira profissional num plano Lash solo: avisa a troca para Empresa. */
+  avisoPlano?: string | null;
   onClose: () => void;
   /** Fecha o sheet e confirma (com aviso extra, quando houver). */
   onDone: (message: string, notice?: string) => void;
@@ -73,6 +76,9 @@ export function MemberFormSheet({
           </Button>
         }
       >
+        {state.notice ? (
+          <p className="mb-4 rounded-[14px] bg-warning-soft px-4 py-3 text-[13px] leading-snug text-ink">{state.notice}</p>
+        ) : null}
         <InvitePanel invite={invite} />
       </Sheet>
     );
@@ -105,6 +111,9 @@ export function MemberFormSheet({
     >
       <form id={FORM_ID} action={formAction} className="space-y-5" noValidate>
         {member ? <input type="hidden" name="id" value={member.id} /> : null}
+        {!editing && avisoPlano ? (
+          <p className="rounded-[14px] bg-warning-soft px-4 py-3 text-[13px] leading-snug text-ink">{avisoPlano}</p>
+        ) : null}
 
         <Field label="Nome" htmlFor="equipe-nome" error={errors.name}>
           <Input

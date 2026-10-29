@@ -71,6 +71,13 @@ O estúdio (`Professional`) pode ter funcionárias (`TeamMember`) com **login pr
 - **Sem equipe nada muda**: se `hasTeam` é falso, nenhuma tela mostra seletor, filtro ou nome de profissional.
 - **Rotas**: `/config/equipe` (dona), `/convite/[token]` (pública: a funcionária cria a senha), `/sair` (encerra a sessão; `requireViewer` manda para cá quem foi desativada), `/agenda?prof=<todas|dona|memberId>` (filtro da dona), `/agendar/[slug]?com=<dona|memberId>` (link público já com a profissional escolhida), `/financeiro?aba=<visao|lancamentos|comissoes>&prof=…`.
 
+## Planos, cadastro e vendedoras — contratos
+
+- **Planos** (`@/lib/domain/plans`): `PLANS.SOLO` (R$ 49,90) e `PLANS.EMPRESA` (R$ 120); `Professional.plan`, preço congelado em `planPriceCents`; `TRIAL_DIAS = 7`. Ao criar a 1ª funcionária, `subirParaEmpresa()` (`@/lib/domain/accounts`) troca o plano e, com assinatura no MP, `atualizarValorAssinatura()` muda o valor da próxima cobrança.
+- **Criação de conta**: sempre por `criarEstudio()` (`@/lib/domain/accounts`) — admin (`signupSource: "ADMIN"`) e cadastro público `/comecar` (`"SITE"`, `?v=CODIGO` da vendedora → `sellerCode`, `?plano=solo|empresa`, `termsAcceptedAt`).
+- **Cartão no cadastro**: conta `SITE` em `TRIAL` sem cartão é mandada do layout para `/assinatura?cartao=1` (`precisaCadastrarCartao`). O checkout do MP usa `start_date` = fim do teste; o webhook (ou `?volta=1`) vira `ATIVA`. Sem `MP_ACCESS_TOKEN` (dev), entra direto.
+- **Páginas públicas**: `/comecar`, `/termos`, `/privacidade` (liberadas no proxy).
+
 ## Regras de trabalho
 
 - Não modifique arquivos compartilhados (`src/lib/**`, `src/components/ui/**` exceto `icons.tsx`, layouts, proxy, schema) — se faltar algo, crie no SEU módulo em `src/components/<modulo>/` ou relate no resultado final.
