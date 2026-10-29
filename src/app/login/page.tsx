@@ -43,10 +43,22 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const contaCriada = (Array.isArray(sp.conta) ? sp.conta[0] : sp.conta) === "criada";
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-      {/* Painel da marca — só no PC */}
+    <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* Painel da marca — só no PC: foto do atendimento escurecida, textos por cima */}
       <aside className="relative hidden overflow-hidden bg-accent p-12 text-accent-ink lg:m-3 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px] xl:p-16">
-        <div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- foto estática, sem otimização */}
+        <img
+          src="/login-bg.webp"
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[linear-gradient(90deg,rgb(42_34_64/0.92)_0%,rgb(42_34_64/0.72)_45%,rgb(42_34_64/0.45)_100%)]"
+        />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(180deg,transparent,rgb(23_21_30/0.55))]" />
+        <div className="relative">
           <MarcaLashOS grande />
           <h1 className="mt-10 max-w-md text-[44px] font-bold leading-[1.05] tracking-[-0.04em] xl:text-[52px]">
             Seu estúdio inteiro, num app só.
@@ -56,7 +68,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
           </p>
         </div>
 
-        <ul className="max-w-sm space-y-3" aria-label="Exemplos do que o LashOS faz">
+        <ul className="relative max-w-sm space-y-3" aria-label="Exemplos do que o LashOS faz">
           {MOMENTOS.map(({ icon: Icon, titulo, texto }, i) => (
             <li
               key={titulo}
@@ -74,7 +86,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
           ))}
         </ul>
 
-        <p className="text-[12.5px] text-white/50">Feito para lash designers brasileiras 💗</p>
+        <p className="relative text-[12.5px] text-white/60">Feito para lash designers brasileiras</p>
       </aside>
 
       {/* Formulário */}
@@ -111,7 +123,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
             </Link>
           </p>
           <p className="mt-10 text-center text-[12.5px] text-ink-faint lg:hidden">
-            Feito para lash designers brasileiras 💗
+            Feito para lash designers brasileiras
           </p>
         </div>
       </div>
