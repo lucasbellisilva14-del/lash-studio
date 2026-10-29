@@ -1,4 +1,6 @@
 import type { PaymentMethod } from "@/lib/constants";
+import type { Resposta } from "./respostas";
+import type { ProdutoPrevisto } from "./previsao-estoque-calculo";
 
 /** Taxa da maquininha por forma de pagamento, em % (3.5 = 3,5%), como no PaymentMethodFee. */
 export type Taxas = Record<PaymentMethod, number>;
@@ -84,4 +86,76 @@ export type DadosHora = {
     recebimentos: number;
   } | null;
   servicos: ServicoBasico[];
+};
+
+/**
+ * Dados da aba Precificação. A hora dela sai dos mesmos números da aba
+ * Sua hora (despesas e horas do servidor; pró-labore e ocupação do aparelho).
+ */
+export type DadosPreco = {
+  chave: string;
+  /** Despesas fixas do mês, como em Sua hora. */
+  despesasCents: number;
+  /** Horas de atendimento por mês pelos horários cadastrados (0 = sem horários). */
+  horasMes: number;
+  material: DadosHora["material"];
+  servicos: ServicoBasico[];
+};
+
+/** Dados da aba Simulador de meta (tudo dos últimos 90 dias, salvo indicação). */
+export type DadosMeta = {
+  chave: string;
+  /** Meta de faturamento do mês atual no Financeiro, se houver. */
+  metaDoMesCents: number | null;
+  /** Receitas líquidas ÷ atendimentos concluídos (null sem histórico). */
+  ticketMedioCents: number | null;
+  /** Preço médio dos serviços ativos (ticket de quem não tem histórico). */
+  precoMedioServicosCents: number | null;
+  /** Atendimentos concluídos por semana, na média do período. */
+  atendimentosPorSemana: number;
+  /** Atendimentos concluídos no período. */
+  atendimentosNoPeriodo: number;
+  /** Semanas de histórico consideradas (até 13). */
+  semanasConsideradas: number;
+  /** Clientes com atendimento concluído nos últimos 60 dias. */
+  clientesAtivas: number;
+  /** Dias da semana com horário ativo (0 = sem horários). */
+  diasPorSemana: number;
+};
+
+/** Dados da aba Divulgação. */
+export type DadosDivulgacao = {
+  /** Link público de agendamento. */
+  link: string;
+  /** QR code do link, como SVG pronto para injetar. */
+  qrSvg: string;
+  studioName: string;
+  /** Logo para exibir no app (null = sem logo). */
+  logoSrc: string | null;
+  instagram: string | null;
+  respostas: Resposta[];
+};
+
+/** Atendimento concluído recente, para o recibo. */
+export type AtendimentoRecibo = {
+  id: string;
+  /** "28/10 · Maria · Volume brasileiro" */
+  rotulo: string;
+  clientePhone: string;
+  clienteNome: string;
+};
+
+export type DadosRecibo = {
+  studioName: string;
+  atendimentos: AtendimentoRecibo[];
+};
+
+export type DadosEstoque = {
+  produtos: ProdutoPrevisto[];
+  /** Atendimentos concluídos por dia útil nos últimos 30 dias. */
+  atendimentosPorDiaUtil: number;
+  /** Concluídos nos últimos 30 dias. */
+  concluidos30d: number;
+  /** Produtos ativos com consumo por atendimento (0 = estado vazio). */
+  comConsumo: number;
 };

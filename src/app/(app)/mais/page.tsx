@@ -23,7 +23,7 @@ const gestao = [
   { href: "/servicos", label: "Serviços", description: "Preço, duração e sinal de cada serviço", icon: IconScissors },
   { href: "/estoque", label: "Estoque", description: "Insumos, colas abertas e validades", icon: IconBox },
   { href: "/relatorios", label: "Relatórios", description: "Clientes, serviços, demanda e origens", icon: IconChart },
-  { href: "/ferramentas", label: "Ferramentas", description: "Calculadora de cobrança e quanto vale sua hora", icon: IconCalculator },
+  { href: "/ferramentas", label: "Ferramentas", description: "Cobrança, precificação, meta, QR code, recibo e estoque", icon: IconCalculator },
   { href: "/conquistas", label: "Conquistas", description: "Seu nível, medalhas e desafios da semana", icon: IconTrophy },
 ];
 

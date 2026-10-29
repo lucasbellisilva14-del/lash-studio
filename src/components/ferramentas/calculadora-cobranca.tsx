@@ -16,6 +16,7 @@ import { IconCalculator, IconCard, IconCheck, IconCopy, IconInfo } from "@/compo
 import { cn } from "@/lib/cn";
 import { useGuardado } from "./armazenamento";
 import { CampoComUnidade, CampoDinheiro, LinkNaDica } from "./campos";
+import { copiarTexto } from "./copiar";
 import {
   brl,
   calcularCobranca,
@@ -52,29 +53,6 @@ function descreverTaxa(forma: FormaCobranca, modo: ModoTaxa | null): string {
 
 function primeiraMaiuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-
-async function copiarTexto(texto: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(texto);
-    return true;
-  } catch {
-    // sem Clipboard API (navegador antigo ou sem https): tenta o jeito clássico
-  }
-  try {
-    const campo = document.createElement("textarea");
-    campo.value = texto;
-    campo.setAttribute("readonly", "");
-    campo.style.position = "fixed";
-    campo.style.opacity = "0";
-    document.body.appendChild(campo);
-    campo.select();
-    const ok = document.execCommand("copy");
-    campo.remove();
-    return ok;
-  } catch {
-    return false;
-  }
 }
 
 export function CalculadoraCobranca({ dados }: { dados: DadosCobranca }) {

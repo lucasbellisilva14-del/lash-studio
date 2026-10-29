@@ -280,3 +280,130 @@ export function calcularServico(entrada: {
     selo,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Precificação                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Margem que ela quer sobre o preço, quando não escolheu outra (%). */
+export const MARGEM_PADRAO = 30;
+/** Abaixo disto (fração do preço) o preço atual ganha "Margem baixa". */
+export const MARGEM_MINIMA_PRECO = 0.15;
+/** Teto da margem: 1 − margem precisa ficar longe de zero. */
+export const MARGEM_MAXIMA = 90;
+
+export type ResultadoPreco = {
+  /** duração/60 × sua hora. */
+  tempoCents: number;
+  materialCents: number;
+  /** tempo + material: o preço mínimo (sem lucro). */
+  custoCents: number;
+  /** custo ÷ (1 − margem). */
+  sugeridoCents: number;
+  /** Quanto do preço sugerido é lucro. */
+  lucroSugeridoCents: number;
+  /** Margem do preço atual: (preço − custo) ÷ preço; null sem preço. */
+  margemAtual: number | null;
+  /** Preço atual − custo. */
+  lucroAtualCents: number;
+  selo: Selo;
+};
+
+/**
+ * Preço mínimo (custo do tempo + material) e sugerido para a margem pedida.
+ * Margem é fração do preço: preço = custo ÷ (1 − margem).
+ */
+export function calcularPreco(entrada: {
+  precoAtualCents: number;
+  duracaoMin: number;
+  custoHoraCents: number;
+  materialCents: number;
+  margemPct: number;
+}): ResultadoPreco {
+  const margemPct = Math.min(MARGEM_MAXIMA, Math.max(0, entrada.margemPct));
+  const tempoCents = (entrada.duracaoMin / 60) * Math.max(0, entrada.custoHoraCents);
+  const materialCents = Math.max(0, entrada.materialCents);
+  const custoCents = tempoCents + materialCents;
+  // (custo × 100) ÷ (100 − margem) evita o erro de ponto flutuante de 1 − 0,9.
+  const sugeridoCents = Math.ceil((custoCents * 100) / (100 - margemPct) - 1e-6);
+  const lucroAtualCents = entrada.precoAtualCents - custoCents;
+  const margemAtual =
+    entrada.precoAtualCents > 0 ? lucroAtualCents / entrada.precoAtualCents : null;
+  const selo: Selo =
+    lucroAtualCents < 0
+      ? "ABAIXO_DO_CUSTO"
+      : margemAtual === null || margemAtual < MARGEM_MINIMA_PRECO
+        ? "MARGEM_BAIXA"
+        : "SAUDAVEL";
+  return {
+    tempoCents,
+    materialCents,
+    custoCents,
+    sugeridoCents,
+    lucroSugeridoCents: sugeridoCents - custoCents,
+    margemAtual,
+    lucroAtualCents,
+    selo,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Simulador de meta                                                   */
+/* ------------------------------------------------------------------ */
+
+/** Atendimentos que uma cliente ativa faz por mês, em média (manutenção a cada 3-4 semanas). */
+export const ATENDIMENTOS_POR_CLIENTE_MES = 1.3;
+/** Meta usada quando ela não tem meta no Financeiro nem digitou outra. */
+export const META_PADRAO_CENTS = 500_000;
+
+export type ResultadoMeta = {
+  /** Meta ÷ ticket, arredondado para cima. */
+  atendimentosMes: number;
+  atendimentosSemana: number;
+  /** Por dia de trabalho (atendimentos por semana ÷ dias). */
+  atendimentosDia: number;
+  /** Atendimentos por mês ÷ 1,3 por cliente. */
+  clientesNecessarias: number;
+  /** Clientes necessárias − ativas (0 se já tem). */
+  clientesFaltam: number;
+  /** O que o volume atual rende por mês: ticket × atendimentos por semana × 4,33. */
+  faturamentoAtualCents: number;
+  /** Ticket que bate a meta com o volume atual (null sem volume). */
+  ticketNecessarioCents: number | null;
+  /** Atendimentos por mês no ritmo atual. */
+  atendimentosAtuaisMes: number;
+  /** Quanto falta ou sobra para a meta no ritmo atual (negativo = já bate). */
+  faltaCents: number;
+};
+
+export function calcularMeta(entrada: {
+  metaCents: number;
+  ticketCents: number;
+  atendimentosPorSemana: number;
+  clientesAtivas: number;
+  diasPorSemana: number;
+}): ResultadoMeta | null {
+  const { metaCents, ticketCents, clientesAtivas } = entrada;
+  if (!(metaCents > 0) || !(ticketCents > 0)) return null;
+  const porSemana = Math.max(0, entrada.atendimentosPorSemana);
+  const dias = Math.max(1, Math.min(7, entrada.diasPorSemana));
+
+  const atendimentosMes = Math.ceil(metaCents / ticketCents);
+  const atendimentosSemana = atendimentosMes / SEMANAS_POR_MES;
+  const clientesNecessarias = Math.ceil(atendimentosMes / ATENDIMENTOS_POR_CLIENTE_MES);
+  const atendimentosAtuaisMes = porSemana * SEMANAS_POR_MES;
+  const faturamentoAtualCents = Math.round(ticketCents * atendimentosAtuaisMes);
+
+  return {
+    atendimentosMes,
+    atendimentosSemana,
+    atendimentosDia: atendimentosSemana / dias,
+    clientesNecessarias,
+    clientesFaltam: Math.max(0, clientesNecessarias - Math.max(0, clientesAtivas)),
+    faturamentoAtualCents,
+    ticketNecessarioCents:
+      atendimentosAtuaisMes > 0 ? Math.ceil(metaCents / atendimentosAtuaisMes) : null,
+    atendimentosAtuaisMes,
+    faltaCents: metaCents - faturamentoAtualCents,
+  };
+}

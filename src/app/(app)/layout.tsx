@@ -13,6 +13,10 @@ import { DesktopRail } from "@/components/shell/desktop-rail";
 import { PullToRefresh } from "@/components/shell/pull-to-refresh";
 import { TrialBanner, type TrialBannerInfo } from "@/components/shell/trial-banner";
 import { ContentFrame, RailSlot } from "@/components/shell/content-frame";
+import { QuickPanel } from "@/components/shell/quick/quick-panel";
+import { linkPublico } from "@/components/shell/quick/atalhos";
+import { HomeFab } from "@/components/home/home-fab";
+import { carregarCobranca, carregarRespostas } from "@/app/(app)/ferramentas/data";
 import { sairDaConta } from "@/components/shell/sign-out-action";
 import { Button } from "@/components/ui/button";
 import { IconLock, IconLogout } from "@/components/ui/icons";
@@ -46,6 +50,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     : Boolean(
         (await getTeam(professional.id)).find((p) => p.memberId === viewer.memberId)?.bookableOnline,
       );
+  // Atalhos (aba lateral no PC e "+" no celular): link público e calculadora de cobrança (dona).
+  const linkPath = linkPublico(professional.slug, viewer, noLink);
+  const [cobranca, respostas] = viewer.isOwner
+    ? await Promise.all([carregarCobranca(professional.id), carregarRespostas(professional)])
+    : [null, null];
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -70,8 +79,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </main>
       </div>
 
+      <QuickPanel isOwner={viewer.isOwner} linkPath={linkPath} cobranca={cobranca} respostas={respostas} />
+
       <div className="lg:hidden">
         <BottomNav isOwner={viewer.isOwner} />
+        <HomeFab showExpense={viewer.isOwner} linkPath={linkPath} cobranca={cobranca} />
       </div>
       <PwaRegister />
     </div>

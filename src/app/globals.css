@@ -206,8 +206,17 @@
   animation: lashos-pop-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Painel de atalhos (PC): desliza da borda direita, sem quicar */
+@keyframes lashos-panel-in {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.panel-in {
+  animation: lashos-panel-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .page-in, .sheet-in, .fade-in, .pop-in, .celebrate { animation: none; }
+  .page-in, .sheet-in, .fade-in, .pop-in, .panel-in, .celebrate { animation: none; }
 }
 
 /* Impressão (Fechamento do mês → Salvar como PDF): só o documento. */

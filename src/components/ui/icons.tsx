@@ -37,10 +37,13 @@ import {
   HelpCircleIcon,
   Idea01Icon,
   InformationCircleIcon,
+  InstagramIcon,
+  Invoice01Icon,
   Link01Icon,
   Location01Icon,
   Logout03Icon,
   Mail01Icon,
+  Megaphone01Icon,
   Message01Icon,
   Money03Icon,
   MoreHorizontalIcon,
@@ -51,6 +54,8 @@ import {
   PencilEdit02Icon,
   PercentCircleIcon,
   PlusSignIcon,
+  PrinterIcon,
+  QrCodeIcon,
   RefreshIcon,
   ScissorIcon,
   Search01Icon,
@@ -59,6 +64,8 @@ import {
   SparklesIcon,
   SquareLock02Icon,
   StarIcon,
+  Tag01Icon,
+  Target02Icon,
   Store01Icon,
   Tick02Icon,
   TaskDone01Icon,
@@ -70,6 +77,7 @@ import {
   ViewOffIcon,
   Wallet01Icon,
   WhatsappIcon,
+  ZapIcon,
 } from "@hugeicons/core-free-icons";
 
 export type IconProps = Omit<SVGProps<SVGSVGElement>, "ref">;
@@ -129,6 +137,8 @@ export const IconUserAdd = makeIcon(UserAdd01Icon, "IconUserAdd");
 export const IconCalendarAdd = makeIcon(CalendarAdd01Icon, "IconCalendarAdd");
 export const IconCalendarX = makeIcon(CalendarRemove02Icon, "IconCalendarX");
 export const IconExternal = makeIcon(ArrowUpRight01Icon, "IconExternal");
+export const IconFlash = makeIcon(ZapIcon, "IconFlash");
+export const IconQrCode = makeIcon(QrCodeIcon, "IconQrCode");
 
 // Setas
 export const IconChevronRight = makeIcon(ArrowRight01Icon, "IconChevronRight");
@@ -164,3 +174,11 @@ export const IconCard = makeIcon(CreditCardIcon, "IconCard");
 export const IconCoins = makeIcon(Coins01Icon, "IconCoins");
 export const IconPercent = makeIcon(PercentCircleIcon, "IconPercent");
 export const IconFile = makeIcon(File02Icon, "IconFile");
+
+// Ferramentas
+export const IconTag = makeIcon(Tag01Icon, "IconTag");
+export const IconTarget = makeIcon(Target02Icon, "IconTarget");
+export const IconPrinter = makeIcon(PrinterIcon, "IconPrinter");
+export const IconInvoice = makeIcon(Invoice01Icon, "IconInvoice");
+export const IconMegaphone = makeIcon(Megaphone01Icon, "IconMegaphone");
+export const IconInstagram = makeIcon(InstagramIcon, "IconInstagram");

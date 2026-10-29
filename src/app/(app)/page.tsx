@@ -20,7 +20,6 @@ import { LASH_CYCLE_CATEGORIES, type AppointmentStatus } from "@/lib/constants";
 import { Greeting } from "@/components/home/greeting";
 import { QuickActions } from "@/components/home/quick-actions";
 import { InstallPrompt } from "@/components/shell/install-prompt";
-import { HomeFab } from "@/components/home/home-fab";
 import { WeeklyRecapBanner } from "@/components/home/weekly-recap-banner";
 import { localWeekday } from "@/lib/dates";
 import { OnboardingCard } from "@/components/home/onboarding-card";
@@ -452,8 +451,6 @@ export default async function HomePage() {
       {isOwner && [0, 1].includes(localWeekday(now, tz)) ? <WeeklyRecapBanner /> : null}
 
       {game ? <GamificationHomeCard game={game} /> : null}
-
-      <HomeFab showExpense={isOwner} />
     </div>
   );
 }

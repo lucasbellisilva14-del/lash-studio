@@ -5,13 +5,34 @@ import "server-only";
  * Só leitura: não materializa despesas fixas nem grava nada.
  * Toda consulta filtra por professionalId.
  */
+import QRCode from "qrcode";
+import sharp from "sharp";
+import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { PAYMENT_METHODS, SERVICE_CATEGORIES, type PaymentMethod } from "@/lib/constants";
-import { dayKeyToUtcStart, formatWithPattern, timeToMinutes } from "@/lib/dates";
-import { juntar } from "@/components/ferramentas/calculos";
+import {
+  LASH_CYCLE_CATEGORIES,
+  PAYMENT_METHODS,
+  SERVICE_CATEGORIES,
+  type PaymentMethod,
+  type ServiceCategory,
+} from "@/lib/constants";
+import { dayKeyToUtcStart, formatDate, formatWithPattern, timeToMinutes } from "@/lib/dates";
+import { getBookingUrl } from "@/lib/domain/queue";
+import { getStorageProvider, storageKeyOwner } from "@/lib/providers/storage";
+import { juntar, SEMANAS_POR_MES } from "@/components/ferramentas/calculos";
+import {
+  contarDiasUteis,
+  preverEstoque,
+} from "@/components/ferramentas/previsao-estoque-calculo";
+import { montarRespostas, type Resposta } from "@/components/ferramentas/respostas";
 import type {
   DadosCobranca,
+  DadosDivulgacao,
+  DadosEstoque,
   DadosHora,
+  DadosMeta,
+  DadosPreco,
+  DadosRecibo,
   DespesasDoMes,
   ItemMaterial,
   ServicoBasico,
@@ -361,3 +382,427 @@ export async function carregarHora(
     servicos,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Leituras partilhadas pelas abas novas                               */
+/* ------------------------------------------------------------------ */
+
+type Profissional = {
+  id: string;
+  timezone: string;
+  createdAt: Date;
+};
+
+/** Minutos de atendimento por semana e os dias com horário ativo. */
+async function lerHorarioSemanal(professionalId: string): Promise<{
+  minutosSemana: number;
+  dias: number;
+  /** Dias da semana (0 = domingo) com horário ativo. */
+  diasUteis: number[];
+}> {
+  const horarios = await prisma.workingHour.findMany({
+    where: { professionalId, active: true },
+    select: { weekday: true, startTime: true, endTime: true },
+  });
+  let minutosSemana = 0;
+  const diasUteis: number[] = [];
+  for (const horario of horarios) {
+    const inicio = minutosDoDia(horario.startTime);
+    const fim = minutosDoDia(horario.endTime);
+    if (inicio === null || fim === null || fim <= inicio) continue;
+    minutosSemana += fim - inicio;
+    diasUteis.push(horario.weekday);
+  }
+  return { minutosSemana, dias: diasUteis.length, diasUteis };
+}
+
+/* ------------------------------------------------------------------ */
+/* Aba Precificação                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A hora dela sai dos mesmos números de Sua hora: despesas fixas do mês
+ * (ou a média recente) e as horas dos horários cadastrados. Pró-labore e
+ * ocupação ficam no aparelho e a aba lê as mesmas chaves.
+ */
+export async function carregarPreco(
+  profissional: Profissional,
+  agora = new Date(),
+): Promise<DadosPreco> {
+  const hora = await carregarHora(profissional, agora);
+  return {
+    chave: hora.chave,
+    despesasCents: hora.despesas.totalCents,
+    horasMes: (hora.horario.minutosSemana / 60) * SEMANAS_POR_MES,
+    material: hora.material,
+    servicos: hora.servicos,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Aba Simulador de meta                                               */
+/* ------------------------------------------------------------------ */
+
+/** Janela do histórico do simulador. */
+const DIAS_HISTORICO_META = 90;
+/** Janela das clientes ativas. */
+const DIAS_CLIENTES_ATIVAS = 60;
+
+export async function carregarMeta(
+  profissional: Profissional,
+  agora = new Date(),
+): Promise<DadosMeta> {
+  const professionalId = profissional.id;
+  const tz = profissional.timezone;
+  const mesAtual = chaveDoMes(agora, tz);
+  // Conta nova não dilui a média com semanas vazias — mas histórico importado
+  // (atendimentos anteriores à criação da conta) conta desde o primeiro deles.
+  const inicioJanela = new Date(agora.getTime() - DIAS_HISTORICO_META * DIA_MS);
+  const primeiroConcluido = await prisma.appointment.findFirst({
+    where: { professionalId, status: "CONCLUIDO", startAt: { gte: inicioJanela, lt: agora } },
+    orderBy: { startAt: "asc" },
+    select: { startAt: true },
+  });
+  const inicioDosDados = Math.min(
+    profissional.createdAt.getTime(),
+    primeiroConcluido?.startAt.getTime() ?? Number.POSITIVE_INFINITY,
+  );
+  const diasDeConta = Math.max(1, (agora.getTime() - inicioDosDados) / DIA_MS);
+  const diasHistorico = Math.min(DIAS_HISTORICO_META, Math.ceil(diasDeConta));
+  const inicioHistorico = new Date(agora.getTime() - diasHistorico * DIA_MS);
+  const inicioAtivas = new Date(agora.getTime() - DIAS_CLIENTES_ATIVAS * DIA_MS);
+
+  const [meta, receitas, concluidos, ativas, horario, servicos] = await Promise.all([
+    prisma.goal.findUnique({
+      where: { professionalId_month: { professionalId, month: mesAtual } },
+      select: { revenueTargetCents: true },
+    }),
+    prisma.transaction.aggregate({
+      where: {
+        professionalId,
+        type: "RECEITA",
+        kind: { in: ["ATENDIMENTO", "SINAL"] },
+        date: { gte: inicioHistorico, lt: agora },
+      },
+      _sum: { netCents: true },
+    }),
+    prisma.appointment.count({
+      where: { professionalId, status: "CONCLUIDO", startAt: { gte: inicioHistorico, lt: agora } },
+    }),
+    prisma.appointment.findMany({
+      where: { professionalId, status: "CONCLUIDO", startAt: { gte: inicioAtivas, lt: agora } },
+      distinct: ["clientId"],
+      select: { clientId: true },
+    }),
+    lerHorarioSemanal(professionalId),
+    lerServicosAtivos(professionalId),
+  ]);
+
+  const semanas = Math.max(1, diasHistorico / 7);
+  const receitaCents = receitas._sum.netCents ?? 0;
+  const precoMedio =
+    servicos.length > 0
+      ? Math.round(servicos.reduce((soma, s) => soma + s.priceCents, 0) / servicos.length)
+      : null;
+
+  return {
+    chave: chaveDoAparelho(professionalId),
+    metaDoMesCents: meta?.revenueTargetCents ?? null,
+    ticketMedioCents:
+      concluidos > 0 && receitaCents > 0 ? Math.round(receitaCents / concluidos) : null,
+    precoMedioServicosCents: precoMedio,
+    atendimentosPorSemana: Math.round((concluidos / semanas) * 10) / 10,
+    atendimentosNoPeriodo: concluidos,
+    semanasConsideradas: Math.round(semanas * 10) / 10,
+    clientesAtivas: ativas.length,
+    diasPorSemana: horario.dias,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Aba Divulgação                                                      */
+/* ------------------------------------------------------------------ */
+
+const PREFIXO_UPLOADS = "/api/uploads/";
+
+export async function carregarDivulgacao(profissional: {
+  id: string;
+  slug: string;
+  studioName: string;
+  logoUrl: string | null;
+  instagram: string | null;
+  depositType: string;
+  depositValue: number;
+  cancellationWindowHours: number;
+  maintenanceLimitDays: number;
+  addressLine: string | null;
+  mapsUrl: string | null;
+}): Promise<DadosDivulgacao> {
+  const [link, servicos] = await Promise.all([
+    getBookingUrl(profissional.slug),
+    prisma.service.findMany({
+      where: { professionalId: profissional.id, active: true },
+      select: { name: true, category: true, durationMin: true, priceCents: true },
+    }),
+  ]);
+  const qrSvg = await QRCode.toString(link, { type: "svg", margin: 1 });
+  return {
+    link,
+    qrSvg,
+    studioName: profissional.studioName,
+    logoSrc: profissional.logoUrl,
+    instagram: profissional.instagram,
+    respostas: montarRespostas({
+      studioName: profissional.studioName,
+      servicos,
+      depositType: profissional.depositType,
+      depositValue: profissional.depositValue,
+      cancellationWindowHours: profissional.cancellationWindowHours,
+      maintenanceLimitDays: profissional.maintenanceLimitDays,
+      addressLine: profissional.addressLine,
+      mapsUrl: profissional.mapsUrl,
+      link,
+    }),
+  };
+}
+
+/** Só as respostas prontas (painel de atalhos): 1 consulta + o link público. */
+export async function carregarRespostas(profissional: {
+  id: string;
+  slug: string;
+  studioName: string;
+  depositType: string;
+  depositValue: number;
+  cancellationWindowHours: number;
+  maintenanceLimitDays: number;
+  addressLine: string | null;
+  mapsUrl: string | null;
+}): Promise<Resposta[]> {
+  const [link, servicos] = await Promise.all([
+    getBookingUrl(profissional.slug),
+    prisma.service.findMany({
+      where: { professionalId: profissional.id, active: true },
+      select: { name: true, category: true, durationMin: true, priceCents: true },
+    }),
+  ]);
+  return montarRespostas({
+    studioName: profissional.studioName,
+    servicos,
+    depositType: profissional.depositType,
+    depositValue: profissional.depositValue,
+    cancellationWindowHours: profissional.cancellationWindowHours,
+    maintenanceLimitDays: profissional.maintenanceLimitDays,
+    addressLine: profissional.addressLine,
+    mapsUrl: profissional.mapsUrl,
+    link,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Aba Recibo                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Janela dos atendimentos que podem virar recibo. */
+const DIAS_RECIBO = 30;
+/** Manutenção sugerida: alguns dias antes do prazo limite. */
+const FOLGA_MANUTENCAO_DIAS = 6;
+/** Lado da logo embutida no recibo (a imagem desenha em 112 px). */
+const LOGO_RECIBO_PX = 224;
+
+export async function carregarRecibo(
+  profissional: { id: string; timezone: string; studioName: string },
+  agora = new Date(),
+): Promise<DadosRecibo> {
+  const atendimentos = await prisma.appointment.findMany({
+    where: {
+      professionalId: profissional.id,
+      status: "CONCLUIDO",
+      startAt: { gte: new Date(agora.getTime() - DIAS_RECIBO * DIA_MS) },
+    },
+    orderBy: { startAt: "desc" },
+    take: 60,
+    select: {
+      id: true,
+      startAt: true,
+      client: { select: { name: true, phone: true } },
+      service: { select: { name: true } },
+    },
+  });
+  return {
+    studioName: profissional.studioName,
+    atendimentos: atendimentos.map((a) => ({
+      id: a.id,
+      rotulo: `${formatWithPattern(a.startAt, "dd/MM", profissional.timezone)} · ${a.client.name} · ${a.service.name}`,
+      clientePhone: a.client.phone,
+      clienteNome: a.client.name,
+    })),
+  };
+}
+
+export type ReciboImagem = {
+  studioName: string;
+  accentColor: string;
+  backgroundColor: string;
+  /** Logo como data URL (ou URL absoluta), pronta para o ImageResponse. */
+  logoSrc: string | null;
+  clienteNome: string;
+  servicoNome: string;
+  /** "28/10/2026" */
+  data: string;
+  /** "14:30" */
+  hora: string;
+  valorCents: number;
+  /** Rótulo da forma de pagamento (null = não registrada). */
+  formaPagamento: string | null;
+  /** "dd/mm" da manutenção sugerida (só aplicação/manutenção). */
+  proximaManutencao: string | null;
+};
+
+/** Dados do recibo de UM atendimento do estúdio (null se não é dele ou não está concluído). */
+export async function carregarReciboImagem(
+  profissional: {
+    id: string;
+    timezone: string;
+    studioName: string;
+    accentColor: string;
+    backgroundColor: string;
+    logoUrl: string | null;
+    maintenanceLimitDays: number;
+  },
+  appointmentId: string,
+): Promise<ReciboImagem | null> {
+  const atendimento = await prisma.appointment.findFirst({
+    where: { id: appointmentId, professionalId: profissional.id, status: "CONCLUIDO" },
+    select: {
+      startAt: true,
+      priceCents: true,
+      client: { select: { name: true } },
+      service: { select: { name: true, category: true } },
+      transactions: {
+        where: { type: "RECEITA", kind: { in: ["ATENDIMENTO", "SINAL"] } },
+        select: { kind: true, amountCents: true, method: true },
+      },
+    },
+  });
+  if (!atendimento) return null;
+
+  // Valor recebido = sinal + restante (nunca duplica); sem lançamento, o preço.
+  const recebidoCents = atendimento.transactions.reduce((soma, t) => soma + t.amountCents, 0);
+  const principal =
+    atendimento.transactions.find((t) => t.kind === "ATENDIMENTO") ?? atendimento.transactions[0];
+  const metodo = principal?.method;
+
+  const tz = profissional.timezone;
+  const ehCiclo = LASH_CYCLE_CATEGORIES.includes(atendimento.service.category as ServiceCategory);
+  const manutencao = ehCiclo
+    ? addDays(
+        atendimento.startAt,
+        Math.max(1, profissional.maintenanceLimitDays - FOLGA_MANUTENCAO_DIAS),
+      )
+    : null;
+
+  let logoSrc: string | null = null;
+  const logoUrl = profissional.logoUrl;
+  if (logoUrl?.startsWith(PREFIXO_UPLOADS)) {
+    const key = logoUrl.slice(PREFIXO_UPLOADS.length);
+    if (storageKeyOwner(key) === profissional.id) {
+      const file = await getStorageProvider().get(key);
+      if (file) {
+        // PNG pequeno: o gerador da imagem não lê WebP e não precisa de 5 MB de logo.
+        try {
+          const png = await sharp(file.data)
+            .resize(LOGO_RECIBO_PX, LOGO_RECIBO_PX, { fit: "cover" })
+            .png()
+            .toBuffer();
+          logoSrc = `data:image/png;base64,${png.toString("base64")}`;
+        } catch {
+          logoSrc = null;
+        }
+      }
+    }
+  } else if (logoUrl && /^https?:\/\//.test(logoUrl)) {
+    logoSrc = logoUrl;
+  }
+
+  return {
+    studioName: profissional.studioName,
+    accentColor: profissional.accentColor,
+    backgroundColor: profissional.backgroundColor,
+    logoSrc,
+    clienteNome: atendimento.client.name,
+    servicoNome: atendimento.service.name,
+    data: formatDate(atendimento.startAt, tz),
+    hora: formatWithPattern(atendimento.startAt, "HH:mm", tz),
+    valorCents: atendimento.transactions.length > 0 ? recebidoCents : atendimento.priceCents,
+    formaPagamento:
+      metodo && metodo in PAYMENT_METHODS ? PAYMENT_METHODS[metodo as PaymentMethod] : null,
+    proximaManutencao: manutencao ? formatWithPattern(manutencao, "dd/MM", tz) : null,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Aba Previsão de estoque                                             */
+/* ------------------------------------------------------------------ */
+
+/** Janela do ritmo de atendimentos. */
+const DIAS_RITMO_ESTOQUE = 30;
+/** Dias úteis quando ela não tem horários cadastrados: segunda a sexta. */
+const DIAS_UTEIS_SEM_HORARIO = [1, 2, 3, 4, 5];
+
+export async function carregarEstoque(
+  profissional: Profissional,
+  agora = new Date(),
+): Promise<DadosEstoque> {
+  const professionalId = profissional.id;
+  const tz = profissional.timezone;
+  const inicio = new Date(agora.getTime() - DIAS_RITMO_ESTOQUE * DIA_MS);
+
+  const [produtos, concluidos, horario] = await Promise.all([
+    prisma.product.findMany({
+      where: { professionalId, active: true, usagePerService: { gt: 0 } },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        unit: true,
+        quantity: true,
+        usagePerService: true,
+        openedAt: true,
+        shelfLifeDaysAfterOpen: true,
+        expiresAt: true,
+      },
+    }),
+    prisma.appointment.count({
+      where: { professionalId, status: "CONCLUIDO", startAt: { gte: inicio, lt: agora } },
+    }),
+    lerHorarioSemanal(professionalId),
+  ]);
+
+  const diasUteis = horario.diasUteis.length > 0 ? horario.diasUteis : DIAS_UTEIS_SEM_HORARIO;
+  const uteisNaJanela = Math.max(1, contarDiasUteis(inicio, agora, diasUteis, tz));
+  const atendimentosPorDiaUtil = concluidos / uteisNaJanela;
+
+  return {
+    produtos: preverEstoque({
+      agora,
+      tz,
+      diasUteis,
+      atendimentosPorDiaUtil,
+      produtos: produtos.map((p) => ({
+        id: p.id,
+        nome: p.name,
+        categoria: p.category,
+        unidade: p.unit,
+        quantidade: p.quantity,
+        consumo: p.usagePerService,
+        abertoEm: p.openedAt,
+        validadeDiasAposAbrir: p.shelfLifeDaysAfterOpen,
+        vence: p.expiresAt,
+      })),
+    }),
+    atendimentosPorDiaUtil: Math.round(atendimentosPorDiaUtil * 10) / 10,
+    concluidos30d: concluidos,
+    comConsumo: produtos.length,
+  };
+}
+
