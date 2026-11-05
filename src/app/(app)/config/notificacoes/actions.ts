@@ -24,17 +24,6 @@ export async function salvarHorarioResumoAction(hora: string): Promise<PushActio
   return { ok: true };
 }
 
-/** Liga/desliga o envio automático da fila via API de WhatsApp. */
-export async function salvarEnvioAutomaticoAction(ativo: boolean): Promise<PushActionResult> {
-  const { professionalId } = await requireOwner();
-  await prisma.professional.update({
-    where: { id: professionalId },
-    data: { autoSendMessages: ativo, autoSendSentDay: null },
-  });
-  revalidatePath("/config/notificacoes");
-  return { ok: true };
-}
-
 const inscricaoSchema = z.object({
   endpoint: z.url({ error: "Inscrição de push inválida." }).max(2000),
   p256dh: z.string().min(1, "Inscrição de push inválida.").max(512),

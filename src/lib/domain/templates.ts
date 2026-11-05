@@ -1,6 +1,7 @@
-/** Renderização de templates de mensagem com variáveis {{...}}. */
+/** Renderização de templates de mensagem com variáveis {{...}} e spintax {a|b}. */
 import { formatBRL } from "@/lib/money";
 import { formatDate, formatTime } from "@/lib/dates";
+import { resolverSpintax, sorteador } from "@/lib/whatsapp/variacao";
 
 export type TemplateContext = {
   clientName?: string;
@@ -31,6 +32,11 @@ export type RenderOptions = {
    * (ex.: linha do sinal quando o agendamento não exige sinal).
    */
   dropEmptyLines?: boolean;
+  /**
+   * Semente da escolha no spintax ("{Oi|Olá}"): a mesma semente dá o mesmo
+   * texto (a fila não muda a cada atualização). Sem semente, usa o próprio modelo.
+   */
+  seed?: string;
 };
 
 export function renderTemplate(
@@ -53,7 +59,7 @@ export function renderTemplate(
     link_agendamento: ctx.bookingUrl ?? "",
   };
 
-  let source = body;
+  let source = resolverSpintax(body, sorteador(options.seed ?? body));
   if (options.dropEmptyLines) {
     source = source
       .split("\n")

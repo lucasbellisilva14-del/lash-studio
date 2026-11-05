@@ -21,6 +21,7 @@ import {
   IconMoney,
   IconNote,
   IconTeam,
+  IconWhatsApp,
 } from "@/components/ui/icons";
 import { IconPercent, IconShield, IconUser } from "@/components/config/icons";
 
@@ -59,13 +60,13 @@ function Grupo({ titulo, itens }: { titulo: string; itens: Item[] }) {
   );
 }
 
-/** Funcionária: só a senha dela, o suporte e sair. O resto é do estúdio (da dona). */
+/** Funcionária: a senha e o calendário dela, o suporte e sair. O resto é do estúdio (da dona). */
 function ConfigDaEquipe() {
   return (
     <div>
       <PageHeader
         title="Configurações"
-        subtitle="Sua senha de acesso e ajuda com o app."
+        subtitle="Sua senha, seu calendário e ajuda com o app."
         backHref="/mais"
       />
       <div className="space-y-6">
@@ -77,6 +78,12 @@ function ConfigDaEquipe() {
               label: "Sua senha",
               description: "Troque a senha do seu login",
               icon: IconLock,
+            },
+            {
+              href: "/config/calendario",
+              label: "Agenda no calendário",
+              description: "Seus horários no iPhone ou no Google Agenda",
+              icon: IconCalendar,
             },
           ]}
         />
@@ -104,7 +111,7 @@ export default async function ConfigPage() {
   const professional = await requireProfessional();
   const tz = professional.timezone;
 
-  const [activeDays, feeCount, pushDeviceCount, equipeAtiva, convitesPendentes] = await Promise.all([
+  const [activeDays, feeCount, pushDeviceCount, equipeAtiva, convitesPendentes, whatsapp] = await Promise.all([
     prisma.workingHour.count({
       where: { professionalId: professional.id, active: true },
     }),
@@ -119,6 +126,10 @@ export default async function ConfigPage() {
     }),
     prisma.teamMember.count({
       where: { professionalId: professional.id, active: true, passwordHash: null },
+    }),
+    prisma.whatsAppConnection.findUnique({
+      where: { professionalId: professional.id },
+      select: { status: true, autoSend: true },
     }),
   ]);
 
@@ -228,6 +239,17 @@ export default async function ConfigPage() {
   ];
 
   const avisos: Item[] = [
+    {
+      href: "/config/whatsapp",
+      label: "WhatsApp",
+      description:
+        whatsapp?.status === "CONECTADO"
+          ? whatsapp.autoSend
+            ? "Conectado: confirmações e lembretes saem sozinhos"
+            : "Conectado · envio automático desligado"
+          : "Conecte e as confirmações saem sozinhas",
+      icon: IconWhatsApp,
+    },
     {
       href: "/config/notificacoes",
       label: "Notificações",

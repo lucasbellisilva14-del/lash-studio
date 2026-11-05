@@ -45,6 +45,11 @@ export type QueueListItem = {
   meta: string | null;
   /** Com equipe, na visão da dona: aviso de outra profissional ("com Ana"). */
   pro?: ProView | null;
+  /**
+   * WhatsApp conectado: SOZINHA = vai sair pelo envio automático (não precisa
+   * mandar à mão); SEM_WHATSAPP = o automático tentou e o número não tem WhatsApp.
+   */
+  auto?: { tipo: "SOZINHA" | "SEM_WHATSAPP"; texto: string } | null;
 };
 
 /** Mensagem que saiu hoje (aba "Feitas hoje"). */
@@ -60,6 +65,8 @@ export type DoneListItem = {
   timeLabel: string;
   /** ISO da âncora — casa o envio otimista com o registro do servidor. */
   refDate: string | null;
+  /** Saiu sozinha pelo WhatsApp conectado. */
+  auto?: boolean;
 };
 
 type TypeTab =
@@ -344,6 +351,22 @@ function QueueRow({
 
       <MessagePreview body={item.body} className="mt-3" />
 
+      {item.auto ? (
+        <p
+          className={cn(
+            "mt-3 flex items-center gap-1.5 text-[12.5px] font-medium leading-snug",
+            item.auto.tipo === "SOZINHA" ? "text-success" : "text-warning",
+          )}
+        >
+          {item.auto.tipo === "SOZINHA" ? (
+            <IconCheck width={14} height={14} className="shrink-0" />
+          ) : (
+            <IconWhatsApp width={14} height={14} className="shrink-0" />
+          )}
+          {item.auto.texto}
+        </p>
+      ) : null}
+
       <div className="mt-3 flex items-center gap-2">
         {item.waUrl ? (
           <a
@@ -380,6 +403,7 @@ function DoneRow({ item }: { item: DoneListItem }) {
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold tabular-nums text-ink-soft">
           <IconCheck width={15} height={15} className="text-success" />
+          {item.auto ? <span className="font-medium text-ink-faint">pelo LashOS ·</span> : null}
           {item.timeLabel}
         </span>
       </div>

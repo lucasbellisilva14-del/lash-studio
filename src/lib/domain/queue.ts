@@ -222,12 +222,14 @@ export async function buildMessageQueue(
         amountCents: ctx.depositCents,
       });
     }
-    const body = renderTemplate(template.body, ctx, { dropEmptyLines: true });
     const client = { id: params.client.id, name: params.client.name, phone: params.client.phone };
+    const key = `${params.kind}:${client.id}:${params.appointmentId ?? params.refDate.toISOString()}`;
+    // Spintax ({Oi|Olá}) escolhido por item: estável na fila, diferente entre clientes.
+    const body = renderTemplate(template.body, ctx, { dropEmptyLines: true, seed: key });
     // Montar a fila NUNCA envia nada — só prepara o link manual (wa.me).
     // Envio real por API é ato explícito (cron de envio automático).
     items.push({
-      key: `${params.kind}:${client.id}:${params.appointmentId ?? params.refDate.toISOString()}`,
+      key,
       kind: params.kind,
       kindLabel: QUEUE_KIND_LABELS[params.kind],
       client,

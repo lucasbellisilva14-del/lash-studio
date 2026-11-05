@@ -1,5 +1,4 @@
 import { requireOwner, requireProfessional } from "@/lib/session";
-import { messageProviderIsAutomatic } from "@/lib/providers/message";
 import { PageHeader } from "@/components/ui/page-header";
 import { NotificacoesManager } from "@/components/push/notificacoes-manager";
 import { ResumoConfig } from "@/components/push/resumo-config";
@@ -19,11 +18,7 @@ export default async function NotificacoesPage() {
       />
       <div className="space-y-4">
         <NotificacoesManager dailySummaryTime={professional.dailySummaryTime} />
-        <ResumoConfig
-          dailySummaryTime={professional.dailySummaryTime}
-          autoSendMessages={professional.autoSendMessages}
-          waAutomaticoDisponivel={messageProviderIsAutomatic()}
-        />
+        <ResumoConfig dailySummaryTime={professional.dailySummaryTime} />
       </div>
     </div>
   );

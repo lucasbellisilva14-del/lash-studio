@@ -20,6 +20,8 @@ import {
   type QueueItem,
 } from "@/lib/domain/queue";
 import type { TemplateKind } from "@/lib/constants";
+import { normalizePhone } from "@/lib/phone";
+import { dentroDaJanela, ehTipoAutomatico, janelaDeEnvio, tiposLigados } from "@/lib/whatsapp/tipos";
 import { diffLocalDays, formatDate, formatTime, localDayRange } from "@/lib/dates";
 
 export const metadata = { title: "Fila de mensagens" };
@@ -124,6 +126,7 @@ async function sentTodayFor(viewer: Viewer, todayStart: Date, todayEnd: Date) {
       sentAt: true,
       appointmentId: true,
       sentByMemberId: true,
+      auto: true,
       client: { select: { id: true, name: true } },
     },
     orderBy: { sentAt: "desc" },
@@ -161,6 +164,45 @@ async function sentTodayFor(viewer: Viewer, todayStart: Date, todayEnd: Date) {
   );
 }
 
+/**
+ * Selo do envio automático em cada item da fila. Sem WhatsApp conectado (ou
+ * com o automático desligado), nenhum selo: tudo é manual como sempre.
+ */
+async function statusAutomatico(professionalId: string, queue: QueueItem[], now: Date, tz: string) {
+  const nada = () => null;
+  if (queue.length === 0) return nada;
+  const conexao = await prisma.whatsAppConnection.findUnique({
+    where: { professionalId },
+    select: { status: true, autoSend: true, autoKinds: true },
+  });
+  if (!conexao || conexao.status !== "CONECTADO" || !conexao.autoSend) return nada;
+  const ligados = tiposLigados(conexao.autoKinds);
+  const semWhatsapp = await prisma.messageLog.findMany({
+    where: {
+      professionalId,
+      status: "SEM_WHATSAPP",
+      clientId: { in: [...new Set(queue.map((i) => i.client.id))] },
+    },
+    select: { kind: true, clientId: true, appointmentId: true, refDate: true, body: true },
+  });
+  const falhas = new Map(
+    semWhatsapp.map((l) => [`${l.kind}:${l.clientId}:${l.appointmentId ?? l.refDate?.toISOString() ?? ""}`, l.body]),
+  );
+  const [h, m] = formatTime(now, tz).split(":").map(Number);
+  const minutos = h * 60 + m;
+  return (item: QueueItem): QueueListItem["auto"] => {
+    if (!ehTipoAutomatico(item.kind) || !ligados.has(item.kind)) return null;
+    const falha = falhas.get(item.key);
+    if (falha && falha.includes(normalizePhone(item.client.phone))) {
+      return { tipo: "SEM_WHATSAPP", texto: "Esse número não tem WhatsApp: confira o telefone ou mande por outro meio." };
+    }
+    if (dentroDaJanela(item.kind, minutos)) return { tipo: "SOZINHA", texto: "Sai sozinha em instantes pelo seu WhatsApp" };
+    const [ini] = janelaDeEnvio(item.kind);
+    const hora = `${String(Math.floor(ini / 60)).padStart(2, "0")}h${String(ini % 60).padStart(2, "0")}`;
+    return { tipo: "SOZINHA", texto: minutos < ini ? `Sai sozinha a partir das ${hora}` : "Sai sozinha amanhã cedo pelo seu WhatsApp" };
+  };
+}
+
 export default async function MensagensPage(props: PageProps<"/mensagens">) {
   const [viewer, professional] = await Promise.all([requireViewer(), requireProfessional()]);
   const tz = professional.timezone;
@@ -174,7 +216,7 @@ export default async function MensagensPage(props: PageProps<"/mensagens">) {
   const queue = await getMessageQueueForViewer(viewer);
   const { start: todayStart, end: todayEnd } = localDayRange(now, tz);
 
-  const [sentToday, avulsaClient, pros] = await Promise.all([
+  const [sentToday, avulsaClient, pros, automatico] = await Promise.all([
     // "Feitas hoje": o que saiu hoje no fuso do estúdio (fila, avulsa, automático).
     sentTodayFor(viewer, todayStart, todayEnd),
     // Mensagem avulsa: /mensagens?cliente=<id> (funcionária: só clientes dela)
@@ -186,6 +228,8 @@ export default async function MensagensPage(props: PageProps<"/mensagens">) {
       : Promise.resolve(null),
     // Com equipe, a dona vê de quem é cada aviso ("com Ana").
     viewer.isOwner ? getProDirectory(professional.id) : Promise.resolve<ProDirectory | null>(null),
+    // WhatsApp conectado: o que vai sair sozinho e o que o automático não conseguiu.
+    statusAutomatico(professional.id, queue, now, tz),
   ]);
   const showPros = pros?.hasTeam ?? false;
 
@@ -205,6 +249,7 @@ export default async function MensagensPage(props: PageProps<"/mensagens">) {
       showPros && pros && item.memberId
         ? withProView(pros.of(item.memberId), viewer.memberId)
         : null,
+    auto: automatico(item),
   }));
 
   const done: DoneListItem[] = sentToday.map((log) => ({
@@ -216,6 +261,7 @@ export default async function MensagensPage(props: PageProps<"/mensagens">) {
     body: log.body,
     timeLabel: log.sentAt ? formatTime(log.sentAt, tz) : "",
     refDate: log.refDate ? log.refDate.toISOString() : null,
+    auto: log.auto,
   }));
 
   return (

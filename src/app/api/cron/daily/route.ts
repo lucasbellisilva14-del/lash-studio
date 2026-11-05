@@ -13,10 +13,6 @@ import { LASH_CYCLE_CATEGORIES } from "@/lib/constants";
 import { diffLocalDays, formatTime, localDayKey, localDayRange } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { sendPushToProfessional } from "@/components/push/send";
-import {
-  getMessageProvider,
-  messageProviderIsAutomatic,
-} from "@/lib/providers/message";
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
@@ -188,38 +184,6 @@ function minutosLocais(now: Date, tz: string): number {
   return h * 60 + m;
 }
 
-/** Envia a fila inteira via API de WhatsApp e registra cada mensagem. */
-async function enviarFilaAutomatica(professionalId: string, now: Date): Promise<number> {
-  const queue = await buildMessageQueue(professionalId, now);
-  const provider = getMessageProvider();
-  let enviadas = 0;
-  for (const item of queue) {
-    try {
-      const prepared = await provider.send({ phone: item.client.phone, body: item.body });
-      if (prepared.mode !== "SENT") break; // provider virou manual? aborta
-      await prisma.messageLog.create({
-        data: {
-          professionalId,
-          clientId: item.client.id,
-          appointmentId: item.appointmentId,
-          templateId: item.templateId,
-          kind: item.kind,
-          channel: "WHATSAPP",
-          body: item.body,
-          status: "ENVIADA",
-          refDate: item.refDate,
-          sentAt: new Date(),
-        },
-      });
-      enviadas += 1;
-    } catch (e) {
-      console.error(`[cron] envio automático falhou (${professionalId}):`, e);
-      break; // API fora do ar — tenta de novo no próximo tick, sem duplicar
-    }
-  }
-  return enviadas;
-}
-
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization");
@@ -231,10 +195,9 @@ export async function GET(request: Request) {
   const professionals = await prisma.professional.findMany({
     include: { _count: { select: { pushSubscriptions: true } } },
   });
-  const waAutomatico = messageProviderIsAutomatic();
-
+  // O WhatsApp automático não sai mais daqui: é o /api/cron/whatsapp, com
+  // intervalo entre mensagens e o WhatsApp conectado de cada estúdio.
   let sent = 0;
-  let waSent = 0;
   for (const professional of professionals) {
     const tz = professional.timezone;
     const todayKey = localDayKey(now, tz);
@@ -266,29 +229,10 @@ export async function GET(request: Request) {
         // Uma profissional com erro não derruba o resumo das demais.
       }
     }
-
-    // ── WhatsApp automático: fila do dia sai sozinha (Evolution + opt-in) ──
-    if (
-      waAutomatico &&
-      professional.autoSendMessages &&
-      professional.autoSendSentDay !== todayKey
-    ) {
-      try {
-        await prisma.professional.update({
-          where: { id: professional.id },
-          data: { autoSendSentDay: todayKey },
-        });
-        waSent += await enviarFilaAutomatica(professional.id, now);
-      } catch (e) {
-        console.error(`[cron] fila automática falhou (${professional.id}):`, e);
-      }
-    }
   }
 
   return Response.json({
     professionals: professionals.length,
     sent,
-    waSent,
-    waAutomatico,
   });
 }

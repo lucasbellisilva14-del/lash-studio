@@ -1,14 +1,27 @@
 "use client";
 
-/** Gerencia o feed .ics: gerar/copiar link, instruções e revogação. */
+/**
+ * Link do calendário (.ics): gerar, adicionar ao iPhone ou ao Google em um
+ * toque, copiar, regenerar e desligar.
+ */
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { IconCalendar, IconCheck } from "@/components/ui/icons";
+import { IconCalendar, IconCheck, IconCopy, IconExternal } from "@/components/ui/icons";
 import { FormError, SavedToast } from "@/components/config/feedback";
 import { desligarCalendario, gerarLinkCalendario } from "./actions";
 
-export function CalendarioManager({ feedUrl }: { feedUrl: string | null }) {
+/** webcal:// faz o iPhone (e o Mac) abrir o Calendário pronto para assinar. */
+function webcal(feedUrl: string): string {
+  return feedUrl.replace(/^https?:\/\//, "webcal://");
+}
+
+/** O Google Agenda abre a tela "Adicionar agenda" já com o link preenchido. */
+function googleAgenda(feedUrl: string): string {
+  return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal(feedUrl))}`;
+}
+
+export function CalendarioManager({ feedUrl, isOwner }: { feedUrl: string | null; isOwner: boolean }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [savedAt, setSavedAt] = useState<number | undefined>();
@@ -36,29 +49,27 @@ export function CalendarioManager({ feedUrl }: { feedUrl: string | null }) {
     }
   }
 
+  const oQue = isOwner ? "Os atendimentos do estúdio" : "Os seus atendimentos";
+
   return (
     <div className="space-y-4">
       {!feedUrl ? (
         <Card>
           <CardBody>
             <div className="flex items-start gap-3">
-              <span className="h-10 w-10 rounded-xl bg-accent-soft text-accent-strong flex items-center justify-center shrink-0">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink">
                 <IconCalendar width={20} height={20} />
               </span>
               <div>
-                <p className="font-medium text-[15px] text-ink">Seus atendimentos no seu calendário</p>
-                <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                  Gere um link secreto e assine no Google Calendar ou no iPhone: os
-                  atendimentos aparecem lá sozinhos e se atualizam a cada hora.
+                <p className="text-[15px] font-semibold text-ink">Sua agenda no seu calendário</p>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">
+                  {oQue} aparecem sozinhos no Calendário do iPhone ou no Google Agenda, com o
+                  nome da cliente e o serviço. É só de ida: o que você marca lá não muda o LashOS.
                 </p>
               </div>
             </div>
-            <Button
-              className="w-full mt-4"
-              disabled={pending}
-              onClick={() => rodar(gerarLinkCalendario)}
-            >
-              {pending ? "Gerando..." : "Gerar link do calendário"}
+            <Button className="mt-4 w-full" disabled={pending} onClick={() => rodar(gerarLinkCalendario)}>
+              {pending ? "Gerando..." : "Ativar agenda no calendário"}
             </Button>
           </CardBody>
         </Card>
@@ -66,41 +77,61 @@ export function CalendarioManager({ feedUrl }: { feedUrl: string | null }) {
         <>
           <Card>
             <CardBody>
-              <p className="font-medium text-[15px] text-ink mb-2">Seu link secreto</p>
-              <p className="text-[13px] text-ink-soft break-all rounded-xl bg-surface-sunken border border-line px-3 py-2.5">
-                {feedUrl}
+              <p className="text-[15px] font-semibold text-ink">Adicionar em um toque</p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-soft">
+                Abra no aparelho onde você quer ver a agenda.
               </p>
-              <Button className="w-full mt-3" variant="secondary" onClick={copiar}>
-                {copiado ? (
-                  <span className="inline-flex items-center gap-2">
-                    <IconCheck width={16} height={16} className="text-success" /> Link copiado ✓
-                  </span>
-                ) : (
-                  "Copiar link"
-                )}
-              </Button>
-              <p className="text-xs text-ink-faint mt-3 leading-relaxed">
-                Quem tem esse link vê sua agenda — trate como uma senha. Vazou?
-                Gere um novo abaixo que o antigo para de funcionar.
-              </p>
+              <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                <a href={webcal(feedUrl)} className={buttonClasses("primary", "lg", "w-full gap-2")}>
+                  <IconCalendar width={18} height={18} />
+                  Adicionar ao iPhone
+                </a>
+                <a
+                  href={googleAgenda(feedUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClasses("secondary", "lg", "w-full gap-2")}
+                >
+                  <IconExternal width={17} height={17} />
+                  Adicionar ao Google Agenda
+                </a>
+              </div>
+              <ul className="mt-4 space-y-2 text-[12.5px] leading-snug text-ink-soft">
+                <li>
+                  <b className="font-semibold text-ink">iPhone:</b> o Calendário abre pedindo para
+                  assinar. Toque em Assinar e depois em OK. Atualiza sozinho a cada hora.
+                </li>
+                <li>
+                  <b className="font-semibold text-ink">Google Agenda:</b> abre no navegador já com o
+                  link; confirme em Adicionar. No celular, a agenda aparece no app depois disso. O
+                  Google atualiza calendários assinados de poucas em poucas horas.
+                </li>
+              </ul>
             </CardBody>
           </Card>
 
           <Card>
             <CardBody>
-              <p className="font-medium text-[15px] text-ink mb-2.5">Como assinar</p>
-              <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
-                <p>
-                  <b className="text-ink">Google Calendar (computador):</b> no menu à esquerda,
-                  toque no <b>+</b> ao lado de “Outras agendas” → <b>Com URL</b> → cole o link.
-                  No celular, a agenda aparece depois de assinar pelo computador.
-                </p>
-                <p>
-                  <b className="text-ink">iPhone:</b> Ajustes → Apps → Calendário → Contas →
-                  Adicionar conta → <b>Outra</b> → <b>Adicionar assinatura de calendário</b> →
-                  cole o link.
-                </p>
-              </div>
+              <p className="mb-2 text-[15px] font-semibold text-ink">Seu link secreto</p>
+              <p className="break-all rounded-[14px] border border-line bg-surface-sunken px-3 py-2.5 text-[13px] text-ink-soft">
+                {feedUrl}
+              </p>
+              <Button className="mt-3 w-full gap-2" variant="secondary" onClick={copiar}>
+                {copiado ? (
+                  <>
+                    <IconCheck width={16} height={16} className="text-success" /> Link copiado
+                  </>
+                ) : (
+                  <>
+                    <IconCopy width={16} height={16} /> Copiar link
+                  </>
+                )}
+              </Button>
+              <p className="mt-3 text-[12.5px] leading-relaxed text-ink-faint">
+                Para outro app de calendário: cole este link na opção de assinar por URL. Quem tem o
+                link vê sua agenda, então trate como uma senha. Vazou? Gere um novo abaixo e o antigo
+                para de funcionar.
+              </p>
             </CardBody>
           </Card>
 
@@ -114,21 +145,12 @@ export function CalendarioManager({ feedUrl }: { feedUrl: string | null }) {
               {pending ? "Gerando..." : "Gerar novo link"}
             </Button>
             {confirmandoDesligar ? (
-              <Button
-                variant="danger"
-                className="flex-1"
-                disabled={pending}
-                onClick={() => rodar(desligarCalendario)}
-              >
+              <Button variant="danger" className="flex-1" disabled={pending} onClick={() => rodar(desligarCalendario)}>
                 {pending ? "Desligando..." : "Desligar mesmo?"}
               </Button>
             ) : (
-              <Button
-                variant="danger-soft"
-                className="flex-1"
-                onClick={() => setConfirmandoDesligar(true)}
-              >
-                Desligar feed
+              <Button variant="danger-soft" className="flex-1" onClick={() => setConfirmandoDesligar(true)}>
+                Desligar
               </Button>
             )}
           </div>

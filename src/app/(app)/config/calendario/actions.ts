@@ -1,20 +1,32 @@
 "use server";
 
+/**
+ * Link do calendário (.ics) de quem está logada: a dona assina a agenda do
+ * estúdio inteiro; a funcionária, só os horários dela.
+ */
 import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import { requireViewer } from "@/lib/session";
 
 export type CalendarioState = { ok: boolean; error?: string; savedAt?: number };
 
-/** Gera (ou regenera) o token do feed — regenerar revoga o link antigo. */
-export async function gerarLinkCalendario(): Promise<CalendarioState> {
-  const { professionalId } = await requireOwner();
-  try {
-    await prisma.professional.update({
-      where: { id: professionalId },
-      data: { calendarToken: crypto.randomBytes(24).toString("base64url") },
+async function salvarToken(calendarToken: string | null): Promise<void> {
+  const viewer = await requireViewer();
+  if (viewer.isOwner) {
+    await prisma.professional.update({ where: { id: viewer.professionalId }, data: { calendarToken } });
+  } else {
+    await prisma.teamMember.update({
+      where: { id: viewer.memberId!, professionalId: viewer.professionalId },
+      data: { calendarToken },
     });
+  }
+}
+
+/** Gera (ou regenera) o link — regenerar revoga o antigo. */
+export async function gerarLinkCalendario(): Promise<CalendarioState> {
+  try {
+    await salvarToken(crypto.randomBytes(24).toString("base64url"));
     revalidatePath("/config/calendario");
     return { ok: true, savedAt: Date.now() };
   } catch {
@@ -22,14 +34,10 @@ export async function gerarLinkCalendario(): Promise<CalendarioState> {
   }
 }
 
-/** Desliga o feed (apaga o token — o link para de funcionar na hora). */
+/** Desliga o link (o calendário para de receber os horários na hora). */
 export async function desligarCalendario(): Promise<CalendarioState> {
-  const { professionalId } = await requireOwner();
   try {
-    await prisma.professional.update({
-      where: { id: professionalId },
-      data: { calendarToken: null },
-    });
+    await salvarToken(null);
     revalidatePath("/config/calendario");
     return { ok: true, savedAt: Date.now() };
   } catch {

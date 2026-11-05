@@ -95,6 +95,7 @@ model Professional {
   updatedAt DateTime @updatedAt
 
   teamMembers       TeamMember[]
+  whatsAppConnection WhatsAppConnection?
   supportMessages   SupportMessage[]
   workingHours      WorkingHour[]
   paymentFees       PaymentMethodFee[]
@@ -343,11 +344,16 @@ model MessageLog {
   kind           String // mesmo domínio de MessageTemplate.kind, ou LIVRE
   channel        String    @default("WHATSAPP")
   body           String
-  status         String    @default("ENVIADA") // ENVIADA | DESCARTADA
+  /// ENVIADA | DESCARTADA. Só do envio automático: ENVIANDO (saindo agora, ou
+  /// sem confirmação: não repete) e SEM_WHATSAPP (número sem WhatsApp).
+  /// Contagens e a Fila olham só ENVIADA/DESCARTADA.
+  status         String    @default("ENVIADA")
   refDate        DateTime? // data-âncora (ex.: dia do agendamento/aviso) p/ deduplicar a fila
   sentAt         DateTime?
   /// Quem da equipe registrou (nulo = a dona ou o envio automático).
   sentByMemberId String?
+  /// Enviada sozinha pelo WhatsApp conectado (sem toque).
+  auto           Boolean   @default(false)
   createdAt      DateTime  @default(now())
 
   professional Professional     @relation(fields: [professionalId], references: [id], onDelete: Cascade)
@@ -504,6 +510,8 @@ model TeamMember {
   /// Redefinição de senha (mesmo esquema da Professional).
   resetTokenHash      String?   @unique
   resetTokenExpiresAt DateTime?
+  /// Feed .ics só com os horários dela (nulo = desligado).
+  calendarToken  String?   @unique
   lastLoginAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -531,4 +539,39 @@ model SupportMessage {
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+}
+
+/// WhatsApp do estúdio conectado ao LashOS (servidor Evolution API, uma
+/// instância por estúdio). O LashOS só ENVIA: não lê nem guarda conversas.
+model WhatsAppConnection {
+  id             String    @id @default(cuid())
+  professionalId String    @unique
+  /// Nome da instância no servidor de WhatsApp ("lashos-<id do estúdio>").
+  instanceName   String    @unique
+  status         String    @default("DESCONECTADO") // DESCONECTADO | CONECTANDO | CONECTADO
+  /// Número conectado, só dígitos com 55.
+  phone          String?
+  profileName    String?
+  connectedAt    DateTime?
+  /// Envio automático ligado (dá para conectar e deixar desligado).
+  autoSend       Boolean   @default(true)
+  /// Tipos que saem sozinhos (CSV de TEMPLATE_KINDS).
+  autoKinds      String    @default("CONFIRMACAO,LEMBRETE_24H,POS_APLICACAO,MANUTENCAO,RETORNO,REMARCAR")
+  dailyLimit     Int       @default(60)
+  /// Ritmo: o próximo envio só sai depois disto (intervalo aleatório).
+  nextSendAt     DateTime?
+  lastSentAt     DateTime?
+  /// Contador do dia (dia local yyyy-MM-dd).
+  sentDay        String?
+  sentToday      Int       @default(0)
+  lastError      String?
+  /// Desde quando o servidor diz que a conexão está fechada. Só vira
+  /// DESCONECTADO depois de alguns minutos (reinício do servidor não é queda).
+  closedSince    DateTime?
+  /// A dona já foi avisada de que a conexão caiu (evita aviso repetido).
+  dropNotifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 }
