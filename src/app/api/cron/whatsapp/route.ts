@@ -15,6 +15,7 @@
  * 2. Aviso: quem caiu recebe um push (uma vez, de dia) e volta para o manual.
  * 3. Envio: cada estúdio conectado manda a fila no próprio ritmo.
  */
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { localDayKey, formatTime } from "@/lib/dates";
 import { buildMessageQueue, type QueueItem } from "@/lib/domain/queue";
@@ -341,15 +342,8 @@ async function enviarDoEstudio(conexao: Conexao, inicio: number): Promise<number
   return enviadas;
 }
 
-export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "Não autorizado" }, { status: 401 });
-  }
-  if (!whatsappDisponivel()) {
-    return Response.json({ ok: true, ignorado: "servidor de WhatsApp não configurado" });
-  }
-
+/** Uma rodada completa: saúde, avisos de queda e envio. */
+async function rodada() {
   const inicio = Date.now();
   const agora = new Date();
   const conexoes = await carregarConexoes();
@@ -375,11 +369,30 @@ export async function GET(request: Request) {
     enviadas += await enviarDoEstudio(conexao, inicio);
   });
 
-  return Response.json({
-    ok: true,
-    conectados: prontas.length,
-    avisosDeQueda: caidas.length,
-    enviadas,
-    ms: Date.now() - inicio,
+  return { conectados: prontas.length, avisosDeQueda: caidas.length, enviadas, ms: Date.now() - inicio };
+}
+
+export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return Response.json({ error: "Não autorizado" }, { status: 401 });
+  }
+  if (!whatsappDisponivel()) {
+    return Response.json({ ok: true, ignorado: "servidor de WhatsApp não configurado" });
+  }
+  // ?esperar=1 roda na hora e devolve o resultado (teste manual).
+  if (new URL(request.url).searchParams.get("esperar") === "1") {
+    return Response.json({ ok: true, ...(await rodada()) });
+  }
+  // O pinger (cron-job.org) desiste depois de 30 s e desliga a tarefa se falhar
+  // seguido: responde na hora e trabalha depois da resposta, até o maxDuration.
+  after(async () => {
+    try {
+      const r = await rodada();
+      if (r.enviadas > 0 || r.avisosDeQueda > 0) console.log("[whatsapp] rodada:", JSON.stringify(r));
+    } catch (e) {
+      console.error("[whatsapp] rodada falhou:", e);
+    }
   });
+  return Response.json({ ok: true, agendado: true });
 }
