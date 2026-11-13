@@ -8,6 +8,7 @@
 import { AuthError } from "next-auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isEmailTaken } from "@/lib/team";
@@ -103,6 +104,9 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
     if (!(error instanceof AuthError)) throw error;
     redirect("/login?conta=criada");
   }
+
+  // Conversão para o pixel/Google: a próxima página de venda registra e apaga.
+  (await cookies()).set("lashos_cadastro", "1", { path: "/", maxAge: 3600, sameSite: "lax" });
 
   // Cartão agora, cobrança só no fim do teste. Se o MP falhar, a tela de assinatura pede de novo.
   if (assinaturasDisponiveis()) {

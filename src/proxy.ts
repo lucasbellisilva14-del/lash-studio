@@ -22,6 +22,7 @@ const PUBLIC_PATHS = [
   "/comecar", // cadastro pela própria cliente (teste grátis)
   "/termos",
   "/privacidade",
+  "/inicio", // landing page de vendas
 ];
 
 export function proxy(request: NextRequest) {
@@ -34,6 +35,13 @@ export function proxy(request: NextRequest) {
   const hasSession =
     request.cookies.has("authjs.session-token") ||
     request.cookies.has("__Secure-authjs.session-token");
+
+  // Visitante no endereço principal vê a landing; quem tem login segue para o app.
+  if (!hasSession && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/inicio";
+    return NextResponse.rewrite(url);
+  }
 
   if (!hasSession) {
     const url = request.nextUrl.clone();

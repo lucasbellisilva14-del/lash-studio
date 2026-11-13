@@ -7,6 +7,7 @@ import Link from "next/link";
 import { IconCheck } from "@/components/ui/icons";
 import { TRIAL_DIAS, normalizeSellerCode, type PlanKey } from "@/lib/domain/plans";
 import { ComecarForm } from "./comecar-form";
+import { LashMark } from "@/components/brand/logo";
 
 export const metadata: Metadata = { title: "Criar conta" };
 
@@ -31,12 +32,13 @@ export default async function ComecarPage(props: PageProps<"/comecar">) {
     <div className="min-h-dvh px-5 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] bg-accent">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" className="h-7 w-7" aria-hidden>
-              <path d="M4 9c2.5 3.5 13.5 3.5 16 0" />
-              <path d="M6 11.2 4.8 13M9.2 12.4l-.7 2M12 12.8v2.1M14.8 12.4l.7 2M18 11.2l1.2 1.8" />
-            </svg>
-          </span>
+          <Link
+            href="/"
+            aria-label="LashOS, página inicial"
+            className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[18px] bg-[radial-gradient(60px_50px_at_30%_20%,#4a3d6e,transparent_70%),#1d1729]"
+          >
+            <LashMark className="h-8 w-8" strokeWidth={2} />
+          </Link>
           <h1 className="text-[30px] font-bold leading-[1.1] tracking-[-0.035em] text-ink text-balance">
             Seu estúdio inteiro, num app só
           </h1>
