@@ -113,56 +113,126 @@ const DUVIDAS = [
 export default function InicioPage() {
   return (
     <div className="bg-[#f6f5f9] text-ink">
-      {/* ── Topo ── */}
-      <section className="relative overflow-hidden bg-[#1d1729] text-white">
+      {/* ── Topo: a profissional trabalhando, o roxo da marca por cima ── */}
+      <section className="relative isolate overflow-hidden bg-[#1d1729] text-white">
+        {/* eslint-disable-next-line @next/next/no-img-element -- foto estática já otimizada (webp) */}
+        <img
+          src="/login-bg.webp"
+          alt=""
+          aria-hidden
+          fetchPriority="high"
+          className="absolute inset-x-0 top-0 -z-20 h-[62svh] w-full object-cover object-[70%_center] lg:inset-y-0 lg:left-auto lg:right-0 lg:h-full lg:w-[64%] lg:object-[55%_center]"
+        />
+        {/* Celular: escurece de cima para baixo. PC: roxo sólido à esquerda, foto à direita. */}
         <div
           aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(900px_600px_at_20%_-10%,#4a3d6e_0%,transparent_60%),radial-gradient(700px_500px_at_100%_110%,#3a2f55_0%,transparent_60%)]"
+          className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(29_23_41/0.35)_0%,rgb(29_23_41/0.55)_30%,#1d1729_58%)] lg:bg-[linear-gradient(90deg,#1d1729_0%,#1d1729_36%,rgb(29_23_41/0.7)_50%,rgb(29_23_41/0.2)_70%,rgb(29_23_41/0.05)_100%)]"
         />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-[#2a2240]/25 mix-blend-multiply" />
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(700px_500px_at_10%_0%,rgb(74_61_110/0.55)_0%,transparent_65%)]"
+        />
+
         <header className="relative mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
           <LashLogo />
           <nav className="flex items-center gap-2">
-            <Link href="/login" className="rounded-full px-4 py-2 text-[14px] font-semibold text-white/80 hover:text-white">
+            <Link href="/login" className="rounded-full px-4 py-2 text-[14px] font-semibold text-white/85 hover:text-white">
               Entrar
             </Link>
             <Link
               href={CADASTRO}
-              className="hidden rounded-full bg-white/10 px-4 py-2 text-[14px] font-semibold text-white ring-1 ring-white/15 hover:bg-white/15 sm:inline-block"
+              className="hidden rounded-full bg-white/10 px-4 py-2 text-[14px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 sm:inline-block"
             >
               Testar grátis
             </Link>
           </nav>
         </header>
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-0 pt-10 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pb-20 lg:pt-16">
-          <div className="text-center lg:text-left">
-            <p className="text-[12.5px] font-bold uppercase tracking-[0.16em] text-[#cfc6ea]">Para lash designers</p>
-            <h1 className="mx-auto mt-4 max-w-xl text-[40px] font-extrabold leading-[1.02] tracking-[-0.045em] text-balance sm:text-[56px] lg:mx-0">
+        <div className="relative mx-auto flex min-h-[calc(100svh-84px)] max-w-6xl items-end px-5 pb-14 pt-[30svh] sm:px-8 lg:min-h-[720px] lg:items-center lg:pb-24 lg:pt-10">
+          <div className="max-w-xl">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[12.5px] font-semibold text-[#e4defa] ring-1 ring-white/15 backdrop-blur-md">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#cfc6ea]" />
+              Feito para lash designers
+            </span>
+            <h1 className="mt-5 text-[42px] font-extrabold leading-[1.0] tracking-[-0.05em] text-balance sm:text-[60px] lg:text-[70px]">
               O app que faz a lash designer <span className="text-[#cfc6ea]">perder menos clientes.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-lg text-[17px] leading-relaxed text-white/72 lg:mx-0">
-              Agenda online, confirmação com Pix do sinal e lembretes saindo sozinhos do seu WhatsApp. E o aviso de
-              quem está na hora de voltar.
+            <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-white/75 sm:text-[18px]">
+              Agenda online, confirmação com Pix do sinal e lembretes saindo sozinhos do seu WhatsApp. E o aviso de quem
+              está na hora de voltar.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <BotaoTeste claro />
-              <a href="#como-funciona" className="px-4 py-2 text-[15px] font-semibold text-white/80 hover:text-white">
-                Ver como funciona
+              <a
+                href="#por-dentro"
+                className="inline-flex h-14 items-center justify-center rounded-full px-6 text-[15px] font-semibold text-white/85 ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/10 hover:text-white"
+              >
+                Ver o app por dentro
               </a>
             </div>
-            <p className="mt-4 text-[13px] text-white/55">{TRIAL_DIAS} dias grátis · cancele quando quiser, direto no app</p>
+            <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-[13.5px] text-white/65">
+              {[`${TRIAL_DIAS} dias grátis`, "Sem fidelidade", "Funciona no celular"].map((t) => (
+                <li key={t} className="flex items-center gap-1.5">
+                  <IconCheck width={15} height={15} className="text-[#cfc6ea]" />
+                  {t}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <div className="relative mx-auto h-[400px] w-full max-w-[460px] sm:h-[560px] lg:h-[620px]">
+          {/* O que o app faz sozinho, flutuando sobre a foto (só no PC) */}
+          <ul aria-hidden className="absolute bottom-24 right-8 hidden w-[310px] space-y-3 lg:block xl:right-0">
+            {[
+              { t: "Confirmação enviada", s: "Ana · 14/11 às 14:00", h: "08:31" },
+              { t: "Sinal recebido", s: "R$ 50,00 no Pix", h: "08:34" },
+              { t: "Hora da manutenção", s: "Carla · mensagem pronta", h: "09:10" },
+            ].map((c, i) => (
+              <li
+                key={c.t}
+                className="flex items-center gap-3 rounded-[20px] bg-white/[0.13] px-4 py-3.5 shadow-[0_20px_50px_-20px_rgb(0_0_0/0.6)] ring-1 ring-white/20 backdrop-blur-xl"
+                style={{ marginLeft: i === 1 ? 36 : 0 }}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#cfc6ea]/20 text-[#e4defa]">
+                  <IconCheck width={17} height={17} />
+                </span>
+                <span className="min-w-0 grow">
+                  <span className="block text-[14px] font-semibold">{c.t}</span>
+                  <span className="block truncate text-[12.5px] text-white/65">{c.s}</span>
+                </span>
+                <span className="text-[12px] tabular-nums text-white/55">{c.h}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ── O app por dentro ── */}
+      <section id="por-dentro" className="overflow-hidden bg-[#f6f5f9]">
+        <div className="mx-auto max-w-6xl px-5 pt-20 sm:px-8 sm:pt-28">
+          <p className="text-center text-[12.5px] font-bold uppercase tracking-[0.16em] text-[#6b5f93]">O app por dentro</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-center text-[32px] font-extrabold leading-[1.08] tracking-[-0.04em] text-balance sm:text-[44px]">
+            O seu dia inteiro numa tela só.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-center text-[16px] leading-relaxed text-ink-soft">
+            Quem vem hoje, quem precisa de mensagem e quem marcou sozinha pelo link. Abriu o app, já sabe o que fazer.
+          </p>
+          <div className="relative mx-auto mt-14 flex h-[470px] max-w-3xl justify-center sm:h-[600px]">
+            <div aria-hidden className="pointer-events-none absolute inset-x-[-100vw] bottom-0 z-20 h-40 bg-[linear-gradient(180deg,transparent,#f6f5f9)]" />
             <Celular
               src="/landing/fila.webp"
-              alt="Fila de mensagens do LashOS com confirmações saindo sozinhas pelo WhatsApp"
-              className="absolute left-1/2 top-0 w-[205px] -translate-x-[88%] rotate-[-4deg] sm:w-[300px] sm:-translate-x-[78%]"
+              alt="Fila de mensagens com confirmações saindo sozinhas pelo WhatsApp"
+              className="absolute left-1/2 top-12 hidden w-[260px] -translate-x-[125%] rotate-[-5deg] sm:block"
+            />
+            <Celular
+              src="/landing/agendar.webp"
+              alt="Página de agendamento online do estúdio"
+              className="absolute left-1/2 top-12 hidden w-[260px] translate-x-[25%] rotate-[5deg] sm:block"
             />
             <Celular
               src="/landing/hoje.webp"
               alt="Tela inicial do LashOS com a agenda e a fila do dia"
-              className="absolute left-1/2 top-10 w-[205px] -translate-x-[8%] rotate-[3deg] sm:w-[300px] sm:-translate-x-[18%]"
+              className="relative z-10 w-[250px] sm:w-[290px]"
             />
           </div>
         </div>
