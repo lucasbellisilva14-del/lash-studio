@@ -12,12 +12,21 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/money";
-import { PLANS, TRIAL_DIAS, type PlanKey } from "@/lib/domain/plans";
+import { PLANS, PROMO, TRIAL_DIAS, precoPrimeiroMes, type PlanKey } from "@/lib/domain/plans";
 import { comecarAction, type ComecarState } from "./actions";
 
 const initialState: ComecarState = {};
 
-export function ComecarForm({ planoInicial, codigoInicial }: { planoInicial: PlanKey; codigoInicial: string }) {
+export function ComecarForm({
+  planoInicial,
+  codigoInicial,
+  promo = false,
+}: {
+  planoInicial: PlanKey;
+  codigoInicial: string;
+  /** Promoção no ar: mostra o preço do 1º mês com desconto. */
+  promo?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(comecarAction, initialState);
   const [plano, setPlano] = useState<PlanKey>(planoInicial);
   const [codigo, setCodigo] = useState(codigoInicial);
@@ -58,10 +67,22 @@ export function ComecarForm({ planoInicial, codigoInicial }: { planoInicial: Pla
                   <span className="text-[15px] font-semibold text-ink">{p.label}</span>
                   {ativo ? <IconCheck width={16} height={16} className="text-ink" /> : null}
                 </span>
-                <span className="mt-1 block text-[20px] font-bold tracking-[-0.03em] text-ink tabular-nums">
-                  {formatBRL(p.priceCents)}
-                  <span className="text-[13px] font-medium text-ink-soft">/mês</span>
-                </span>
+                {promo ? (
+                  <>
+                    <span className="mt-1 block text-[20px] font-bold tracking-[-0.03em] text-ink tabular-nums">
+                      {formatBRL(precoPrimeiroMes(p.priceCents))}
+                      <span className="text-[13px] font-medium text-ink-soft"> no 1º mês</span>
+                    </span>
+                    <span className="block text-[12px] text-ink-soft">
+                      depois {formatBRL(p.priceCents)}/mês · {PROMO.nome}
+                    </span>
+                  </>
+                ) : (
+                  <span className="mt-1 block text-[20px] font-bold tracking-[-0.03em] text-ink tabular-nums">
+                    {formatBRL(p.priceCents)}
+                    <span className="text-[13px] font-medium text-ink-soft">/mês</span>
+                  </span>
+                )}
                 <span className="mt-0.5 block text-[12.5px] text-ink-soft">{p.descricao}</span>
               </button>
             );
@@ -70,18 +91,23 @@ export function ComecarForm({ planoInicial, codigoInicial }: { planoInicial: Pla
         {errors.plano ? <p className="mt-1.5 text-[12.5px] font-medium text-danger">{errors.plano}</p> : null}
       </fieldset>
 
+      <div className="grid gap-5 sm:grid-cols-2">
       <Field label="Seu nome" htmlFor="c-name" error={errors.name}>
         <Input id="c-name" name="name" autoComplete="name" placeholder="Ana Souza" value={nome} onChange={(e) => setNome(e.target.value)} required />
       </Field>
       <Field label="Nome do estúdio" htmlFor="c-studio" hint="Aparece no seu link de agendamento." error={errors.studioName}>
         <Input id="c-studio" name="studioName" autoComplete="organization" placeholder="Ana Lash" value={estudio} onChange={(e) => setEstudio(e.target.value)} required />
       </Field>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
       <Field label="WhatsApp" htmlFor="c-whats" error={errors.whatsapp}>
         <Input id="c-whats" name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" placeholder="(48) 99999-8888" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} required />
       </Field>
       <Field label="E-mail" htmlFor="c-email" hint="É o seu login." error={errors.email}>
         <Input id="c-email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="voce@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </Field>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
       <Field label="Crie uma senha" htmlFor="c-senha" hint="Pelo menos 8 caracteres." error={errors.senha}>
         <PasswordInput id="c-senha" name="senha" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
       </Field>
@@ -93,9 +119,10 @@ export function ComecarForm({ planoInicial, codigoInicial }: { planoInicial: Pla
           onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16))}
           autoComplete="off"
           placeholder="ANA"
-          className="w-40 uppercase"
+          className="uppercase"
         />
       </Field>
+      </div>
 
       <label className="flex items-start gap-3 text-[13.5px] leading-snug text-ink">
         <input type="checkbox" name="termos" value="1" checked={termos} onChange={(e) => setTermos(e.target.checked)} className="mt-0.5 h-4.5 w-4.5 shrink-0 accent-[var(--accent)]" />

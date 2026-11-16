@@ -13,6 +13,7 @@ import { diffLocalDays, formatDate } from "@/lib/dates";
 import { sairDaConta } from "@/components/shell/sign-out-action";
 import { IconCheck, IconChevronLeft } from "@/components/ui/icons";
 import { AssinarForm } from "./assinar-form";
+import { LashLogo } from "@/components/brand/logo";
 
 export const metadata = { title: "Assinatura" };
 
@@ -83,8 +84,41 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
         : "Você vê o valor antes de confirmar. Sem fidelidade.";
 
   return (
-    <div className="min-h-dvh px-4 py-8 sm:px-6 sm:py-14">
-      <div className="mx-auto w-full max-w-4xl">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
+      {/* Painel da marca (computador): título, situação em palavras e garantias */}
+      <aside className="relative hidden overflow-hidden bg-[#1d1729] text-white lg:block">
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(800px_600px_at_15%_0%,#4a3d6e_0%,transparent_60%),radial-gradient(600px_500px_at_100%_100%,#33284d_0%,transparent_60%)]"
+        />
+        <div className="relative flex min-h-dvh flex-col justify-between p-12 lg:sticky lg:top-0 xl:p-16">
+          <div className="flex items-center justify-between gap-4">
+            <LashLogo grande />
+            {!bloqueada && !faltaCartao ? (
+              <Link href="/" className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-white/70 hover:text-white">
+                <IconChevronLeft width={17} height={17} />
+                Voltar para o app
+              </Link>
+            ) : null}
+          </div>
+          <div className="py-12">
+            <h1 className="max-w-md text-[44px] font-extrabold leading-[1.02] tracking-[-0.045em] xl:text-[50px]">{titulo}</h1>
+            <p className="mt-5 max-w-md text-[16px] leading-relaxed text-white/70">{subtitulo}</p>
+          </div>
+          <ul className="max-w-md space-y-2.5 border-t border-white/10 pt-6">
+            {GARANTIAS.map((g) => (
+              <li key={g} className="flex items-start gap-2.5 text-[14px] text-white/75">
+                <IconCheck width={16} height={16} className="mt-0.5 shrink-0 text-[#cfc6ea]" />
+                {g}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+
+      <main className="px-4 py-8 sm:px-6 sm:py-14 lg:flex lg:items-center lg:px-12 xl:px-20">
+      <div className="mx-auto w-full max-w-4xl lg:max-w-[560px]">
+        <div className="lg:hidden">
         {!bloqueada && !faltaCartao ? (
           <Link
             href="/"
@@ -99,8 +133,9 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
           {titulo}
         </h1>
         <p className="mt-2 max-w-[60ch] text-[15px] leading-snug text-ink-soft">{subtitulo}</p>
+        </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:items-start">
+        <div className="mt-8 grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:items-start lg:mt-0 lg:grid-cols-1">
           {/* Situação */}
           <section className="rounded-[22px] bg-surface p-6 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)]">
             {emTeste ? (
@@ -139,7 +174,7 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
               </>
             )}
 
-            <ul className="mt-6 space-y-2.5 border-t border-line pt-5">
+            <ul className="mt-6 space-y-2.5 border-t border-line pt-5 lg:hidden">
               {GARANTIAS.map((g) => (
                 <li key={g} className="flex items-start gap-2.5 text-[13.5px] text-ink">
                   <IconCheck width={16} height={16} className="mt-0.5 shrink-0 text-success" />
@@ -189,6 +224,7 @@ export default async function AssinaturaPage(props: PageProps<"/assinatura">) {
           </button>
         </form>
       </div>
+      </main>
     </div>
   );
 }

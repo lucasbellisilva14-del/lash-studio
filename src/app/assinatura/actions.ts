@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getAppOrigin } from "@/lib/domain/queue";
 import { requireOwner, requireProfessional } from "@/lib/session";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
+import { precoPrimeiroMes } from "@/lib/domain/plans";
 
 export type AssinarState = { error?: string };
 
@@ -23,7 +24,10 @@ export async function assinarAction(): Promise<AssinarState> {
       professionalId: professional.id,
       email: professional.email,
       studioName: professional.studioName,
-      amountCents: professional.planPriceCents,
+      // Assinou na promoção e ainda não pagou o 1º mês: valor com desconto.
+      amountCents: professional.promoPrimeiroMes
+        ? precoPrimeiroMes(professional.planPriceCents)
+        : professional.planPriceCents,
       backUrl: `${origem}/assinatura?volta=1`,
       // Em teste grátis, a 1ª cobrança só acontece quando o teste termina.
       startDate:

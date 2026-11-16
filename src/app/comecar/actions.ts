@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { isEmailTaken } from "@/lib/team";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { criarEstudio } from "@/lib/domain/accounts";
-import { TRIAL_DIAS, isPlanKey, normalizeSellerCode } from "@/lib/domain/plans";
+import { TRIAL_DIAS, isPlanKey, normalizeSellerCode, precoPrimeiroMes, promoAtiva } from "@/lib/domain/plans";
 import { getAppOrigin } from "@/lib/domain/queue";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 import { emailLayout, getEmailProvider } from "@/lib/providers/email";
@@ -108,18 +108,23 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
   // Conversão para o pixel/Google: a próxima página de venda registra e apaga.
   (await cookies()).set("lashos_cadastro", "1", { path: "/", maxAge: 3600, sameSite: "lax" });
 
+  // Promoção no ar: o 1º mês sai com desconto (o webhook volta ao preço cheio depois).
+  if (promoAtiva()) {
+    await prisma.professional.update({ where: { id: conta.id }, data: { promoPrimeiroMes: true } });
+  }
+
   // Cartão agora, cobrança só no fim do teste. Se o MP falhar, a tela de assinatura pede de novo.
   if (assinaturasDisponiveis()) {
     const p = await prisma.professional.findUniqueOrThrow({
       where: { id: conta.id },
-      select: { id: true, email: true, studioName: true, planPriceCents: true, trialEndsAt: true },
+      select: { id: true, email: true, studioName: true, planPriceCents: true, trialEndsAt: true, promoPrimeiroMes: true },
     });
     try {
       const r = await criarAssinatura({
         professionalId: p.id,
         email: p.email,
         studioName: p.studioName,
-        amountCents: p.planPriceCents,
+        amountCents: p.promoPrimeiroMes ? precoPrimeiroMes(p.planPriceCents) : p.planPriceCents,
         backUrl: `${origem}/assinatura?volta=1`,
         startDate: p.trialEndsAt,
       });

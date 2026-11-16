@@ -94,14 +94,24 @@ async function getPreapproval(id: string): Promise<Preapproval | null> {
 }
 
 /** Evento de cobrança recorrente → descobre a assinatura correspondente. */
-async function preapprovalIdDoPagamento(authorizedPaymentId: string): Promise<string | null> {
+async function cobrancaRecorrente(
+  authorizedPaymentId: string,
+): Promise<{ preapprovalId: string; paga: boolean } | null> {
   const res = await fetch(
     `https://api.mercadopago.com/authorized_payments/${encodeURIComponent(authorizedPaymentId)}`,
     { headers: { Authorization: `Bearer ${token()}` } },
   );
   if (!res.ok) return null;
-  const data = (await res.json()) as { preapproval_id?: string };
-  return data.preapproval_id ?? null;
+  const data = (await res.json()) as {
+    preapproval_id?: string;
+    status?: string;
+    payment?: { status?: string } | null;
+  };
+  if (!data.preapproval_id) return null;
+  return {
+    preapprovalId: data.preapproval_id,
+    paga: data.payment?.status === "approved" || data.status === "processed",
+  };
 }
 
 /**
@@ -111,10 +121,12 @@ async function preapprovalIdDoPagamento(authorizedPaymentId: string): Promise<st
  */
 export async function sincronizarAssinatura(idRecebido: string, topico: string): Promise<boolean> {
   let preapprovalId = idRecebido;
+  let cobrancaPaga = false;
   if (topico.includes("authorized_payment")) {
-    const resolvido = await preapprovalIdDoPagamento(idRecebido);
-    if (!resolvido) return false;
-    preapprovalId = resolvido;
+    const cobranca = await cobrancaRecorrente(idRecebido);
+    if (!cobranca) return false;
+    preapprovalId = cobranca.preapprovalId;
+    cobrancaPaga = cobranca.paga;
   }
 
   const pre = await getPreapproval(preapprovalId);
@@ -124,9 +136,20 @@ export async function sincronizarAssinatura(idRecebido: string, topico: string):
     where: {
       OR: [{ mpPreapprovalId: pre.id }, { id: pre.external_reference ?? "" }],
     },
-    select: { id: true },
+    select: { id: true, promoPrimeiroMes: true, planPriceCents: true },
   });
   if (!professional) return false;
+
+  // Promoção: o 1º mês (com desconto) foi pago → as próximas cobranças voltam ao preço cheio.
+  if (cobrancaPaga && professional.promoPrimeiroMes) {
+    try {
+      await atualizarValorAssinatura(pre.id, professional.planPriceCents);
+      await prisma.professional.update({ where: { id: professional.id }, data: { promoPrimeiroMes: false } });
+    } catch (e) {
+      // Fica marcado: a próxima notificação tenta de novo.
+      console.error("[mp] volta ao preço cheio falhou:", e);
+    }
+  }
 
   if (pre.status === "authorized") {
     // Validade = próxima cobrança (ou +32 dias como rede de segurança)

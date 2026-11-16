@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   "/termos",
   "/privacidade",
   "/inicio", // landing page de vendas
+  "/para", // páginas de venda por público (/para/autonoma, /para/estudio)
 ];
 
 export function proxy(request: NextRequest) {

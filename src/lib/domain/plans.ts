@@ -31,3 +31,25 @@ export function precisaCadastrarCartao(p: {
 }): boolean {
   return p.signupSource === "SITE" && p.subscriptionStatus === "TRIAL";
 }
+
+/**
+ * Black LashOS: quem assina até o fim da campanha paga o 1º mês com desconto.
+ * A assinatura nasce com o valor do 1º mês e, depois da 1ª cobrança aprovada,
+ * o webhook volta ao preço cheio (Professional.promoPrimeiroMes).
+ */
+export const PROMO = {
+  /** Desligada: ligar quando a campanha for aprovada. */
+  ativa: false,
+  nome: "Black LashOS",
+  descontoPct: 50,
+  /** 30/11/2026 23:59 em Brasília. */
+  fim: new Date("2026-12-01T02:59:59Z"),
+} as const;
+
+export function promoAtiva(now = new Date()): boolean {
+  return PROMO.ativa && now.getTime() <= PROMO.fim.getTime();
+}
+
+export function precoPrimeiroMes(priceCents: number): number {
+  return Math.round((priceCents * (100 - PROMO.descontoPct)) / 100);
+}

@@ -67,6 +67,9 @@ model Professional {
   sellerCode            String?
   termsAcceptedAt       DateTime?
   mpPreapprovalId       String?   @unique
+  /// Assinou na promoção: a assinatura nasce com o valor do 1º mês e volta
+  /// ao preço cheio depois da 1ª cobrança aprovada.
+  promoPrimeiroMes      Boolean   @default(false)
 
   /// Mercado Pago conectado via OAuth (sinal cai na conta DELA).
   /// Tokens criptografados (AES-GCM, chave derivada do AUTH_SECRET).
