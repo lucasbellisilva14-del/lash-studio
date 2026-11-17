@@ -6,12 +6,13 @@
  * desenha só o caminho e o cliente completa sem erro de hidratação.
  */
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { origemPublica } from "@/lib/site";
 
 function assinar() {
   return () => {};
 }
 function origemNoAparelho() {
-  return window.location.origin;
+  return origemPublica(window.location.origin);
 }
 function origemNoServidor() {
   return "";
@@ -30,7 +31,7 @@ export function useCopiarLink(linkPath: string | null) {
   const copiar = useCallback(async () => {
     if (!linkPath) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${linkPath}`);
+      await navigator.clipboard.writeText(`${origemNoAparelho()}${linkPath}`);
       setCopiado(true);
     } catch {
       // clipboard indisponível — sem drama

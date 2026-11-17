@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getAppOrigin } from "@/lib/domain/queue";
+import { getRequestOrigin } from "@/lib/domain/queue";
 import { requireOwner, requireProfessional } from "@/lib/session";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 import { precoPrimeiroMes } from "@/lib/domain/plans";
@@ -16,7 +16,8 @@ export async function assinarAction(): Promise<AssinarState> {
     return { error: "Assinatura indisponível no momento — fale com o suporte." };
   }
 
-  const origem = await getAppOrigin();
+  // A volta do checkout precisa cair onde ela está logada.
+  const origem = await getRequestOrigin();
 
   let initPoint: string;
   try {

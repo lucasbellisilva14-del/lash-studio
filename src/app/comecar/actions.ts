@@ -15,7 +15,7 @@ import { isEmailTaken } from "@/lib/team";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { criarEstudio } from "@/lib/domain/accounts";
 import { TRIAL_DIAS, isPlanKey, normalizeSellerCode, precoPrimeiroMes, promoAtiva } from "@/lib/domain/plans";
-import { getAppOrigin } from "@/lib/domain/queue";
+import { getAppOrigin, getRequestOrigin } from "@/lib/domain/queue";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 import { emailLayout, getEmailProvider } from "@/lib/providers/email";
 import { acharIndicadora } from "@/lib/domain/referral";
@@ -130,7 +130,7 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
         email: p.email,
         studioName: p.studioName,
         amountCents: p.promoPrimeiroMes ? precoPrimeiroMes(p.planPriceCents) : p.planPriceCents,
-        backUrl: `${origem}/assinatura?volta=1`,
+        backUrl: `${await getRequestOrigin()}/assinatura?volta=1`,
         startDate: p.trialEndsAt,
       });
       redirect(r.initPoint);

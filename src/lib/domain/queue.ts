@@ -9,6 +9,7 @@
  * só os avisos dela.
  */
 import { cache } from "react";
+import { origemPublica } from "@/lib/site";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import { addDays } from "date-fns";
@@ -109,21 +110,12 @@ function firstHeaderValue(value: string | null): string | null {
 }
 
 /**
- * Origem pública do app (ex.: https://lash-studio-chi.vercel.app).
- * Mesma regra das outras URLs absolutas do app (feed .ics, e-mail de nova
- * senha, volta da assinatura): host da requisição (x-forwarded-host ou host)
- * + x-forwarded-proto. NEXT_PUBLIC_APP_URL ou AUTH_URL, quando configuradas,
- * fixam um domínio canônico. Fora de requisição (script), usa as envs da Vercel.
+ * Origem da requisição atual, do jeito que a pessoa abriu o app (pode ser o
+ * endereço técnico da Vercel). Só para voltas que precisam cair na MESMA
+ * sessão (ex.: retorno do checkout da assinatura). Para qualquer link que
+ * vai para outra pessoa, use getAppOrigin().
  */
-export async function getAppOrigin(): Promise<string> {
-  for (const configured of [process.env.NEXT_PUBLIC_APP_URL, process.env.AUTH_URL]) {
-    if (!configured) continue;
-    try {
-      return new URL(configured).origin;
-    } catch {
-      // Valor inválido: tenta a próxima fonte.
-    }
-  }
+export async function getRequestOrigin(): Promise<string> {
   try {
     const h = await headers();
     const host = firstHeaderValue(h.get("x-forwarded-host")) ?? firstHeaderValue(h.get("host"));
@@ -133,10 +125,40 @@ export async function getAppOrigin(): Promise<string> {
     }
   } catch (error) {
     unstable_rethrow(error);
+  }
+  return getAppOrigin();
+}
+
+/**
+ * Origem pública do app: sempre o domínio oficial (https://www.lashos.com.br),
+ * mesmo quando a pessoa abriu pelo endereço técnico da Vercel.
+ * Mesma regra das outras URLs absolutas do app (feed .ics, e-mail de nova
+ * senha, volta da assinatura): host da requisição (x-forwarded-host ou host)
+ * + x-forwarded-proto. NEXT_PUBLIC_APP_URL ou AUTH_URL, quando configuradas,
+ * fixam um domínio canônico. Fora de requisição (script), usa as envs da Vercel.
+ */
+export async function getAppOrigin(): Promise<string> {
+  for (const configured of [process.env.NEXT_PUBLIC_APP_URL, process.env.AUTH_URL]) {
+    if (!configured) continue;
+    try {
+      return origemPublica(new URL(configured).origin);
+    } catch {
+      // Valor inválido: tenta a próxima fonte.
+    }
+  }
+  try {
+    const h = await headers();
+    const host = firstHeaderValue(h.get("x-forwarded-host")) ?? firstHeaderValue(h.get("host"));
+    if (host) {
+      const proto = firstHeaderValue(h.get("x-forwarded-proto")) ?? "https";
+      return origemPublica(`${proto}://${host}`);
+    }
+  } catch (error) {
+    unstable_rethrow(error);
     // Fora de uma requisição (script): segue para as envs.
   }
   const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
-  return vercelHost ? `https://${vercelHost}` : "http://localhost:3000";
+  return vercelHost ? origemPublica(`https://${vercelHost}`) : "http://localhost:3000";
 }
 
 /** Link público de agendamento da profissional — vira {{link_agendamento}}. */

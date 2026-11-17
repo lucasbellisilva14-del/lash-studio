@@ -2,6 +2,7 @@
 
 /** Menu lateral do PC (lg+): ícone e nome, painel branco flutuante. */
 import { useState } from "react";
+import { origemPublica } from "@/lib/site";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -118,7 +119,7 @@ export function Sidebar({
   async function copiarLink() {
     if (!linkPath) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${linkPath}`);
+      await navigator.clipboard.writeText(`${origemPublica(window.location.origin)}${linkPath}`);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
     } catch {

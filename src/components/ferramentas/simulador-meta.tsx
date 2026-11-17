@@ -72,6 +72,70 @@ export function SimuladorMeta({ dados }: { dados: DadosMeta }) {
     diasPorSemana,
   });
 
+  // Resultado dos controles: fica colado neles, no mesmo cartão.
+  const resumoDoRitmo = resultado ? (
+    <div aria-live="polite" className="rounded-[18px] bg-surface-sunken px-4 py-4">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+          Nesse ritmo você fatura
+        </p>
+        {resultado.atendimentosAtuaisMes > 0 ? (
+          <>
+            <p className="mt-1.5 text-[40px] font-bold leading-none tracking-[-0.04em] tabular-nums text-ink">
+              {brl(resultado.faturamentoAtualCents)}
+              <span className="text-[16px] font-semibold tracking-[-0.01em] text-ink-soft">
+                {" "}
+                por mês
+              </span>
+            </p>
+            <p className="mt-2 text-[13.5px] leading-snug text-ink-soft">
+              {formatarNumero(atendimentosSemana, 1)} atendimentos por semana (
+              {arredondarAcima(resultado.atendimentosAtuaisMes)} por mês) a{" "}
+              {brl(ticketCents)} cada.
+            </p>
+
+            <div
+              className="mt-4 h-2 overflow-hidden rounded-full bg-surface"
+              role="img"
+              aria-label={`${Math.min(100, Math.round((resultado.faturamentoAtualCents / metaCents) * 100))}% da meta`}
+            >
+              <div
+                className={cn(
+                  "h-full rounded-full",
+                  resultado.faltaCents > 0 ? "bg-accent" : "bg-success",
+                )}
+                style={{
+                  width: `${Math.min(100, (resultado.faturamentoAtualCents / metaCents) * 100)}%`,
+                }}
+              />
+            </div>
+            <div className="mt-2.5 flex items-baseline justify-between gap-3">
+              {resultado.faltaCents > 0 ? (
+                <p className="text-[15px] font-semibold text-ink">
+                  Faltam{" "}
+                  <span className="tabular-nums">{brl(resultado.faltaCents)}</span> para a
+                  meta
+                </p>
+              ) : (
+                <p className="text-[15px] font-semibold text-success">
+                  Meta batida, com{" "}
+                  <span className="tabular-nums">{brl(-resultado.faltaCents)}</span> de
+                  folga
+                </p>
+              )}
+              <p className="shrink-0 text-[12.5px] tabular-nums text-ink-soft">
+                Meta: {brl(metaCents)}
+              </p>
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-[14px] leading-snug text-ink-soft">
+            Sem atendimentos por semana não há faturamento. Arraste o controle para
+            simular um ritmo.
+          </p>
+        )}
+    </div>
+  ) : null;
+
   if (origemTicket === "NENHUM") {
     return (
       <Card>
@@ -92,12 +156,10 @@ export function SimuladorMeta({ dados }: { dados: DadosMeta }) {
   return (
     <div className="@container">
       <div className="grid gap-4 @3xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)] @3xl:items-start">
+        <div className="space-y-4">
         <Card>
-          <CardHeader
-            title="Sua meta e seu ritmo"
-            description="Mexa nos controles para ver o que muda."
-          />
-          <CardBody className="space-y-5">
+          <CardHeader title="Sua meta" description="Quanto você quer ganhar por mês." />
+          <CardBody>
             <Field
               label="Quero ganhar por mês"
               htmlFor="meta-valor"
@@ -127,6 +189,16 @@ export function SimuladorMeta({ dados }: { dados: DadosMeta }) {
                 placeholder="0,00"
               />
             </Field>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Seu ritmo"
+            description="Arraste os controles: o faturamento muda na hora."
+          />
+          <CardBody className="space-y-5">
+            {resumoDoRitmo}
 
             <Slider
               id={idTicket}
@@ -193,110 +265,81 @@ export function SimuladorMeta({ dados }: { dados: DadosMeta }) {
             </p>
           </CardBody>
         </Card>
+        </div>
 
         <div aria-live="polite">
           {resultado ? (
-            <Card>
-              <CardBody className="sm:p-6">
-                <p className="flex items-center gap-2.5 text-[14px] font-semibold text-ink">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft">
-                    <IconTarget width={16} height={16} />
-                  </span>
-                  Para ganhar {brl(metaCents)} por mês
-                </p>
-                <p className="mt-3 text-[40px] font-bold leading-none tracking-[-0.04em] tabular-nums text-ink">
-                  {resultado.atendimentosMes}
-                  <span className="text-[20px] font-semibold tracking-[-0.02em] text-ink-soft">
-                    {" "}
-                    atendimentos
-                  </span>
-                </p>
-                <p className="mt-2 text-[13.5px] leading-snug text-ink-soft">
-                  No mês, a {brl(ticketCents)} cada. Isso dá{" "}
-                  <strong className="font-semibold text-ink">
-                    {formatarNumero(resultado.atendimentosSemana, 1)} por semana
-                  </strong>{" "}
-                  e{" "}
-                  <strong className="font-semibold text-ink">
-                    {formatarNumero(resultado.atendimentosDia, 1)} por dia de trabalho
-                  </strong>{" "}
-                  ({diasPorSemana} {diasPorSemana === 1 ? "dia" : "dias"} por semana).
-                </p>
+            <div className="space-y-4">
+              {/* O que a meta pede */}
+              <Card>
+                <CardBody className="sm:p-6">
+                  <p className="flex items-center gap-2.5 text-[15px] font-semibold text-ink">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft">
+                      <IconTarget width={16} height={16} />
+                    </span>
+                    Para ganhar {brl(metaCents)} por mês
+                  </p>
 
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <Numero
-                    rotulo="Clientes ativas necessárias"
-                    valor={String(resultado.clientesNecessarias)}
-                    dica={`Você tem ${dados.clientesAtivas}.`}
-                  />
-                  <Numero
-                    rotulo="Faltam conquistar"
-                    valor={String(resultado.clientesFaltam)}
-                    tom={resultado.clientesFaltam === 0 ? "success" : "ink"}
-                    dica={
-                      resultado.clientesFaltam === 0
-                        ? "Sua base já dá conta."
-                        : "Novas ou que voltaram."
-                    }
-                  />
-                </div>
-                <p className="mt-2 text-[12px] leading-snug text-ink-faint">
-                  Premissa: cada cliente ativa faz, em média,{" "}
-                  {formatarNumero(ATENDIMENTOS_POR_CLIENTE_MES, 1)} atendimentos por mês (uma
-                  manutenção a cada 3 ou 4 semanas). Clientes = atendimentos ÷{" "}
-                  {formatarNumero(ATENDIMENTOS_POR_CLIENTE_MES, 1)}.
-                </p>
-
-                <div className="mt-5 rounded-[14px] bg-surface-sunken px-3.5 py-3 text-[13px] leading-snug text-ink-soft">
-                  {resultado.atendimentosAtuaisMes > 0 ? (
-                    <>
-                      <p>
-                        No ritmo de {formatarNumero(atendimentosSemana, 1)} por semana (
-                        {arredondarAcima(resultado.atendimentosAtuaisMes)} por mês) você fatura{" "}
+                  <div className="mt-4 grid grid-cols-3 gap-2.5">
+                    <Numero
+                      rotulo="No mês"
+                      valor={String(resultado.atendimentosMes)}
+                      dica="atendimentos"
+                    />
+                    <Numero
+                      rotulo="Por semana"
+                      valor={formatarNumero(resultado.atendimentosSemana, 1)}
+                      dica="atendimentos"
+                    />
+                    <Numero
+                      rotulo="Por dia"
+                      valor={formatarNumero(resultado.atendimentosDia, 1)}
+                      dica={`${diasPorSemana} ${diasPorSemana === 1 ? "dia" : "dias"} por semana`}
+                    />
+                  </div>
+                  <p className="mt-2.5 text-[13px] leading-snug text-ink-soft">
+                    Com o ticket de {brl(ticketCents)} por atendimento.
+                    {resultado.ticketNecessarioCents !== null && resultado.faltaCents > 0 ? (
+                      <>
+                        {" "}
+                        Sem mudar o volume, o ticket que resolve é{" "}
                         <strong className="font-semibold tabular-nums text-ink">
-                          {brl(resultado.faturamentoAtualCents)}
-                        </strong>
-                        {resultado.faltaCents > 0 ? (
-                          <>
-                            : faltam{" "}
-                            <strong className="font-semibold tabular-nums text-ink">
-                              {brl(resultado.faltaCents)}
-                            </strong>
-                            .
-                          </>
-                        ) : (
-                          <>
-                            : a meta já está batida, com{" "}
-                            <strong className="font-semibold tabular-nums text-success">
-                              {brl(-resultado.faltaCents)}
-                            </strong>{" "}
-                            de folga.
-                          </>
-                        )}
-                      </p>
-                      {resultado.ticketNecessarioCents !== null && resultado.faltaCents > 0 ? (
-                        <p className="mt-2">
-                          Sem mudar o volume, o ticket que resolve é{" "}
-                          <strong className="font-semibold tabular-nums text-ink">
-                            {brl(resultado.ticketNecessarioCents)}
-                          </strong>{" "}
-                          por atendimento.
-                        </p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <p>
-                      Sem atendimentos por semana não há faturamento. Arraste o controle para
-                      simular um ritmo.
-                    </p>
-                  )}
-                </div>
-                <p className="mt-3 text-[12px] leading-snug text-ink-faint">
-                  Mês = {formatarNumero(SEMANAS_POR_MES, 2)} semanas. Atendimentos arredondados
-                  para cima.
-                </p>
-              </CardBody>
-            </Card>
+                          {brl(resultado.ticketNecessarioCents)}
+                        </strong>{" "}
+                        por atendimento.
+                      </>
+                    ) : null}
+                  </p>
+
+                  <p className="mt-5 text-[13px] font-semibold text-ink">Clientes para sustentar isso</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2.5">
+                    <Numero
+                      rotulo="Clientes ativas necessárias"
+                      valor={String(resultado.clientesNecessarias)}
+                      dica={`Você tem ${dados.clientesAtivas}.`}
+                    />
+                    <Numero
+                      rotulo="Faltam conquistar"
+                      valor={String(resultado.clientesFaltam)}
+                      tom={resultado.clientesFaltam === 0 ? "success" : "ink"}
+                      dica={
+                        resultado.clientesFaltam === 0
+                          ? "Sua base já dá conta."
+                          : "Novas ou que voltaram."
+                      }
+                    />
+                  </div>
+                  <p className="mt-3 text-[12px] leading-snug text-ink-faint">
+                    Premissa: cada cliente ativa faz, em média,{" "}
+                    {formatarNumero(ATENDIMENTOS_POR_CLIENTE_MES, 1)} atendimentos por mês (uma
+                    manutenção a cada 3 ou 4 semanas). Clientes = atendimentos ÷{" "}
+                    {formatarNumero(ATENDIMENTOS_POR_CLIENTE_MES, 1)}. Mês ={" "}
+                    {formatarNumero(SEMANAS_POR_MES, 2)} semanas. Atendimentos arredondados para
+                    cima.
+                  </p>
+                </CardBody>
+              </Card>
+            </div>
           ) : (
             <Card>
               <EmptyState
