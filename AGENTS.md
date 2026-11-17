@@ -76,6 +76,7 @@ O estúdio (`Professional`) pode ter funcionárias (`TeamMember`) com **login pr
 - **Planos** (`@/lib/domain/plans`): `PLANS.SOLO` (R$ 49,90) e `PLANS.EMPRESA` (R$ 120); `Professional.plan`, preço congelado em `planPriceCents`; `TRIAL_DIAS = 7`. Ao criar a 1ª funcionária, `subirParaEmpresa()` (`@/lib/domain/accounts`) troca o plano e, com assinatura no MP, `atualizarValorAssinatura()` muda o valor da próxima cobrança.
 - **Criação de conta**: sempre por `criarEstudio()` (`@/lib/domain/accounts`) — admin (`signupSource: "ADMIN"`) e cadastro público `/comecar` (`"SITE"`, `?v=CODIGO` da vendedora → `sellerCode`, `?plano=solo|empresa`, `termsAcceptedAt`).
 - **Cartão no cadastro**: conta `SITE` em `TRIAL` sem cartão é mandada do layout para `/assinatura?cartao=1` (`precisaCadastrarCartao`). O checkout do MP usa `start_date` = fim do teste; o webhook (ou `?volta=1`) vira `ATIVA`. Sem `MP_ACCESS_TOKEN` (dev), entra direto.
+- **Prospecção sem cartão**: cadastro com o código de uma vendedora de `CODIGOS_SEM_CARTAO` (`@/lib/domain/plans`, hoje `CATARINA`) nasce `signupSource: "PROSPECCAO"`: entra direto, em `TRIAL` de 7 dias, sem checkout. A faixa do topo conta os dias; no fim, `acessoBloqueado` manda para `/assinatura`, onde o cartão é cobrado na hora (sem `start_date`). Tráfego, perfil e indicação entre lashes continuam com cartão no cadastro.
 - **Páginas públicas**: `/comecar`, `/termos`, `/privacidade` (liberadas no proxy).
 
 ## Regras de trabalho

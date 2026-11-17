@@ -155,6 +155,8 @@ export function DayTimeline({
   const [marcado, setMarcado] = useState<{ dia: string; min: number } | null>(null);
   const marcadoMin = marcado && marcado.dia === diaKey ? marcado.min : null;
   const gradeRef = useRef<HTMLDivElement>(null);
+  /** Tipo do último ponteiro que encostou na grade (mouse, touch ou pen). */
+  const ultimoPonteiro = useRef<string>("");
   const rolagemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -277,8 +279,10 @@ export function DayTimeline({
     if ((e.target as HTMLElement).closest("button,[data-bloqueio]")) return;
     const m = minutoDoPonteiro(e.clientY);
     if (m === null) return;
-    const tipo = (e.nativeEvent as PointerEvent).pointerType;
-    if (tipo === "mouse") {
+    // Um clique só abre direto quando é mouse de verdade: o último toque na
+    // grade foi de mouse E a prévia sob o cursor está na tela. (O tipo do
+    // próprio clique não serve: no iPhone ele chega como "mouse".)
+    if (ultimoPonteiro.current === "mouse" && fantasmaMin !== null) {
       onNovoHorario(minutesToTime(m));
       return;
     }
@@ -334,6 +338,12 @@ export function DayTimeline({
           className={cn("relative", onNovoHorario && "cursor-pointer")}
           style={{ height: alturaTotal }}
           onClick={clicarVazio}
+          onPointerDown={(e) => {
+            ultimoPonteiro.current = e.pointerType;
+          }}
+          onTouchStart={() => {
+            ultimoPonteiro.current = "touch";
+          }}
           onPointerMove={moverPonteiro}
           onPointerLeave={() => setFantasmaMin(null)}
         >

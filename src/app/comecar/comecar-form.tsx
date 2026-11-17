@@ -12,7 +12,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/money";
-import { PLANS, PROMO, TRIAL_DIAS, precoPrimeiroMes, type PlanKey } from "@/lib/domain/plans";
+import { PLANS, PROMO, TRIAL_DIAS, codigoSemCartao, precoPrimeiroMes, type PlanKey } from "@/lib/domain/plans";
 import { comecarAction, type ComecarState } from "./actions";
 
 const initialState: ComecarState = {};
@@ -150,7 +150,9 @@ export function ComecarForm({
         {pending ? "Criando sua conta..." : `Começar ${TRIAL_DIAS} dias grátis`}
       </Button>
       <p className="text-center text-[12.5px] leading-relaxed text-ink-soft">
-        Na próxima tela você salva o cartão no Mercado Pago. Nenhuma cobrança até o fim do teste; cancele quando quiser.
+        {codigoSemCartao(codigo)
+          ? `Sem cartão agora. Você usa ${TRIAL_DIAS} dias com tudo liberado e só assina no fim, se gostar.`
+          : "Na próxima tela você salva o cartão no Mercado Pago. Nenhuma cobrança até o fim do teste; cancele quando quiser."}
       </p>
     </form>
   );

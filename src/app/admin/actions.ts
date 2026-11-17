@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { parseBRL } from "@/lib/money";
 import { isEmailTaken } from "@/lib/team";
 import { criarEstudio } from "@/lib/domain/accounts";
-import { isPlanKey } from "@/lib/domain/plans";
+import { isPlanKey, normalizeSellerCode } from "@/lib/domain/plans";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { requireAdmin } from "./guard";
 
 export type AdminState = { ok: boolean; error?: string; savedAt?: number };
@@ -31,6 +32,9 @@ export async function criarContaAction(
   const trialDias = Number.parseInt(texto(formData, "trialDias"), 10);
   const planoBruto = texto(formData, "plano");
   const plan = isPlanKey(planoBruto) ? planoBruto : "SOLO";
+  const vendedoraBruta = texto(formData, "vendedora");
+  const sellerCode = normalizeSellerCode(vendedoraBruta);
+  const whatsappBruto = texto(formData, "whatsapp");
 
   if (name.length < 2 || studioName.length < 2) {
     return { ok: false, error: "Preencha nome e estúdio." };
@@ -40,6 +44,12 @@ export async function criarContaAction(
   const precoCents = parseBRL(precoBRL);
   if (precoCents === null || precoCents < 0) {
     return { ok: false, error: "Preço inválido — ex.: 99,00." };
+  }
+  if (vendedoraBruta && !sellerCode) {
+    return { ok: false, error: "Código da vendedora inválido — só letras e números, de 3 a 16." };
+  }
+  if (whatsappBruto && !isValidPhone(whatsappBruto)) {
+    return { ok: false, error: "Confira o WhatsApp, com DDD." };
   }
   if (await isEmailTaken(email)) {
     return { ok: false, error: "Já existe conta (ou alguém de equipe) com esse e-mail." };
@@ -54,6 +64,8 @@ export async function criarContaAction(
     planPriceCents: precoCents,
     trialDias: Number.isFinite(trialDias) && trialDias > 0 ? trialDias : 0,
     signupSource: "ADMIN",
+    sellerCode,
+    whatsapp: whatsappBruto ? normalizePhone(whatsappBruto) : null,
   });
 
   revalidatePath("/admin");

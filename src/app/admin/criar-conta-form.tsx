@@ -25,7 +25,7 @@ export function CriarContaForm() {
         <Input id="ad-senha" name="senha" placeholder="senha provisória" required minLength={8} />
       </Field>
       <Field label="Mensalidade (R$)" htmlFor="ad-preco" hint="Preço calibrado dessa cliente">
-        <Input id="ad-preco" name="preco" placeholder="99,00" required inputMode="decimal" />
+        <Input id="ad-preco" name="preco" defaultValue="49,90" placeholder="49,90" required inputMode="decimal" />
       </Field>
       <Field label="Plano" htmlFor="ad-plano" hint="Com equipe, o Lash solo sobe para Empresa sozinho">
         <Select id="ad-plano" name="plano" defaultValue="SOLO">
@@ -33,8 +33,14 @@ export function CriarContaForm() {
           <option value="EMPRESA">Empresa (R$ 120,00)</option>
         </Select>
       </Field>
-      <Field label="Dias de teste grátis" htmlFor="ad-trial" hint="0 = já entra como ativa (30 dias)">
+      <Field label="Dias de teste grátis" htmlFor="ad-trial" hint="Sem cartão. No fim, ela assina na tela de assinatura. 0 = já entra como ativa (30 dias)">
         <Input id="ad-trial" name="trialDias" type="number" defaultValue={7} min={0} max={60} />
+      </Field>
+      <Field label="Vendedora responsável" htmlFor="ad-vend" hint="Opcional. O código dela, ex.: CATARINA">
+        <Input id="ad-vend" name="vendedora" placeholder="CATARINA" className="uppercase" autoComplete="off" />
+      </Field>
+      <Field label="WhatsApp da lash" htmlFor="ad-whats" hint="Opcional, com DDD">
+        <Input id="ad-whats" name="whatsapp" type="tel" inputMode="tel" placeholder="(48) 99999-8888" />
       </Field>
 
       <div className="sm:col-span-2 space-y-2">

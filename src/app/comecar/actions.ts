@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { isEmailTaken } from "@/lib/team";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { criarEstudio } from "@/lib/domain/accounts";
-import { TRIAL_DIAS, isPlanKey, normalizeSellerCode, precoPrimeiroMes, promoAtiva } from "@/lib/domain/plans";
+import { TRIAL_DIAS, codigoSemCartao, isPlanKey, normalizeSellerCode, precoPrimeiroMes, promoAtiva } from "@/lib/domain/plans";
 import { getAppOrigin, getRequestOrigin } from "@/lib/domain/queue";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 import { emailLayout, getEmailProvider } from "@/lib/providers/email";
@@ -69,6 +69,8 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
 
   // O mesmo campo serve para a indicação de outra lash e para o código da vendedora.
   const indicadora = await acharIndicadora(sellerCode);
+  // Link de prospecção de uma vendedora liberada: teste sem cartão.
+  const semCartao = !indicadora && codigoSemCartao(sellerCode);
 
   const conta = await criarEstudio({
     name,
@@ -78,7 +80,7 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
     whatsapp: normalizePhone(whatsappBruto),
     plan,
     trialDias: TRIAL_DIAS,
-    signupSource: "SITE",
+    signupSource: semCartao ? "PROSPECCAO" : "SITE",
     sellerCode: indicadora ? null : sellerCode,
     referredById: indicadora?.id ?? null,
     termsAcceptedAt: new Date(),
@@ -119,7 +121,7 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
   }
 
   // Cartão agora, cobrança só no fim do teste. Se o MP falhar, a tela de assinatura pede de novo.
-  if (assinaturasDisponiveis()) {
+  if (!semCartao && assinaturasDisponiveis()) {
     const p = await prisma.professional.findUniqueOrThrow({
       where: { id: conta.id },
       select: { id: true, email: true, studioName: true, planPriceCents: true, trialEndsAt: true, promoPrimeiroMes: true },

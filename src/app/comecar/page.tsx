@@ -6,7 +6,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { IconCheck } from "@/components/ui/icons";
-import { TRIAL_DIAS, normalizeSellerCode, promoAtiva, type PlanKey } from "@/lib/domain/plans";
+import { TRIAL_DIAS, codigoSemCartao, normalizeSellerCode, promoAtiva, type PlanKey } from "@/lib/domain/plans";
 import { ComecarForm } from "./comecar-form";
 import { LashLogo, LashMark } from "@/components/brand/logo";
 import { acharIndicadora } from "@/lib/domain/referral";
@@ -26,6 +26,13 @@ const PASSOS = [
   { n: "3", t: `Use ${TRIAL_DIAS} dias com tudo liberado`, s: "Cancele quando quiser, direto no app." },
 ];
 
+/** Link de prospecção (vendedora liberada): sem cartão no cadastro. */
+const PASSOS_SEM_CARTAO = [
+  { n: "1", t: "Crie sua conta", s: "Leva 2 minutos. Sem cartão." },
+  { n: "2", t: `Use ${TRIAL_DIAS} dias com tudo liberado`, s: "Com as suas clientes de verdade." },
+  { n: "3", t: "Gostou? Assine no fim do teste", s: "Só aí você coloca o cartão." },
+];
+
 function primeiro(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
@@ -36,6 +43,8 @@ export default async function ComecarPage(props: PageProps<"/comecar">) {
   const planoInicial: PlanKey = planoParam === "empresa" ? "EMPRESA" : "SOLO";
   const codigoInicial = normalizeSellerCode(primeiro(sp.v)) ?? "";
   const indicadora = await acharIndicadora(codigoInicial || null);
+  const semCartao = !indicadora && codigoSemCartao(codigoInicial);
+  const passos = semCartao ? PASSOS_SEM_CARTAO : PASSOS;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
@@ -52,10 +61,10 @@ export default async function ComecarPage(props: PageProps<"/comecar">) {
 
           <div className="py-12">
             <h1 className="max-w-md text-[44px] font-extrabold leading-[1.02] tracking-[-0.045em] xl:text-[52px]">
-              Comece hoje. <span className="text-[#cfc6ea]">Pague só depois do teste.</span>
+              Comece hoje. <span className="text-[#cfc6ea]">{semCartao ? "Sem cartão para testar." : "Pague só depois do teste."}</span>
             </h1>
             <ol className="mt-10 max-w-sm space-y-5">
-              {PASSOS.map((p) => (
+              {passos.map((p) => (
                 <li key={p.n} className="flex gap-4">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-[14px] font-bold text-[#cfc6ea] ring-1 ring-white/15">
                     {p.n}

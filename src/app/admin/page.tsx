@@ -225,7 +225,7 @@ export default async function AdminPage() {
                         <span className="font-medium text-ink">{formatBRL(c.planPriceCents)}</span>
                         <span className="block text-[11px] text-ink-faint">
                           {PLANS[c.plan as PlanKey]?.label ?? c.plan}
-                          {c.signupSource === "SITE" ? " · site" : ""}
+                          {c.signupSource === "SITE" ? " · site" : c.signupSource === "PROSPECCAO" ? " · prospecção (sem cartão)" : ""}
                           {c.sellerCode ? ` · vend. ${c.sellerCode}` : ""}
                           {c.referredBy ? ` · indicada por ${c.referredBy.studioName}` : ""}
                         </span>

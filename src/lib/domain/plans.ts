@@ -24,7 +24,22 @@ export function normalizeSellerCode(raw: unknown): string | null {
   return code.length >= 3 && code.length <= 16 ? code : null;
 }
 
-/** A conta criada no site precisa salvar o cartão antes de entrar no app. */
+/**
+ * Prospecção ativa: quem se cadastra com o código de uma destas vendedoras
+ * testa SEM cartão. O teste aparece na faixa do topo e, quando termina, a
+ * conta vai para a tela de assinatura (cartão com cobrança na hora).
+ * Para liberar outra vendedora, acrescente o código dela aqui.
+ */
+export const CODIGOS_SEM_CARTAO: readonly string[] = ["CATARINA"];
+
+export function codigoSemCartao(codigo: string | null | undefined): boolean {
+  return Boolean(codigo) && CODIGOS_SEM_CARTAO.includes(String(codigo).toUpperCase());
+}
+
+/**
+ * A conta criada no site (tráfego, perfil) precisa salvar o cartão antes de
+ * entrar no app. Conta de prospecção (signupSource PROSPECCAO) não.
+ */
 export function precisaCadastrarCartao(p: {
   signupSource: string;
   subscriptionStatus: string;

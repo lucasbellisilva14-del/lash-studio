@@ -40,7 +40,8 @@ export type NovoEstudio = {
   planPriceCents?: number;
   /** 0 = sem teste: já nasce ATIVA por 30 dias (uso do admin). */
   trialDias: number;
-  signupSource: "ADMIN" | "SITE";
+  /** PROSPECCAO = veio pelo link de uma vendedora liberada: testa sem cartão. */
+  signupSource: "ADMIN" | "SITE" | "PROSPECCAO";
   sellerCode?: string | null;
   /** Estúdio que indicou (Indique e ganhe). */
   referredById?: string | null;
