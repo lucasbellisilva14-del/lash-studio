@@ -4,7 +4,11 @@
  */
 import type { TemplateKind } from "@/lib/constants";
 
-/** Tipos que podem sair sozinhos, na ordem de prioridade (aniversário e resgate ficam manuais). */
+/**
+ * Tipos que podem sair sozinhos, na ordem de prioridade. O resgate de 45 dias é
+ * opcional e nasce desligado; aniversário e resgate de 60/90 dias nunca saem
+ * sozinhos (cliente parada há muito tempo é quem mais denuncia mensagem).
+ */
 export const TIPOS_AUTOMATICOS = [
   "CONFIRMACAO",
   "LEMBRETE_24H",
@@ -12,6 +16,7 @@ export const TIPOS_AUTOMATICOS = [
   "REMARCAR",
   "MANUTENCAO",
   "RETORNO",
+  "RESGATE_45",
 ] as const satisfies readonly TemplateKind[];
 
 export type TipoAutomatico = (typeof TIPOS_AUTOMATICOS)[number];
@@ -23,7 +28,11 @@ export const TIPOS_AUTOMATICOS_INFO: Record<TipoAutomatico, { label: string; dic
   REMARCAR: { label: "Remarcar", dica: "Para quem faltou ou cancelou" },
   MANUTENCAO: { label: "Manutenção", dica: "Quando chega a hora da manutenção" },
   RETORNO: { label: "Retorno", dica: "Quando chega a hora de voltar" },
+  RESGATE_45: { label: "Chamar de volta (45 dias)", dica: "Para quem está há 45 dias sem vir" },
 };
+
+/** Ligados para quem ainda não escolheu: tudo, menos o resgate (ela marca se quiser). */
+export const TIPOS_PADRAO: readonly TipoAutomatico[] = TIPOS_AUTOMATICOS.filter((t) => t !== "RESGATE_45");
 
 export const LIMITES_DIARIOS = [30, 60, 100] as const;
 

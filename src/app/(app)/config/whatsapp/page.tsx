@@ -7,7 +7,7 @@ import { QUEUE_KIND_LABELS } from "@/lib/domain/queue";
 import type { TemplateKind } from "@/lib/constants";
 import { whatsappDisponivel } from "@/lib/whatsapp/evolution";
 import { sincronizarConexao } from "@/lib/whatsapp/conexao";
-import { TIPOS_AUTOMATICOS, tiposLigados } from "@/lib/whatsapp/tipos";
+import { TIPOS_AUTOMATICOS, TIPOS_PADRAO, tiposLigados } from "@/lib/whatsapp/tipos";
 import { PageHeader } from "@/components/ui/page-header";
 import { WhatsappManager } from "./whatsapp-manager";
 
@@ -40,7 +40,7 @@ export default async function WhatsappPage() {
   });
 
   const conectado = conexao?.status === "CONECTADO";
-  const ligados = conexao ? tiposLigados(conexao.autoKinds) : new Set(TIPOS_AUTOMATICOS);
+  const ligados = conexao ? tiposLigados(conexao.autoKinds) : new Set(TIPOS_PADRAO);
 
   return (
     <div>

@@ -456,7 +456,11 @@ function Conectado({ instavel, telefone, perfil, config, enviadasHoje, recentes 
                 </label>
               );
             })}
-            <p className="pt-1 text-[12.5px] text-ink-faint">Aniversário e resgate continuam com você, em um toque.</p>
+            <p className="pt-1 text-[12.5px] leading-snug text-ink-faint">
+              Quem está há 60 ou 90 dias sem vir e as aniversariantes nunca recebem mensagem sozinha. Essas
+              ficam na Fila, com o texto pronto, para você mandar em um toque. É de propósito: mensagem
+              automática para quem sumiu há muito tempo é o que mais faz o WhatsApp bloquear um número.
+            </p>
           </div>
 
           <div className={cn("mt-4", !cfg.autoSend && "opacity-50")}>
@@ -533,6 +537,33 @@ function Interruptor({
 
 // ── Cuidados contra bloqueio ────────────────────────────────────────────────
 
+const CUIDADOS = [
+  {
+    t: "Uma mensagem de cada vez, sem pressa",
+    s: "Espera de 12 a 20 segundos entre uma e outra e aparece “digitando...” antes, como você faria.",
+  },
+  {
+    t: "Nenhuma mensagem sai igual à outra",
+    s: "O “oi” e o emoji mudam um pouco em cada uma. A data, o valor e o Pix nunca mudam.",
+  },
+  {
+    t: "Só para as suas clientes",
+    s: "Quem tem horário marcado ou está na época de voltar. Nunca para número desconhecido.",
+  },
+  {
+    t: "Só em horário comercial",
+    s: "Confirmações das 7h30 às 22h; as outras, das 8h30 às 20h.",
+  },
+  {
+    t: "Com um limite por dia",
+    s: "Você escolhe: 30, 60 ou 100 mensagens. Passou disso, o resto fica na Fila para você mandar.",
+  },
+  {
+    t: "Se o WhatsApp desconectar, nada se perde",
+    s: "As mensagens voltam para a Fila e você recebe um aviso no celular.",
+  },
+];
+
 function Cuidados() {
   return (
     <Card>
@@ -541,17 +572,33 @@ function Cuidados() {
           <IconShield width={18} height={18} className="text-ink-soft" />
           <p className="text-[15px] font-semibold text-ink">Cuidados com o seu número</p>
         </div>
-        <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink-soft">
-          <li>• Uma mensagem por vez, com 12 a 20 segundos entre elas e “digitando...” antes.</li>
-          <li>• Cada mensagem sai com um toque diferente na saudação e no emoji. Data, valor e Pix não mudam.</li>
-          <li>• Só para clientes com horário marcado ou em acompanhamento. Nunca para lista fria.</li>
-          <li>• Confirmações das 7h30 às 22h; o resto das 8h30 às 20h. E um limite por dia.</li>
-          <li>• Se a conexão cair, tudo volta para a Fila e você recebe um aviso no celular.</li>
+        <p className="mt-2 text-[13px] leading-snug text-ink-soft">
+          O WhatsApp pode bloquear um número que manda mensagem como robô. Para isso não acontecer com o
+          seu, o LashOS manda do jeito que uma pessoa mandaria:
+        </p>
+        <ul className="mt-3 space-y-3">
+          {CUIDADOS.map((c) => (
+            <li key={c.t} className="flex gap-2.5">
+              <IconCheck width={16} height={16} className="mt-0.5 shrink-0 text-success" />
+              <span>
+                <span className="block text-[14px] font-semibold text-ink">{c.t}</span>
+                <span className="block text-[13px] leading-snug text-ink-soft">{c.s}</span>
+              </span>
+            </li>
+          ))}
         </ul>
-        <p className="mt-3 text-[12.5px] leading-relaxed text-ink-faint">
-          O WhatsApp não tem conexão oficial para números comuns. Esse jeito é usado por muitos sistemas e os
-          cuidados acima deixam o envio parecido com o seu, mas o risco de bloqueio não é zero. Use o número
-          que você já usa com as clientes.
+
+        <p className="mt-5 text-[14px] font-semibold text-ink">O que ajuda do seu lado</p>
+        <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-ink-soft">
+          <li>• Use o número que as suas clientes já conhecem, não um chip novo.</li>
+          <li>• Nas primeiras semanas, deixe o limite em 30 mensagens por dia.</li>
+          <li>• Continue usando o WhatsApp normalmente no celular, respondendo as clientes.</li>
+        </ul>
+
+        <p className="mt-4 rounded-[14px] bg-surface-sunken px-3.5 py-3 text-[12.5px] leading-relaxed text-ink-soft">
+          Com esses cuidados o risco é baixo, mas não é zero: o WhatsApp não oferece um jeito oficial de
+          fazer isso com número comum. Se preferir não arriscar, deixe o envio automático desligado e
+          mande pela Fila, em um toque.
         </p>
       </CardBody>
     </Card>
