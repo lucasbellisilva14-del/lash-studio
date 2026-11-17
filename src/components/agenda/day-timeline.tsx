@@ -141,12 +141,19 @@ export function DayTimeline({
   /** Só a dona ajusta os horários do estúdio (muda a dica do dia fechado). */
   podeConfigurar?: boolean;
   onSelecionar: (c: AgendaCompromisso) => void;
-  /** Toque num espaço vazio da timeline → agendar já naquele horário. */
+  /**
+   * Espaço vazio da timeline → agendar naquele horário. No toque (celular) são
+   * dois passos: o 1º marca o horário, o 2º (em cima da marca) abre o agendamento.
+   * No mouse, a prévia sob o cursor já mostra o horário e um clique abre.
+   */
   onNovoHorario?: (hora: string) => void;
 }) {
   const [relogioMin, setAgoraMin] = useState<number | null>(null);
   const agoraMin = diaKey === hojeKey ? relogioMin : null;
   const [fantasmaMin, setFantasmaMin] = useState<number | null>(null);
+  // Horário marcado pelo toque (some ao trocar de dia).
+  const [marcado, setMarcado] = useState<{ dia: string; min: number } | null>(null);
+  const marcadoMin = marcado && marcado.dia === diaKey ? marcado.min : null;
   const gradeRef = useRef<HTMLDivElement>(null);
   const rolagemRef = useRef<HTMLDivElement>(null);
 
@@ -269,7 +276,20 @@ export function DayTimeline({
     // só espaço vazio: cliques em agendamentos/bloqueios não contam
     if ((e.target as HTMLElement).closest("button,[data-bloqueio]")) return;
     const m = minutoDoPonteiro(e.clientY);
-    if (m !== null) onNovoHorario(minutesToTime(m));
+    if (m === null) return;
+    const tipo = (e.nativeEvent as PointerEvent).pointerType;
+    if (tipo === "mouse") {
+      onNovoHorario(minutesToTime(m));
+      return;
+    }
+    // Toque: só marca. Tocar em outro espaço muda a marca.
+    setMarcado({ dia: diaKey, min: m });
+  }
+
+  function confirmarMarcado() {
+    if (marcadoMin === null || !onNovoHorario) return;
+    onNovoHorario(minutesToTime(marcadoMin));
+    setMarcado(null);
   }
 
   function moverPonteiro(e: React.PointerEvent<HTMLDivElement>) {
@@ -302,7 +322,7 @@ export function DayTimeline({
     <div className="rounded-[22px] bg-surface shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] overflow-hidden">
       {compromissos.length === 0 ? (
         <p className="border-b border-line px-5 py-3 text-[13px] text-ink-soft">
-          Nenhum horário marcado. Toque num espaço livre para agendar.
+          Nenhum horário marcado. Toque num espaço livre para escolher o horário.
         </p>
       ) : null}
       <div
@@ -381,6 +401,27 @@ export function DayTimeline({
               <IconPlus width={14} height={14} />
               Agendar às {minutesToTime(fantasmaMin)}
             </div>
+          ) : null}
+
+          {/* Horário marcado pelo toque: tocar nele abre o novo agendamento */}
+          {marcadoMin !== null ? (
+            <button
+              type="button"
+              onClick={confirmarMarcado}
+              aria-label={`Agendar às ${minutesToTime(marcadoMin)}`}
+              className="pop-in absolute right-1 z-10 flex items-center justify-between gap-2 rounded-[12px] bg-accent px-3 text-[13px] font-semibold text-accent-ink shadow-[var(--shadow-pop)]"
+              style={{
+                left: BASE_BLOCOS,
+                top: (marcadoMin - inicioMin) * PX_POR_MIN,
+                height: Math.max(30 * PX_POR_MIN, 40),
+              }}
+            >
+              <span className="flex items-center gap-1.5 whitespace-nowrap text-[14px] tabular-nums">
+                <IconPlus width={15} height={15} />
+                {minutesToTime(marcadoMin)}
+              </span>
+              <span className="whitespace-nowrap text-[12.5px] font-medium opacity-85">Toque para agendar</span>
+            </button>
           ) : null}
 
           {/* Agendamentos (lado a lado quando se sobrepõem) */}

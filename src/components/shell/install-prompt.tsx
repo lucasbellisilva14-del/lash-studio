@@ -3,10 +3,19 @@
 /**
  * Convite discreto para instalar o app (Android via beforeinstallprompt), como
  * cartão da tela inicial — nunca flutuando por cima do conteúdo.
- * iOS não dispara o evento — mostramos a dica de "Adicionar à Tela de Início".
+ * No iPhone a Apple não deixa um site instalar sozinho: o botão "Como instalar"
+ * abre o passo a passo de "Adicionar à Tela de Início".
  */
 import { useEffect, useState } from "react";
 import { IconDownload, IconX } from "@/components/ui/icons";
+import { Sheet } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+
+const PASSOS_IPHONE = [
+  { t: "Toque em Compartilhar", s: "É o quadrado com a seta para cima, na barra do Safari." },
+  { t: "Escolha “Adicionar à Tela de Início”", s: "Role a lista para baixo se não aparecer de primeira." },
+  { t: "Toque em Adicionar", s: "O LashOS aparece na tela inicial e abre como um app." },
+];
 
 const DISMISS_KEY = "lashos.installPromptDismissedAt";
 const DISMISS_DAYS = 14;
@@ -28,6 +37,7 @@ function recentlyDismissed(): boolean {
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [passosAbertos, setPassosAbertos] = useState(false);
 
   useEffect(() => {
     if (recentlyDismissed()) return;
@@ -77,18 +87,45 @@ export function InstallPrompt() {
         <p className="text-[13px] text-ink-soft">
           {deferred
             ? "Abre direto da tela inicial, como um app."
-            : "No Safari: Compartilhar → Adicionar à Tela de Início."}
+            : "Leva 10 segundos, pelo Safari."}
         </p>
       </div>
-      {deferred ? (
-        <button
-          type="button"
-          onClick={install}
-          className="h-9 shrink-0 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-ink"
-        >
-          Instalar
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={deferred ? install : () => setPassosAbertos(true)}
+        className="h-9 shrink-0 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-ink"
+      >
+        {deferred ? "Instalar" : "Como instalar"}
+      </button>
+      <Sheet
+        open={passosAbertos}
+        onClose={() => setPassosAbertos(false)}
+        title="Instalar no iPhone"
+        description="O iPhone só instala pelo menu do Safari. São três toques."
+        footer={
+          <Button className="w-full" onClick={() => setPassosAbertos(false)}>
+            Entendi
+          </Button>
+        }
+      >
+        <ol className="space-y-4">
+          {PASSOS_IPHONE.map((p, i) => (
+            <li key={p.t} className="flex gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[13px] font-bold text-ink">
+                {i + 1}
+              </span>
+              <span>
+                <span className="block text-[15px] font-semibold text-ink">{p.t}</span>
+                <span className="block text-[13px] leading-snug text-ink-soft">{p.s}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 text-[12.5px] leading-relaxed text-ink-faint">
+          Abriu o LashOS por dentro do Instagram ou do WhatsApp? Toque nos três pontinhos e escolha
+          “Abrir no Safari” antes.
+        </p>
+      </Sheet>
       <button
         type="button"
         onClick={dismiss}

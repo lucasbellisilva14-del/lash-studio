@@ -308,7 +308,9 @@ export function NewAppointmentSheet({
       },
     );
     setManut(null);
-    setHora("");
+    // O horário tocado na agenda continua valendo; um escolhido aqui dentro é refeito
+    // (a duração do serviço muda os horários livres).
+    setHora((atual) => (horaInicial && atual === horaInicial ? atual : ""));
     setManutAtiva(false);
     setHoraManut("");
   }

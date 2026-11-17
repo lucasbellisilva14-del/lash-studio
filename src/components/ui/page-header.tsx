@@ -24,6 +24,7 @@ export function PageHeader({
           <Link
             href={backHref}
             aria-label="Voltar"
+            data-voltar
             className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] hover:text-ink transition-colors lg:mt-1.5"
           >
             <IconChevronLeft width={18} height={18} />

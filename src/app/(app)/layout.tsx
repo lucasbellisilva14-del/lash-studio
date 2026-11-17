@@ -12,6 +12,7 @@ import { PwaRegister } from "@/components/shell/pwa-register";
 import { Sidebar } from "@/components/shell/sidebar";
 import { DesktopRail } from "@/components/shell/desktop-rail";
 import { PullToRefresh } from "@/components/shell/pull-to-refresh";
+import { ScrollMemory } from "@/components/shell/scroll-memory";
 import { TrialBanner, type TrialBannerInfo } from "@/components/shell/trial-banner";
 import { ContentFrame, RailSlot } from "@/components/shell/content-frame";
 import { QuickPanel } from "@/components/shell/quick/quick-panel";
@@ -90,6 +91,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <HomeFab showExpense={viewer.isOwner} linkPath={linkPath} cobranca={cobranca} />
       </div>
       <PwaRegister />
+      <ScrollMemory />
     </div>
   );
 }
