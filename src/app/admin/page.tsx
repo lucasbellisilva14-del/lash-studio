@@ -16,6 +16,7 @@ import { CriarContaForm } from "./criar-conta-form";
 import {
   adicionarTrintaDiasAction,
   alternarSuspensaoAction,
+  aplicarCreditoAction,
   resolverSuporteAction,
   tornarCortesiaAction,
 } from "./actions";
@@ -48,6 +49,7 @@ export default async function AdminPage() {
       plan: true,
       signupSource: true,
       sellerCode: true,
+      referredBy: { select: { studioName: true } },
       mpPreapprovalId: true,
       createdAt: true,
       updatedAt: true,
@@ -60,6 +62,15 @@ export default async function AdminPage() {
     orderBy: { createdAt: "desc" },
     take: 50,
     include: { professional: { select: { studioName: true, email: true, whatsapp: true } } },
+  });
+
+  const creditos = await prisma.referralCredit.findMany({
+    where: { status: "PENDENTE" },
+    orderBy: { createdAt: "asc" },
+    include: {
+      referrer: { select: { studioName: true, email: true } },
+      referred: { select: { studioName: true } },
+    },
   });
 
   return (
@@ -107,6 +118,43 @@ export default async function AdminPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <h2 className="text-[16px] font-bold tracking-[-0.015em] text-ink">
+              Indicações{creditos.length ? ` · ${creditos.length} mês${creditos.length === 1 ? "" : "es"} a devolver` : ""}
+            </h2>
+            {creditos.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">Nenhum mês grátis esperando devolução.</p>
+            ) : (
+              <>
+                <p className="mt-1 text-[13px] text-ink-soft">
+                  Devolva a próxima mensalidade da indicadora no Mercado Pago e marque aqui.
+                </p>
+                <ul className="mt-3 divide-y divide-line">
+                  {creditos.map((cr) => (
+                    <li key={cr.id} className="flex items-start gap-3 py-3.5">
+                      <div className="min-w-0 grow">
+                        <p className="text-[14px] font-medium text-ink">
+                          {cr.referrer.studioName} · {formatBRL(cr.valueCents)}
+                        </p>
+                        <p className="text-[13px] text-ink-soft">
+                          {cr.referrer.email} · indicou {cr.referred.studioName} · {formatDate(cr.createdAt, TZ)}
+                        </p>
+                      </div>
+                      <form action={aplicarCreditoAction}>
+                        <input type="hidden" name="id" value={cr.id} />
+                        <button className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-sunken">
+                          Devolvido
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </CardBody>
         </Card>
@@ -179,6 +227,7 @@ export default async function AdminPage() {
                           {PLANS[c.plan as PlanKey]?.label ?? c.plan}
                           {c.signupSource === "SITE" ? " · site" : ""}
                           {c.sellerCode ? ` · vend. ${c.sellerCode}` : ""}
+                          {c.referredBy ? ` · indicada por ${c.referredBy.studioName}` : ""}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-ink-soft">

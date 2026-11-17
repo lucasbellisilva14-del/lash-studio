@@ -21,8 +21,9 @@ model Professional {
   studioName   String
   slug         String  @unique
   logoUrl      String?
-  accentColor     String @default("#D6336C")
-  backgroundColor String @default("#FFD9E9") // base do fundo (gradiente derivado dela)
+  /// Tema do estúdio (app + link de agendamento). Padrão = visual do LashOS (@/lib/domain/tema).
+  accentColor     String @default("#2A2240")
+  backgroundColor String @default("#F3F3F6")
   addressLine  String?
   mapsUrl      String?
   whatsapp     String? // só dígitos, com DDD (ex.: 48999998888)
@@ -65,6 +66,10 @@ model Professional {
   signupSource          String    @default("ADMIN")
   /// Código da vendedora que indicou (texto, em maiúsculas). Comissão = 1ª mensalidade.
   sellerCode            String?
+  /// Indique e ganhe: código próprio do estúdio (criado ao abrir /indicar).
+  referralCode          String?   @unique
+  /// Estúdio que indicou esta conta (cadastro com o código dele).
+  referredById          String?
   termsAcceptedAt       DateTime?
   mpPreapprovalId       String?   @unique
   /// Assinou na promoção: a assinatura nasce com o valor do 1º mês e volta
@@ -97,6 +102,11 @@ model Professional {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  referredBy        Professional?    @relation("Indicacao", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals         Professional[]   @relation("Indicacao")
+  referralCredits   ReferralCredit[] @relation("CreditoDaIndicadora")
+  referralCreditFor ReferralCredit?  @relation("CreditoPelaIndicada")
+
   teamMembers       TeamMember[]
   whatsAppConnection WhatsAppConnection?
   supportMessages   SupportMessage[]
@@ -118,6 +128,27 @@ model Professional {
   waitlistEntries   WaitlistEntry[]
   scheduleBlocks    ScheduleBlock[]
   pushSubscriptions PushSubscription[]
+
+  @@index([referredById])
+}
+
+/// Indique e ganhe: 1 mês grátis para a indicadora quando a indicada paga a
+/// 1ª mensalidade. Um crédito por indicada (referredId único).
+model ReferralCredit {
+  id         String    @id @default(cuid())
+  referrerId String
+  referredId String    @unique
+  /// Valor do mês grátis: a mensalidade da indicadora no dia do crédito.
+  valueCents Int
+  status     String    @default("PENDENTE") // PENDENTE | APLICADO
+  createdAt  DateTime  @default(now())
+  appliedAt  DateTime?
+
+  referrer Professional @relation("CreditoDaIndicadora", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred Professional @relation("CreditoPelaIndicada", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([status, createdAt])
 }
 
 /// Freio de força bruta no login: contador de erros por e-mail com janela.

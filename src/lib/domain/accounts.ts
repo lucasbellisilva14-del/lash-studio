@@ -42,6 +42,8 @@ export type NovoEstudio = {
   trialDias: number;
   signupSource: "ADMIN" | "SITE";
   sellerCode?: string | null;
+  /** Estúdio que indicou (Indique e ganhe). */
+  referredById?: string | null;
   termsAcceptedAt?: Date | null;
 };
 
@@ -72,6 +74,7 @@ export async function criarEstudio(dados: NovoEstudio): Promise<{ id: string; sl
       subscriptionPaidUntil: emTrial ? null : addDays(new Date(), 30),
       signupSource: dados.signupSource,
       sellerCode: dados.sellerCode ?? null,
+      referredById: dados.referredById ?? null,
       termsAcceptedAt: dados.termsAcceptedAt ?? null,
       onboardingDone: false,
       workingHours: modelo

@@ -9,9 +9,11 @@ import { FieldError, FormError, SavedToast } from "@/components/config/feedback"
 import { AutoSaveStatus, useAutoSave } from "@/components/config/autosave";
 import { type ConfigFormState, initialConfigFormState } from "../form-state";
 import { salvarPerfilAction } from "./actions";
+import { TEMA_PADRAO, temaCss, temaPadrao } from "@/lib/domain/tema";
 
-/** Acentos do link público (escuros o bastante p/ texto branco). */
+/** Cores dos botões (escuras o bastante p/ texto branco). A primeira é o tema padrão. */
 const PALETTE = [
+  { hex: TEMA_PADRAO.accent, nome: "Padrão" },
   { hex: "#D6336C", nome: "Pink" },
   { hex: "#BE4368", nome: "Rosa queimado" },
   { hex: "#C24B8B", nome: "Orquídea" },
@@ -23,8 +25,9 @@ const PALETTE = [
   { hex: "#44403C", nome: "Grafite" },
 ] as const;
 
-/** Fundos claros do link público. */
+/** Fundos claros. O primeiro é o tema padrão. */
 const BG_PALETTE = [
+  { hex: TEMA_PADRAO.bg, nome: "Padrão" },
   { hex: "#FFD9E9", nome: "Rosa vivo" },
   { hex: "#FFEDF4", nome: "Rosa claro" },
   { hex: "#F6EBDD", nome: "Champagne" },
@@ -111,6 +114,24 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
     setLogoPreview(url);
   }
 
+  // O app troca de cor na hora, antes mesmo de salvar (o layout assume depois).
+  useEffect(() => {
+    const css = temaCss(accent, bg);
+    const el = document.createElement("style");
+    // No tema padrão, desfaz o que o layout tiver aplicado até a tela recarregar.
+    el.textContent =
+      css ??
+      ":root{--accent:#2a2240;--accent-ink:#ffffff;--background:#f3f3f6;--accent-soft:#efedf5;--accent-strong:#2a2240;--accent-hover:#3a3156;--accent-glow:#b9b2cf;--surface-sunken:#f4f4f7;--line:#e8e8ed;--cat-aplicacao:#eeebf7;}";
+    document.body.appendChild(el);
+    return () => el.remove();
+  }, [accent, bg]);
+
+  function voltarAoPadrao() {
+    setAccent(TEMA_PADRAO.accent);
+    setBg(TEMA_PADRAO.bg);
+    agendar();
+  }
+
   function escolherAcento(hex: string) {
     setAccent(hex);
     agendar();
@@ -124,7 +145,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
   const isCustom = !PALETTE.some((p) => p.hex.toLowerCase() === accent.toLowerCase());
   const isCustomBg = !BG_PALETTE.some((p) => p.hex.toLowerCase() === bg.toLowerCase());
 
-  // Prévia do link público com as cores escolhidas
+  // Prévia com as cores escolhidas
   const previewVars = {
     "--accent": accent,
     "--accent-soft": `color-mix(in srgb, ${accent} 10%, white)`,
@@ -208,16 +229,38 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
       {/* Cores do link público */}
       <Card>
         <CardHeader
-          title="Cores do seu link de agendamento"
-          description="Valem só na página que a cliente abre para agendar. O app continua neutro."
+          title="Tema"
+          description="As cores do app e da página que a cliente abre para agendar."
         />
         <CardBody className="space-y-5">
+          <div className="flex items-center justify-between gap-3 rounded-[14px] bg-surface-sunken px-3.5 py-2.5">
+            <p className="text-[13.5px] text-ink">
+              {temaPadrao(accent, bg) ? (
+                <>
+                  Você está no <b className="font-semibold">tema padrão</b>.
+                </>
+              ) : (
+                <>
+                  Você está com um <b className="font-semibold">tema personalizado</b>.
+                </>
+              )}
+            </p>
+            {temaPadrao(accent, bg) ? null : (
+              <button
+                type="button"
+                onClick={voltarAoPadrao}
+                className="shrink-0 text-[13px] font-semibold text-ink underline underline-offset-4"
+              >
+                Voltar ao padrão
+              </button>
+            )}
+          </div>
           <input type="hidden" name="accentColor" value={accent} />
           <input type="hidden" name="backgroundColor" value={bg} />
 
           <div>
             <p className="mb-3 text-[13px] font-semibold text-ink">Cor dos botões</p>
-            <div className="grid grid-cols-5 gap-3 sm:grid-cols-9">
+            <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
               {PALETTE.map((tone) => (
                 <Amostra
                   key={tone.hex}
@@ -242,7 +285,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
                   <input
                     type="color"
                     value={accent}
-                    onChange={(e) => setAccent(e.target.value)}
+                    onChange={(e) => escolherAcento(e.target.value)}
                     aria-label="Cor dos botões personalizada"
                     className="absolute inset-0 cursor-pointer opacity-0"
                   />
@@ -255,7 +298,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
 
           <div>
             <p className="mb-3 text-[13px] font-semibold text-ink">Fundo da página</p>
-            <div className="grid grid-cols-5 gap-3 sm:grid-cols-9">
+            <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
               {BG_PALETTE.map((tone) => (
                 <Amostra
                   key={tone.hex}
@@ -281,7 +324,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
                   <input
                     type="color"
                     value={bg}
-                    onChange={(e) => setBg(e.target.value)}
+                    onChange={(e) => escolherFundo(e.target.value)}
                     aria-label="Fundo personalizado"
                     className="absolute inset-0 cursor-pointer opacity-0"
                   />
@@ -294,7 +337,7 @@ export function PerfilForm({ defaults }: { defaults: PerfilDefaults }) {
 
           {/* Prévia */}
           <div style={previewVars} className="rounded-[18px] border border-line p-4">
-            <p className="text-[12px] font-semibold text-ink-soft">Prévia do link</p>
+            <p className="text-[12px] font-semibold text-ink-soft">Prévia</p>
             <div className="mt-3 rounded-[14px] bg-surface p-3.5 shadow-[var(--shadow-card)]">
               <p className="text-[14px] font-bold text-ink">{defaults.studioName || "Seu estúdio"}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">

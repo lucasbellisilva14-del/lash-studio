@@ -279,7 +279,7 @@ export function CalculadoraCobranca({ dados }: { dados: DadosCobranca }) {
           <Card>
             <CardHeader
               title="Formas de pagamento"
-              description="Quanto ela paga e quanto cai para você."
+              description="Em destaque, quanto cai para você. Embaixo, quanto ela paga."
             />
             {resultado ? (
               <Resultado
@@ -339,14 +339,7 @@ function Resultado({
                 {primeiraMaiuscula(descreverTaxa(parcelado, modo))} · de 2x a {parcelasMax}x
               </p>
             </div>
-            <div className="shrink-0 text-right">
-              <p className="text-[15px] font-bold tabular-nums tracking-[-0.01em] text-ink">
-                {brl(parcelado.cobradoCents)}
-              </p>
-              <p className="mt-0.5 text-[12.5px] tabular-nums text-ink-soft">
-                Você recebe {brl(parcelado.recebeCents)}
-              </p>
-            </div>
+            <Valores forma={parcelado} />
           </div>
 
           <ul
@@ -394,14 +387,22 @@ function LinhaForma({
         <p className="text-[15px] font-semibold text-ink">{titulo}</p>
         <p className="mt-0.5 text-[12.5px] text-ink-soft">{detalhe}</p>
       </div>
-      <div className="shrink-0 text-right">
-        <p className="text-[15px] font-bold tabular-nums tracking-[-0.01em] text-ink">
-          {brl(forma.cobradoCents)}
-        </p>
-        <p className="mt-0.5 text-[12.5px] tabular-nums text-ink-soft">
-          Você recebe {brl(forma.recebeCents)}
-        </p>
-      </div>
+      <Valores forma={forma} />
     </li>
+  );
+}
+
+/** Em destaque, o que cai para ela de fato; embaixo, quanto a cliente paga. */
+function Valores({ forma }: { forma: FormaCobranca }) {
+  return (
+    <div className="shrink-0 text-right">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">Você recebe</p>
+      <p className="text-[17px] font-bold tabular-nums tracking-[-0.02em] text-ink">
+        {brl(forma.recebeCents)}
+      </p>
+      <p className="mt-0.5 text-[12.5px] tabular-nums text-ink-soft">
+        Cliente paga {brl(forma.cobradoCents)}
+      </p>
+    </div>
   );
 }

@@ -9,6 +9,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { TRIAL_DIAS, normalizeSellerCode, promoAtiva, type PlanKey } from "@/lib/domain/plans";
 import { ComecarForm } from "./comecar-form";
 import { LashLogo, LashMark } from "@/components/brand/logo";
+import { acharIndicadora } from "@/lib/domain/referral";
 
 export const metadata: Metadata = { title: "Criar conta" };
 
@@ -34,6 +35,7 @@ export default async function ComecarPage(props: PageProps<"/comecar">) {
   const planoParam = (primeiro(sp.plano) ?? "").toLowerCase();
   const planoInicial: PlanKey = planoParam === "empresa" ? "EMPRESA" : "SOLO";
   const codigoInicial = normalizeSellerCode(primeiro(sp.v)) ?? "";
+  const indicadora = await acharIndicadora(codigoInicial || null);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
@@ -107,6 +109,12 @@ export default async function ComecarPage(props: PageProps<"/comecar">) {
             <h2 className="text-[32px] font-bold leading-[1.1] tracking-[-0.035em] text-ink">Crie sua conta</h2>
             <p className="mt-2 text-[15px] text-ink-soft">{TRIAL_DIAS} dias grátis para testar com as suas clientes de verdade.</p>
           </div>
+
+          {indicadora ? (
+            <p className="mb-4 rounded-[14px] bg-accent-soft px-4 py-3 text-[13.5px] leading-snug text-ink">
+              Você veio pela indicação de <b className="font-semibold">{indicadora.studioName}</b>.
+            </p>
+          ) : null}
 
           <div className="rounded-[22px] bg-surface p-5 shadow-[var(--shadow-card)] ring-1 ring-[rgb(23_21_30/0.04)] sm:p-7 lg:p-8">
             <ComecarForm planoInicial={planoInicial} codigoInicial={codigoInicial} promo={promoAtiva()} />

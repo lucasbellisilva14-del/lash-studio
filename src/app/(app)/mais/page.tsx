@@ -9,6 +9,7 @@ import {
   IconCalculator,
   IconChart,
   IconChevronRight,
+  IconGift,
   IconLock,
   IconLogout,
   IconMoney,
@@ -105,6 +106,15 @@ export default async function MaisPage() {
         {gestao.map((item) => (
           <Row key={item.href} {...item} />
         ))}
+      </Card>
+
+      <Card className="mt-4 overflow-hidden">
+        <Row
+          href="/indicar"
+          label="Indique e ganhe"
+          description="1 mês grátis para cada amiga lash que assinar"
+          icon={IconGift}
+        />
       </Card>
 
       <Card className="mt-4 divide-y divide-line overflow-hidden">

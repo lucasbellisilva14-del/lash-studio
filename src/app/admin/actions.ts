@@ -111,6 +111,16 @@ export async function tornarCortesiaAction(formData: FormData): Promise<void> {
   revalidatePath("/admin");
 }
 
+/** Indique e ganhe: o mês grátis foi devolvido à indicadora (some da lista). */
+export async function aplicarCreditoAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await prisma.referralCredit.updateMany({
+    where: { id: texto(formData, "id"), status: "PENDENTE" },
+    data: { status: "APLICADO", appliedAt: new Date() },
+  });
+  revalidatePath("/admin");
+}
+
 /** Suporte: marca a mensagem como resolvida (some da caixa de entrada). */
 export async function resolverSuporteAction(formData: FormData): Promise<void> {
   await requireAdmin();

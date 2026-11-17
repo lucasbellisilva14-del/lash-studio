@@ -6,6 +6,7 @@ import "server-only";
  * é a receita do LashOS, diferente do sinal (que vai pra profissional).
  */
 import { prisma } from "@/lib/prisma";
+import { creditarIndicacao } from "@/lib/domain/referral";
 
 function token(): string {
   const t = process.env.MP_ACCESS_TOKEN;
@@ -149,6 +150,11 @@ export async function sincronizarAssinatura(idRecebido: string, topico: string):
       // Fica marcado: a próxima notificação tenta de novo.
       console.error("[mp] volta ao preço cheio falhou:", e);
     }
+  }
+
+  // Indique e ganhe: mensalidade paga por uma conta indicada → 1 mês para quem indicou.
+  if (cobrancaPaga) {
+    await creditarIndicacao(professional.id).catch((e) => console.error("[mp] crédito de indicação falhou:", e));
   }
 
   if (pre.status === "authorized") {

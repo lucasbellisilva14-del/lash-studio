@@ -13,8 +13,8 @@ export default async function Image(props: { params: Promise<{ slug: string }> }
   const { slug } = await props.params;
   const estudio = await getEstudioPorSlug(slug);
 
-  const accent = estudio?.accentColor ?? "#D6336C";
-  const bg = estudio?.backgroundColor ?? "#FFD9E9";
+  const accent = estudio?.accentColor ?? "#2A2240";
+  const bg = estudio?.backgroundColor ?? "#F3F3F6";
   const nome = estudio?.studioName ?? "LashOS";
   const inicial = nome.trim().charAt(0).toUpperCase() || "L";
 

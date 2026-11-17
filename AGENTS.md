@@ -92,3 +92,10 @@ O estúdio (`Professional`) pode ter funcionárias (`TeamMember`) com **login pr
 - **Regras puras** em `@/lib/whatsapp/tipos`: `TIPOS_AUTOMATICOS` (confirmação, lembrete 24h, pós, remarcar, manutenção, retorno — aniversário e resgate nunca saem sozinhos), janelas de horário, `LIMITES_DIARIOS`. Variação anti-bloqueio em `@/lib/whatsapp/variacao` (saudação/coração + spintax `{a|b}` nos modelos, intervalo 12–20 s, "digitando...").
 - **Worker**: `GET /api/cron/whatsapp` (Bearer `CRON_SECRET`), chamado a cada minuto por pinger externo (cron-job.org). Saúde (fechada por 3 min = caiu → DESCONECTADO + push uma vez, de dia) → envio por estúdio. Local: `WHATSAPP_IGNORAR_JANELA=1` ignora o horário comercial fora de produção.
 - **Tela**: `/config/whatsapp` (só a dona): código de 8 letras (mesmo celular) ou QR code, opções do automático, teste para o próprio número. A Fila mostra "Sai sozinha" / "sem WhatsApp" e "pelo LashOS" em Feitas hoje. O antigo `autoSendMessages` (Professional) não é mais usado.
+
+## Indique e ganhe — contratos
+
+- **Código**: `Professional.referralCode` (único, criado ao abrir `/indicar` por `garantirCodigoIndicacao`). O link é `/comecar?v=CODIGO`: o mesmo campo "Código de indicação" serve para vendedora e para indicação. No cadastro, `acharIndicadora(codigo)` decide: achou estúdio → `referredById` (e `sellerCode` fica nulo); senão é código de vendedora.
+- **Crédito**: quando uma mensalidade da indicada é paga (`sincronizarAssinatura`, evento `authorized_payment` pago), `creditarIndicacao()` cria `ReferralCredit` PENDENTE para a indicadora (um por indicada: `referredId` único) e manda push. Valor = mensalidade da indicadora.
+- **Devolução**: manual por enquanto. O admin devolve a mensalidade no Mercado Pago e marca "Devolvido" em `/admin` (`APLICADO`). Nenhum código devolve dinheiro sozinho.
+- **Telas**: `/indicar` (só a dona, link em Mais) e a seção "Indicações" do `/admin`.

@@ -18,6 +18,7 @@ import { TRIAL_DIAS, isPlanKey, normalizeSellerCode, precoPrimeiroMes, promoAtiv
 import { getAppOrigin } from "@/lib/domain/queue";
 import { assinaturasDisponiveis, criarAssinatura } from "@/lib/mp-subscription";
 import { emailLayout, getEmailProvider } from "@/lib/providers/email";
+import { acharIndicadora } from "@/lib/domain/referral";
 
 export type ComecarState = {
   error?: string;
@@ -66,6 +67,9 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
     };
   }
 
+  // O mesmo campo serve para a indicação de outra lash e para o código da vendedora.
+  const indicadora = await acharIndicadora(sellerCode);
+
   const conta = await criarEstudio({
     name,
     studioName,
@@ -75,7 +79,8 @@ export async function comecarAction(_prev: ComecarState, formData: FormData): Pr
     plan,
     trialDias: TRIAL_DIAS,
     signupSource: "SITE",
-    sellerCode,
+    sellerCode: indicadora ? null : sellerCode,
+    referredById: indicadora?.id ?? null,
     termsAcceptedAt: new Date(),
   });
 

@@ -4,6 +4,7 @@ import { getTeam } from "@/lib/team";
 import { firstName } from "@/lib/team-shared";
 import { acessoBloqueado } from "@/lib/domain/subscription";
 import { precisaCadastrarCartao } from "@/lib/domain/plans";
+import { temaCss } from "@/lib/domain/tema";
 import { assinaturasDisponiveis } from "@/lib/mp-subscription";
 import { diffLocalDays, formatDate } from "@/lib/dates";
 import { BottomNav } from "@/components/shell/bottom-nav";
@@ -22,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { IconLock, IconLogout } from "@/components/ui/icons";
 
 /**
- * Shell autenticado — app de trabalho neutro (a cor do estúdio vale só no
- * link público). Celular: coluna única + barra inferior. PC (lg+): menu
+ * Shell autenticado. O tema do estúdio (Configurações → Perfil) vale aqui e
+ * no link público; no tema padrão nada é sobrescrito. Celular: coluna única + barra inferior. PC (lg+): menu
  * lateral com nomes, conteúdo e coluna de resumo (some na agenda).
  * A funcionária (equipe) vê a navegação dela, sem gestão do estúdio.
  */
@@ -56,8 +57,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     ? await Promise.all([carregarCobranca(professional.id), carregarRespostas(professional)])
     : [null, null];
 
+  const tema = temaCss(professional.accentColor, professional.backgroundColor);
+
   return (
     <div className="min-h-dvh lg:flex">
+      {tema ? <style dangerouslySetInnerHTML={{ __html: tema }} /> : null}
       <Sidebar
         studioName={professional.studioName}
         professionalName={professional.name}
