@@ -24,7 +24,9 @@ const PASSOS = [
 export default async function IndicarPage() {
   const viewer = await requireOwner();
   const codigo = await garantirCodigoIndicacao(viewer.professionalId);
-  const link = `${await getAppOrigin()}/comecar?v=${codigo}`;
+  // Sempre o domínio do site (nunca o endereço técnico por onde ela abriu o app).
+  const origem = process.env.NODE_ENV === "production" ? "https://www.lashos.com.br" : await getAppOrigin();
+  const link = `${origem}/i/${codigo}`;
 
   const indicadas = await prisma.professional.findMany({
     where: { referredById: viewer.professionalId },

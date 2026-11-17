@@ -95,7 +95,7 @@ O estúdio (`Professional`) pode ter funcionárias (`TeamMember`) com **login pr
 
 ## Indique e ganhe — contratos
 
-- **Código**: `Professional.referralCode` (único, criado ao abrir `/indicar` por `garantirCodigoIndicacao`). O link é `/comecar?v=CODIGO`: o mesmo campo "Código de indicação" serve para vendedora e para indicação. No cadastro, `acharIndicadora(codigo)` decide: achou estúdio → `referredById` (e `sellerCode` fica nulo); senão é código de vendedora.
+- **Código**: `Professional.referralCode` (único, criado ao abrir `/indicar` por `garantirCodigoIndicacao`). O link que ela compartilha é o curto `https://www.lashos.com.br/i/CODIGO` (rota pública que redireciona para `/comecar?v=CODIGO`): o mesmo campo "Código de indicação" serve para vendedora e para indicação. No cadastro, `acharIndicadora(codigo)` decide: achou estúdio → `referredById` (e `sellerCode` fica nulo); senão é código de vendedora.
 - **Crédito**: quando uma mensalidade da indicada é paga (`sincronizarAssinatura`, evento `authorized_payment` pago), `creditarIndicacao()` cria `ReferralCredit` PENDENTE para a indicadora (um por indicada: `referredId` único) e manda push. Valor = mensalidade da indicadora.
 - **Devolução**: manual por enquanto. O admin devolve a mensalidade no Mercado Pago e marca "Devolvido" em `/admin` (`APLICADO`). Nenhum código devolve dinheiro sozinho.
 - **Telas**: `/indicar` (só a dona, link em Mais) e a seção "Indicações" do `/admin`.

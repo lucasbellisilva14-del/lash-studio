@@ -25,7 +25,7 @@ export function IndicarLink({ link, codigo }: { link: string; codigo: string }) 
       <CardBody>
         <p className="text-[15px] font-semibold text-ink">Seu link de indicação</p>
         <p className="mt-2 break-all rounded-[14px] border border-line bg-surface-sunken px-3 py-2.5 text-[13px] text-ink-soft">
-          {link}
+          {link.replace(/^https?:\/\/(www\.)?/, "")}
         </p>
         <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
           <a
