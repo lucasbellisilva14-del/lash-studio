@@ -28,6 +28,7 @@ import {
   type AvisoManutencao,
 } from "@/app/(app)/agenda/actions";
 import type { AgendaCliente, AgendaConfig, AgendaPro, AgendaServico } from "./types";
+import { manutencaoPara } from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
 import { ProDot } from "./pro";
 
@@ -164,7 +165,7 @@ export function NewAppointmentSheet({
   const manutServico = useMemo(
     () =>
       servico?.categoria === "APLICACAO"
-        ? servicos.find((s) => s.manutencaoDeId === servico.id) ?? null
+        ? manutencaoPara(servicos, servico.id)
         : null,
     [servico, servicos],
   );

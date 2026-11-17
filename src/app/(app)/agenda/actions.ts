@@ -35,7 +35,7 @@ import { freeSlotsForDay, validateSlot, type SlotViolation } from "@/lib/domain/
 import { checkMaintenanceWindow } from "@/lib/domain/maintenance";
 import { computeDeposit } from "@/lib/domain/deposit";
 import { criarCobrancaSinal } from "@/lib/domain/deposit-charge";
-import { getLastLashAppointment } from "@/lib/domain/cycle";
+import { getLastApplicationServiceId, getLastLashAppointment } from "@/lib/domain/cycle";
 import {
   CLIENTE_AGENDA_SELECT,
   getGradeAgenda,
@@ -232,7 +232,8 @@ export async function verificarManutencao(
     lastLashAt: last?.startAt ?? null,
     limitDays: professional.maintenanceLimitDays,
     targetDate: localToUtc(dia, "12:00", professional.timezone),
-    suggestedServiceId: service.maintenanceOfId,
+    // Manutenção geral: sugere a aplicação que a cliente fez por último.
+    suggestedServiceId: service.maintenanceOfId ?? (await getLastApplicationServiceId(client.id)),
     timezone: professional.timezone,
   });
   if (check.ok) return null;
@@ -397,15 +398,17 @@ async function criarManutencaoVinculada(params: {
   } = params;
   const tz = professional.timezone;
 
-  const manutServico = await prisma.service.findFirst({
-    where: {
-      professionalId: professional.id,
-      maintenanceOfId: aplicacaoServiceId,
-      active: true,
-    },
-  });
+  // A vinculada a esta aplicação; senão, a manutenção geral (sem vínculo).
+  const manutServico =
+    (await prisma.service.findFirst({
+      where: { professionalId: professional.id, maintenanceOfId: aplicacaoServiceId, active: true },
+    })) ??
+    (await prisma.service.findFirst({
+      where: { professionalId: professional.id, category: "MANUTENCAO", maintenanceOfId: null, active: true },
+      orderBy: { name: "asc" },
+    }));
   if (!manutServico) {
-    return { ok: false, aviso: "Manutenção não agendada: nenhum serviço de manutenção vinculado a essa aplicação." };
+    return { ok: false, aviso: "Manutenção não agendada: nenhum serviço de manutenção cadastrado para essa aplicação." };
   }
 
   const startAt = localToUtc(dia, hora, tz);

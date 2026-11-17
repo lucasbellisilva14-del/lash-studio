@@ -43,6 +43,7 @@ import type {
   AgendaViewer,
   EsperaChamada,
 } from "./types";
+import { manutencaoPara } from "./types";
 import { ContraindicacaoAlert } from "./contra-alert";
 import { somarDiasKey } from "./new-appointment-sheet";
 import { ProAvatar, ProDot, rotuloQuemAtende } from "./pro";
@@ -127,7 +128,7 @@ export function AppointmentDetailSheet({
   // Manutenção vinculada disponível para esta aplicação?
   const manutServico =
     compromisso && compromisso.servico.categoria === "APLICACAO"
-      ? servicos.find((s) => s.manutencaoDeId === compromisso.servico.id) ?? null
+      ? manutencaoPara(servicos, compromisso.servico.id)
       : null;
 
   // A manutenção fica com quem fez a aplicação: horários livres da agenda dela.

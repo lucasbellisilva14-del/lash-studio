@@ -148,32 +148,22 @@ export function ServiceFormSheet({
 
         {category === "MANUTENCAO" ? (
           <Field
-            label="Manutenção de qual aplicação?"
+            label="Vale para qual aplicação?"
             htmlFor="service-maintenance-of"
-            hint="A manutenção fica vinculada ao ciclo dessa aplicação."
+            hint="Cobra o mesmo valor em todas? Deixe em “Todas as aplicações”. Só escolha uma se o preço dela for diferente."
           >
-            {options.length > 0 ? (
-              <Select
-                id="service-maintenance-of"
-                name="maintenanceOfId"
-                defaultValue={service?.maintenanceOfId ?? ""}
-                required
-              >
-                <option value="" disabled>
-                  Escolha a aplicação
+            <Select
+              id="service-maintenance-of"
+              name="maintenanceOfId"
+              defaultValue={service?.maintenanceOfId ?? ""}
+            >
+              <option value="">Todas as aplicações</option>
+              {options.map((a) => (
+                <option key={a.id} value={a.id}>
+                  Só {a.name}
                 </option>
-                {options.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="rounded-[14px] bg-warning-soft px-3.5 py-3 text-[13px] leading-snug text-warning">
-                Nenhum serviço de aplicação ativo. Cadastre a aplicação primeiro para
-                vincular a manutenção.
-              </p>
-            )}
+              ))}
+            </Select>
           </Field>
         ) : null}
 

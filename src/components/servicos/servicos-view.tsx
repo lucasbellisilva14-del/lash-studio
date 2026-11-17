@@ -32,8 +32,10 @@ function serviceDetails(service: ServiceItem): string {
   if (service.returnDays != null && acceptsReturnDays(service.category)) {
     parts.push(formatReturnDays(service.returnDays));
   }
-  if (service.category === "MANUTENCAO" && service.maintenanceOfName) {
-    parts.push(`manutenção de ${service.maintenanceOfName}`);
+  if (service.category === "MANUTENCAO") {
+    parts.push(
+      service.maintenanceOfName ? `manutenção de ${service.maintenanceOfName}` : "todas as aplicações",
+    );
   }
   return parts.join(" · ");
 }
@@ -189,8 +191,6 @@ function ServiceRow({
   service: ServiceItem;
   onClick: () => void;
 }) {
-  const semVinculo = service.category === "MANUTENCAO" && !service.maintenanceOfName;
-
   return (
     <li>
       <button
@@ -205,11 +205,6 @@ function ServiceRow({
           <span className="mt-0.5 block text-[13px] leading-snug text-ink-soft">
             {serviceDetails(service)}
           </span>
-          {semVinculo ? (
-            <span className="mt-1 block text-[12.5px] font-medium text-warning">
-              Sem aplicação vinculada
-            </span>
-          ) : null}
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
           <span className="text-[15px] font-semibold tabular-nums text-ink">

@@ -20,6 +20,18 @@ export type AgendaServico = {
   manutencaoDeId: string | null;
 };
 
+/**
+ * Manutenção que vale para uma aplicação: a vinculada a ela, se existir;
+ * senão a manutenção geral (sem vínculo, serve para todas as aplicações).
+ */
+export function manutencaoPara(servicos: AgendaServico[], aplicacaoId: string): AgendaServico | null {
+  return (
+    servicos.find((s) => s.manutencaoDeId === aplicacaoId) ??
+    servicos.find((s) => s.categoria === "MANUTENCAO" && !s.manutencaoDeId) ??
+    null
+  );
+}
+
 /** Quem atende um agendamento (memberId nulo = a dona). */
 export type AgendaQuemAtende = {
   /** OWNER_KEY ("dona") ou o id da funcionária. */

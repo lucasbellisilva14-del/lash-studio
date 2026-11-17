@@ -224,7 +224,7 @@ model Service {
   durationMin     Int
   priceCents      Int
   requiresDeposit Boolean @default(false)
-  maintenanceOfId String? // p/ MANUTENCAO: aponta o serviço de aplicação correspondente
+  maintenanceOfId String? // p/ MANUTENCAO: aplicação específica; nulo = manutenção geral (todas as aplicações)
   /// Retorno ideal (dias) depois deste serviço — lifting, brow, design. Nulo = sem aviso.
   returnDays      Int?
   active          Boolean @default(true)

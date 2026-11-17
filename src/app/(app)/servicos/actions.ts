@@ -84,12 +84,10 @@ export async function saveService(
     }
   }
 
-  // Vínculo de manutenção: obrigatório e validado só quando a categoria é MANUTENCAO.
+  // Vínculo de manutenção: opcional. Sem vínculo = manutenção geral, vale para
+  // todas as aplicações. Com vínculo, vale só para aquela (preço diferente).
   let maintenanceOfId: string | null = null;
-  if (data.category === "MANUTENCAO") {
-    if (!data.maintenanceOfId) {
-      return { ok: false, error: "Escolha de qual aplicação esta manutenção é." };
-    }
+  if (data.category === "MANUTENCAO" && data.maintenanceOfId) {
     if (data.maintenanceOfId === data.id) {
       return { ok: false, error: "A manutenção não pode ser vinculada a ela mesma." };
     }
